@@ -588,8 +588,6 @@ function load18n(label: string) {
             return i18n.global.t('setting.snapshot');
         case 'AppStore':
             return i18n.global.t('menu.apps');
-        case 'AITools':
-            return i18n.global.t('menu.aiTools');
         case 'shell':
             return i18n.global.t('clean.shell');
         case 'containerShell':

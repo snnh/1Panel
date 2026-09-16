@@ -14,11 +14,9 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/app/dto"
 	"github.com/1Panel-dev/1Panel/agent/app/dto/request"
 	"github.com/1Panel-dev/1Panel/agent/app/model"
-	providercatalog "github.com/1Panel-dev/1Panel/agent/app/provider"
 	"github.com/1Panel-dev/1Panel/agent/app/service"
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
-	migrationutils "github.com/1Panel-dev/1Panel/agent/init/migration/migrations/utils"
 	alertwebhook "github.com/1Panel-dev/1Panel/agent/utils/alert_webhook"
 	"github.com/1Panel-dev/1Panel/agent/utils/common"
 	"github.com/1Panel-dev/1Panel/agent/utils/copier"
@@ -43,7 +41,6 @@ var AddTable = &gormigrate.Migration{
 			&model.Tag{},
 			&model.App{},
 			&model.AppLauncher{},
-			&model.OllamaModel{},
 			&model.BackupAccount{},
 			&model.BackupRecord{},
 			&model.Clam{},
@@ -82,7 +79,6 @@ var AddTable = &gormigrate.Migration{
 			&model.WebsiteSSL{},
 			&model.Group{},
 			&model.AppIgnoreUpgrade{},
-			&model.McpServer{},
 			&model.RootCert{},
 			&model.ClamRecord{},
 		)
@@ -447,19 +443,6 @@ var AddMethodToAlertTask = &gormigrate.Migration{
 	},
 }
 
-var UpdateMcpServer = &gormigrate.Migration{
-	ID: "20250729-update-mcp-server",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.McpServer{}); err != nil {
-			return err
-		}
-		if err := tx.Model(&model.McpServer{}).Where("1=1").Update("output_transport", "sse").Error; err != nil {
-			return err
-		}
-		return nil
-	},
-}
-
 var InitCronjobGroup = &gormigrate.Migration{
 	ID: "20250805-init-cronjob-group",
 	Migrate: func(tx *gorm.DB) error {
@@ -774,38 +757,6 @@ var AddQuickJump = &gormigrate.Migration{
 	},
 }
 
-var UpdateMcpServerAddType = &gormigrate.Migration{
-	ID: "20250904-update-mcp-server",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.McpServer{}); err != nil {
-			return err
-		}
-		if err := tx.Model(&model.McpServer{}).Where("1=1").Update("type", "npx").Error; err != nil {
-			return err
-		}
-		return nil
-	},
-}
-
-var UpdateMcpServerGatewayConfig = &gormigrate.Migration{
-	ID: "20260615-update-mcp-server-gateway-config",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.McpServer{}); err != nil {
-			return err
-		}
-		if err := tx.Model(&model.McpServer{}).Where("gateway_image IS NULL OR gateway_image = ''").Where("type = ?", "uvx").Update("gateway_image", "supercorp/supergateway:uvx").Error; err != nil {
-			return err
-		}
-		if err := tx.Model(&model.McpServer{}).Where("gateway_image IS NULL OR gateway_image = ''").Where("type <> ? OR type IS NULL OR type = ''", "uvx").Update("gateway_image", "supercorp/supergateway:3.4.3").Error; err != nil {
-			return err
-		}
-		if err := tx.Model(&model.McpServer{}).Where("protocol_version IS NULL OR protocol_version = ''").Update("protocol_version", "2025-06-18").Error; err != nil {
-			return err
-		}
-		return nil
-	},
-}
-
 var InitLocalSSHConn = &gormigrate.Migration{
 	ID: "20250905-init-local-ssh",
 	Migrate: func(tx *gorm.DB) error {
@@ -873,67 +824,6 @@ var AddShowNameForQuickJump = &gormigrate.Migration{
 	},
 }
 
-var AddAgentQuickJump = &gormigrate.Migration{
-	ID: "20260312-add-agent-quick-jump",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.QuickJump{}); err != nil {
-			return err
-		}
-
-		var quicks []model.QuickJump
-		if err := tx.Find(&quicks).Error; err != nil {
-			return err
-		}
-
-		var (
-			cronjob  *model.QuickJump
-			database *model.QuickJump
-			showList []*model.QuickJump
-		)
-		for i := range quicks {
-			switch quicks[i].Name {
-			case "Cronjob":
-				cronjob = &quicks[i]
-			case "Database":
-				database = &quicks[i]
-			}
-			if quicks[i].IsShow {
-				showList = append(showList, &quicks[i])
-			}
-		}
-
-		showCount := len(showList)
-		updatedIDs := make(map[uint]struct{})
-		kickedCronjob := false
-		if showCount >= 4 && cronjob != nil && cronjob.IsShow {
-			cronjob.IsShow = false
-			updatedIDs[cronjob.ID] = struct{}{}
-			kickedCronjob = true
-		}
-		if !kickedCronjob && showCount >= 4 && database != nil && database.IsShow {
-			database.IsShow = false
-			updatedIDs[database.ID] = struct{}{}
-		}
-
-		for _, item := range quicks {
-			if _, ok := updatedIDs[item.ID]; !ok {
-				continue
-			}
-			if err := tx.Model(&model.QuickJump{}).Where("id = ?", item.ID).Update("is_show", item.IsShow).Error; err != nil {
-				return err
-			}
-		}
-
-		return tx.Create(&model.QuickJump{
-			Name:      "Agent",
-			Title:     "aiTools.agents.agent",
-			Recommend: 1,
-			IsShow:    true,
-			Router:    "/ai/agents/agent",
-		}).Error
-	},
-}
-
 var AddTimeoutForClam = &gormigrate.Migration{
 	ID: "20250922-add-timeout-for-clam",
 	Migrate: func(tx *gorm.DB) error {
@@ -977,13 +867,6 @@ var UpdateWebsiteSSLAddColumn = &gormigrate.Migration{
 	},
 }
 
-var AddTensorRTLLMModel = &gormigrate.Migration{
-	ID: "20251018-add-tensorrt-llm-model",
-	Migrate: func(tx *gorm.DB) error {
-		return tx.AutoMigrate(&model.TensorRTLLM{})
-	},
-}
-
 var UpdateMonitorInterval = &gormigrate.Migration{
 	ID: "20251026-update-monitor-interval",
 	Migrate: func(tx *gorm.DB) error {
@@ -1022,13 +905,6 @@ var UpdateCronJob = &gormigrate.Migration{
 	},
 }
 
-var UpdateTensorrtLLM = &gormigrate.Migration{
-	ID: "20251110-update-tensorrt-llm",
-	Migrate: func(tx *gorm.DB) error {
-		return tx.AutoMigrate(&model.TensorRTLLM{})
-	},
-}
-
 var AddCommonDescription = &gormigrate.Migration{
 	ID: "20251117-add-common-description",
 	Migrate: func(tx *gorm.DB) error {
@@ -1040,13 +916,6 @@ var UpdateDatabase = &gormigrate.Migration{
 	ID: "20251117-update-database",
 	Migrate: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.Database{})
-	},
-}
-
-var AddGPUMonitor = &gormigrate.Migration{
-	ID: "20251122-add-gpu-monitor",
-	Migrate: func(tx *gorm.DB) error {
-		return global.GPUMonitorDB.AutoMigrate(&model.MonitorGPU{})
 	},
 }
 
@@ -1160,46 +1029,10 @@ var AddWebsiteAcmeAccountColumn = &gormigrate.Migration{
 	},
 }
 
-var AddAgentTables = &gormigrate.Migration{
-	ID: "20260205-add-agent-tables",
-	Migrate: func(tx *gorm.DB) error {
-		return tx.AutoMigrate(
-			&model.Agent{},
-			&model.AgentAccount{},
-		)
-	},
-}
-
-var AddAgentCustomModelFields = &gormigrate.Migration{
-	ID: "20260224-add-agent-custom-model-fields",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.Agent{}, &model.AgentAccount{}); err != nil {
-			return err
-		}
-		if err := tx.Model(&model.AgentAccount{}).Where("api_type = '' OR api_type IS NULL").Update("api_type", "openai-completions").Error; err != nil {
-			return err
-		}
-		if err := tx.Model(&model.Agent{}).Where("api_type = '' OR api_type IS NULL").Update("api_type", "openai-completions").Error; err != nil {
-			return err
-		}
-		return nil
-	},
-}
-
 var AddAppInstallSortOrder = &gormigrate.Migration{
 	ID: "20260222-add-app-install-sort-order",
 	Migrate: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.AppInstall{})
-	},
-}
-
-var AddAgentAccountRememberAPIKey = &gormigrate.Migration{
-	ID: "20260225-add-agent-account-remember-api-key",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.AgentAccount{}); err != nil {
-			return err
-		}
-		return tx.Model(&model.AgentAccount{}).Where("remember_api_key IS NULL").Update("remember_api_key", true).Error
 	},
 }
 
@@ -1218,115 +1051,6 @@ var AddEditionSetting = &gormigrate.Migration{
 			return tx.Model(&model.Setting{}).Where("key = ?", "Edition").Update("value", edition).Error
 		}
 		return nil
-	},
-}
-
-var AddAgentTypeForAgents = &gormigrate.Migration{
-	ID: "20260302-add-agent-type-for-agents",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.Agent{}); err != nil {
-			return err
-		}
-		if err := tx.Model(&model.Agent{}).Where("agent_type = '' OR agent_type IS NULL").Update("agent_type", constant.AppOpenclaw).Error; err != nil {
-			return err
-		}
-		return tx.Exec(
-			"UPDATE agents SET agent_type = ? WHERE app_install_id IN (SELECT ai.id FROM app_installs ai JOIN apps a ON ai.app_id = a.id WHERE a.key = ?)",
-			constant.AppCopaw,
-			constant.AppCopaw,
-		).Error
-	},
-}
-
-var NormalizeAgentAccountVerifiedStatus = &gormigrate.Migration{
-	ID: "20260303-normalize-agent-account-verified-status",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.AgentAccount{}); err != nil {
-			return err
-		}
-		return tx.Model(&model.AgentAccount{}).
-			Where("provider IN ?", []string{"custom", "ollama", "kimi-coding"}).
-			Update("verified", false).Error
-	},
-}
-
-var NormalizeOllamaAccountAPIType = &gormigrate.Migration{
-	ID: "20260304-normalize-ollama-account-api-type",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.AgentAccount{}); err != nil {
-			return err
-		}
-		return tx.Model(&model.AgentAccount{}).
-			Where("provider = ?", "ollama").
-			Update("api_type", "openai-responses").Error
-	},
-}
-
-var InitAgentAccountModelPool = &gormigrate.Migration{
-	ID: "20260319-init-agent-account-model-pool",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.AgentAccountModel{}); err != nil {
-			return err
-		}
-		return migrationutils.MigrateAgentAccountModelPool(tx)
-	},
-}
-
-var AddAgentAccountMasterID = &gormigrate.Migration{
-	ID: "20260401-add-agent-account-master-id",
-	Migrate: func(tx *gorm.DB) error {
-		return tx.AutoMigrate(&model.AgentAccount{})
-	},
-}
-
-var NormalizeAgentAccountModelIDs = &gormigrate.Migration{
-	ID: "20260716-normalize-agent-account-model-ids",
-	Migrate: func(tx *gorm.DB) error {
-		return migrationutils.NormalizeAgentAccountModelIDs(tx)
-	},
-}
-
-var AddAgentAccountVerifyModel = &gormigrate.Migration{
-	ID: "20260716-add-agent-account-verify-model",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.AgentAccount{}); err != nil {
-			return err
-		}
-		var accounts []model.AgentAccount
-		if err := tx.Where("verify_model = '' OR verify_model IS NULL").Find(&accounts).Error; err != nil {
-			return err
-		}
-		for _, account := range accounts {
-			var accountModel model.AgentAccountModel
-			err := tx.Where("account_id = ?", account.ID).Order("sort_order ASC, id ASC").First(&accountModel).Error
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-			if err := tx.Model(&model.AgentAccount{}).Where("id = ?", account.ID).Update("verify_model", accountModel.Model).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	},
-}
-
-var AddAgentAccountAuthMode = &gormigrate.Migration{
-	ID: "20260716-add-agent-account-auth-mode",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.AgentAccount{}); err != nil {
-			return err
-		}
-		if err := tx.Model(&model.AgentAccount{}).
-			Where("api_type = ? AND (auth_mode IS NULL OR auth_mode = '') AND provider IN ?", "anthropic-messages", []string{"bailian-coding-plan", "ark-coding-plan", "xiaomi"}).
-			Update("auth_mode", providercatalog.AuthModeBearer).Error; err != nil {
-			return err
-		}
-		return tx.Model(&model.AgentAccount{}).
-			Where("api_type = ? AND (auth_mode IS NULL OR auth_mode = '')", "anthropic-messages").
-			Update("auth_mode", providercatalog.AuthModeXAPIKey).Error
 	},
 }
 
@@ -1433,116 +1157,6 @@ var AddHostTable = &gormigrate.Migration{
 			if err := tx.Create(&host).Error; err != nil {
 				global.LOG.Errorf("failed to create host, host id: %v, err: %v", coreHost.ID, err)
 				continue
-			}
-		}
-		return nil
-	},
-}
-
-var AddAITerminalSettings = &gormigrate.Migration{
-	ID: "20260318-add-ai-terminal-settings",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.Create(&model.Setting{Key: "AIStatus", Value: constant.StatusDisable}).Error; err != nil {
-			return err
-		}
-		if err := tx.Create(&model.Setting{Key: "AIAccountID", Value: ""}).Error; err != nil {
-			return err
-		}
-		if err := tx.Create(&model.Setting{Key: "AIPrefix", Value: constant.DefaultTerminalAIPrefix}).Error; err != nil {
-			return err
-		}
-		return tx.Create(&model.Setting{
-			Key:   "AIRiskCommands",
-			Value: constant.DefaultTerminalAIRiskCommands,
-		}).Error
-	},
-}
-
-var UpdateAgentQuickJumpTitle = &gormigrate.Migration{
-	ID: "20260324-update-agent-quick-jump-title",
-	Migrate: func(tx *gorm.DB) error {
-		return tx.Model(&model.QuickJump{}).
-			Where("title = ?", "aiTools.agents.agents").
-			Update("title", "aiTools.agents.agent").Error
-	},
-}
-
-var FixOpenclaw20260323HTTPPort = &gormigrate.Migration{
-	ID: "20260325-fix-openclaw-20260323-http-port",
-	Migrate: func(tx *gorm.DB) error {
-		return tx.Exec(
-			`UPDATE app_installs
-SET http_port = https_port,
-    https_port = 0
-WHERE version = ?
-  AND https_port > 0
-  AND app_id IN (SELECT id FROM apps WHERE key = ?)`,
-			"2026.3.24",
-			constant.AppOpenclaw,
-		).Error
-	},
-}
-
-var AddAgentRemarkColumn = &gormigrate.Migration{
-	ID: "20260330-add-agent-remark-column",
-	Migrate: func(tx *gorm.DB) error {
-		return tx.AutoMigrate(&model.Agent{})
-	},
-}
-
-var AddAgentWebsiteBinding = &gormigrate.Migration{
-	ID: "20260403-add-agent-website-binding",
-	Migrate: func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&model.Agent{}); err != nil {
-			return err
-		}
-
-		var agents []model.Agent
-		if err := tx.Find(&agents).Error; err != nil {
-			return err
-		}
-		if len(agents) == 0 {
-			return nil
-		}
-
-		var websites []model.Website
-		if err := tx.Where("type = ? AND app_install_id > 0", constant.Deployment).Find(&websites).Error; err != nil {
-			return err
-		}
-		websiteMap := service.UniqueDeploymentWebsiteMapByAppInstall(websites)
-		for _, agent := range agents {
-			if agent.WebsiteID != 0 || agent.AppInstallID == 0 {
-				continue
-			}
-			website, ok := websiteMap[agent.AppInstallID]
-			if !ok {
-				continue
-			}
-			if err := tx.Model(&model.Agent{}).Where("id = ?", agent.ID).Update("website_id", website.ID).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	},
-}
-
-var AddFileManageAISettings = &gormigrate.Migration{
-	ID: "20260330-add-file-manage-ai-settings",
-	Migrate: func(tx *gorm.DB) error {
-		rows := []model.Setting{
-			{Key: "FileAIStatus", Value: constant.StatusDisable},
-			{Key: "FileAIAccountID", Value: ""},
-		}
-		for i := range rows {
-			var exist model.Setting
-			if err := tx.Where("`key` = ?", rows[i].Key).First(&exist).Error; err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					if err := tx.Create(&rows[i]).Error; err != nil {
-						return err
-					}
-				} else {
-					return err
-				}
 			}
 		}
 		return nil
@@ -1732,13 +1346,6 @@ var MigrateLegoV5 = &gormigrate.Migration{
 		}
 
 		return nil
-	},
-}
-
-var AddMcpServerGatewayArgs = &gormigrate.Migration{
-	ID: "20260714-add-mcp-server-gateway-args",
-	Migrate: func(tx *gorm.DB) error {
-		return tx.AutoMigrate(&model.McpServer{})
 	},
 }
 

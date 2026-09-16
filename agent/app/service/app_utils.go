@@ -383,11 +383,6 @@ func deleteAppInstall(deleteReq request.AppInstallDelete) error {
 		if err = appInstallRepo.Delete(ctx, install); err != nil {
 			return err
 		}
-		appKey := install.App.Key
-		if isAgentAppKey(appKey) {
-			_ = agentRepo.DeleteByAppInstallIDWithCtx(ctx, install.ID)
-		}
-
 		resources, _ := appInstallResourceRepo.GetBy(appInstallResourceRepo.WithAppInstallId(install.ID))
 		if len(resources) > 0 {
 			if deleteReq.DeleteDB {
@@ -2249,9 +2244,6 @@ func getAppVersions(key string, details []model.AppDetail) []string {
 	hasLatest := false
 	latestVersion := ""
 	for _, detail := range details {
-		if !canAccessVllmVersion(key, detail.Version) {
-			continue
-		}
 		if key != "mssql" && strings.Contains(detail.Version, "latest") {
 			hasLatest = true
 			latestVersion = detail.Version

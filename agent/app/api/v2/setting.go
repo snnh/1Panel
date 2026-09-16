@@ -25,21 +25,6 @@ func (b *BaseApi) GetSettingInfo(c *gin.Context) {
 }
 
 // @Tags System Setting
-// @Summary Get terminal AI setting info
-// @Success 200
-// @Security ApiKeyAuth
-// @Security Timestamp
-// @Router /settings/terminal/ai/search [post]
-func (b *BaseApi) GetTerminalAISettingInfo(c *gin.Context) {
-	setting, err := settingService.GetTerminalAIInfo()
-	if err != nil {
-		helper.InternalServer(c, err)
-		return
-	}
-	helper.SuccessWithData(c, setting)
-}
-
-// @Tags System Setting
 // @Summary Load system available status
 // @Success 200
 // @Security ApiKeyAuth
@@ -65,64 +50,6 @@ func (b *BaseApi) UpdateSetting(c *gin.Context) {
 	}
 
 	if err := settingService.Update(req.Key, req.Value); err != nil {
-		helper.InternalServer(c, err)
-		return
-	}
-	helper.Success(c)
-}
-
-// @Tags System Setting
-// @Summary Update terminal AI setting
-// @Accept json
-// @Param request body dto.TerminalAIInfo true "request"
-// @Success 200
-// @Security ApiKeyAuth
-// @Security Timestamp
-// @Router /settings/terminal/ai/update [post]
-// @x-panel-log {"bodyKeys":["aiStatus","aiAccountId"],"paramKeys":[],"BeforeFunctions":[],"formatZH":"更新终端 AI 设置 [aiStatus][aiAccountId]","formatEN":"update terminal AI setting [aiStatus][aiAccountId]"}
-func (b *BaseApi) UpdateTerminalAISetting(c *gin.Context) {
-	var req dto.TerminalAIInfo
-	if err := helper.CheckBindAndValidate(&req, c); err != nil {
-		return
-	}
-
-	if err := settingService.UpdateTerminalAI(req); err != nil {
-		helper.InternalServer(c, err)
-		return
-	}
-	helper.Success(c)
-}
-
-// @Tags System Setting
-// @Summary Get file manage AI setting info
-// @Success 200
-// @Security ApiKeyAuth
-// @Security Timestamp
-// @Router /settings/files/ai/search [post]
-func (b *BaseApi) GetFileManageAISettingInfo(c *gin.Context) {
-	setting, err := settingService.GetFileManageAIInfo()
-	if err != nil {
-		helper.InternalServer(c, err)
-		return
-	}
-	helper.SuccessWithData(c, setting)
-}
-
-// @Tags System Setting
-// @Summary Update file manage AI setting
-// @Accept json
-// @Param request body dto.FileManageAIInfo true "request"
-// @Success 200
-// @Security ApiKeyAuth
-// @Security Timestamp
-// @Router /settings/files/ai/update [post]
-// @x-panel-log {"bodyKeys":["aiStatus","aiAccountId"],"paramKeys":[],"BeforeFunctions":[],"formatZH":"更新文件管理 AI 设置 [aiStatus][aiAccountId]","formatEN":"update file manage AI setting [aiStatus][aiAccountId]"}
-func (b *BaseApi) UpdateFileManageAISetting(c *gin.Context) {
-	var req dto.FileManageAIInfo
-	if err := helper.CheckBindAndValidate(&req, c); err != nil {
-		return
-	}
-	if err := settingService.UpdateFileManageAI(req); err != nil {
 		helper.InternalServer(c, err)
 		return
 	}

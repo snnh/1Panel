@@ -16,7 +16,6 @@ import (
 var (
 	DB           *gorm.DB
 	MonitorDB    *gorm.DB
-	GPUMonitorDB *gorm.DB
 	TaskDB       *gorm.DB
 	CoreDB       *gorm.DB
 	AlertDB      *gorm.DB

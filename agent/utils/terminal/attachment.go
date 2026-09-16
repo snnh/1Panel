@@ -4,13 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/1Panel-dev/1Panel/agent/global"
-	"github.com/1Panel-dev/1Panel/agent/i18n"
 	"github.com/gorilla/websocket"
 )
 
@@ -75,20 +73,6 @@ func (a *attachment) Run() {
 			decodeBytes, err := base64.StdEncoding.DecodeString(msgObj.Data)
 			if err != nil {
 				global.LOG.Errorf("websock cmd string base64 decoding failed, err: %v", err)
-			}
-			if isEnterInput(decodeBytes) {
-				interceptor := a.sess.ensureAIInterceptor()
-				if interceptor != nil {
-					interceptor.SetCurrentLine(msgObj.Line)
-				}
-				if generated, handled := interceptor.HandleEnter(a.notifyAIThinking, a.notifyAIDone, a.notifyAIError); handled {
-					if payload, err := buildAIPastePayload(generated); err != nil {
-						global.LOG.Errorf("ai generated command rejected before ssh.stdin pipe write, err: %v", err)
-					} else {
-						a.sess.writeInput(payload)
-					}
-					continue
-				}
 			}
 			a.sess.writeInput(decodeBytes)
 		case WsMsgHeartbeat:
@@ -165,37 +149,4 @@ func (a *attachment) close(code int, reason string) {
 		sendClose(a.ws, code, reason)
 		_ = a.ws.Close()
 	})
-}
-
-func (a *attachment) notifyAIThinking() {
-	if err := a.writeAINotice("info", i18n.GetMsgByKeyAndLang(a.sess.lang, "TerminalAIThinking")); err != nil {
-		global.LOG.Errorf("write terminal ai thinking message failed, err: %v", err)
-	}
-}
-
-func (a *attachment) notifyAIDone(message string) {
-	if err := a.writeAINotice("success", message); err != nil {
-		global.LOG.Errorf("write terminal ai done message failed, err: %v", err)
-	}
-}
-
-func (a *attachment) notifyAIError(message string) {
-	if err := a.writeAINotice("error", message); err != nil {
-		global.LOG.Errorf("write terminal ai error message failed, err: %v", err)
-	}
-}
-
-func (a *attachment) writeAINotice(level, message string) error {
-	if strings.TrimSpace(message) == "" {
-		return nil
-	}
-	wsData, err := json.Marshal(WsMsg{
-		Type:    WsMsgAINotice,
-		Level:   strings.TrimSpace(level),
-		Message: strings.TrimSpace(message),
-	})
-	if err != nil {
-		return err
-	}
-	return a.write(wsData)
 }

@@ -32,8 +32,6 @@ func Init() {
 	global.Dir.RuntimeDir, _ = fileOp.CreateDirWithPath(true, path.Join(baseDir, "1panel/runtime"))
 	global.Dir.RecycleBinDir, _ = fileOp.CreateDirWithPath(true, "/.1panel_clash")
 	global.Dir.SSLLogDir, _ = fileOp.CreateDirWithPath(true, path.Join(baseDir, "1panel/log/ssl"))
-	global.Dir.McpDir, _ = fileOp.CreateDirWithPath(true, path.Join(baseDir, "1panel/mcp"))
 	global.Dir.ConvertLogDir, _ = fileOp.CreateDirWithPath(true, path.Join(baseDir, "1panel/log/convert"))
-	global.Dir.TensorRTLLMDir, _ = fileOp.CreateDirWithPath(true, path.Join(baseDir, "1panel/ai/tensorrt_llm"))
 	global.Dir.FirewallDir, _ = fileOp.CreateDirWithPath(true, path.Join(baseDir, "1panel/firewall"))
 }

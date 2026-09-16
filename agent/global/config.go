@@ -41,9 +41,7 @@ type SystemDir struct {
 	RuntimeDir            string
 	RecycleBinDir         string
 	SSLLogDir             string
-	McpDir                string
 	ConvertLogDir         string
-	TensorRTLLMDir        string
 	FirewallDir           string
 }
 

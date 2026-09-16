@@ -628,7 +628,6 @@ const disposeEditor = () => {
     if (!editor) {
         return;
     }
-    clearPendingLineHighlight();
     editor.dispose();
     editor = undefined;
 };
@@ -638,7 +637,6 @@ interface EditProps {
     path: string;
     name: string;
     extension: string;
-    initialLine?: number;
 }
 
 interface EditorConfig {
@@ -648,49 +646,6 @@ interface EditorConfig {
     wordWrap: WordWrapOptions;
     minimap: boolean;
 }
-
-const pendingInitialLine = ref(0);
-let lineHighlightDecorationIds: string[] = [];
-
-const clearPendingLineHighlight = () => {
-    if (!editor) {
-        lineHighlightDecorationIds = [];
-        return;
-    }
-    lineHighlightDecorationIds = editor.deltaDecorations(lineHighlightDecorationIds, []);
-};
-
-const revealPendingInitialLine = () => {
-    const line = pendingInitialLine.value;
-    if (!editor || !monacoApi || line < 1) {
-        return;
-    }
-    const model = editor.getModel();
-    if (!model) {
-        return;
-    }
-    const targetLine = Math.min(line, model.getLineCount());
-    editor.setSelection({
-        startLineNumber: targetLine,
-        startColumn: 1,
-        endLineNumber: targetLine,
-        endColumn: 1,
-    });
-    editor.setPosition({ lineNumber: targetLine, column: 1 });
-    editor.revealLineInCenter(targetLine);
-    lineHighlightDecorationIds = editor.deltaDecorations(lineHighlightDecorationIds, [
-        {
-            range: new monacoApi.Range(targetLine, 1, targetLine, model.getLineMaxColumn(targetLine)),
-            options: {
-                isWholeLine: true,
-                className: 'ai-search-target-line',
-                linesDecorationsClassName: 'ai-search-target-line-gutter',
-            },
-        },
-    ]);
-    editor.focus();
-    pendingInitialLine.value = 0;
-};
 
 const open = ref(false);
 const loading = ref(false);
@@ -1263,7 +1218,6 @@ const initEditor = async () => {
         }
     });
 
-    revealPendingInitialLine();
 };
 
 const quickSave = () => {
@@ -1343,7 +1297,6 @@ const saveContent = async () => {
 const acceptParams = async (props: EditProps) => {
     const monaco = await ensureMonaco();
 
-    pendingInitialLine.value = props.initialLine && props.initialLine > 0 ? Math.floor(props.initialLine) : 0;
     form.value.content = props.content;
     oldFileContent.value = props.content;
     form.value.path = props.path;
@@ -1390,8 +1343,7 @@ const acceptParams = async (props: EditProps) => {
                 monacoApi?.editor.setModelLanguage(model, config.language);
             }
             isEdit.value = false;
-            revealPendingInitialLine();
-        }
+                }
     });
 };
 
@@ -2316,14 +2268,6 @@ defineExpose({ acceptParams });
 
 :deep(.el-input__inner:focus) {
     outline: none !important;
-}
-
-:deep(.monaco-editor .ai-search-target-line) {
-    background-color: rgba(64, 158, 255, 0.14);
-}
-
-:deep(.monaco-editor .ai-search-target-line-gutter) {
-    border-left: 3px solid var(--el-color-primary);
 }
 
 @media (max-width: 767px) {

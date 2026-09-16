@@ -107,12 +107,6 @@ func upgradeInstall(req request.AppInstallUpgrade) error {
 	if err != nil {
 		return err
 	}
-	if err = checkVllmVersionAccess(install.App.Key, detail.Version); err != nil {
-		return err
-	}
-	if install.App.Key == vllmAppKeyForUpgrade && !isVllmUpgradeVersionAllowed(install.Version, detail.Version, loadVllmImageFromEnv(install.Env)) {
-		return errors.New("vLLM can only upgrade within the same image type")
-	}
 	if install.Version == detail.Version {
 		return errors.New("two version is same")
 	}
@@ -211,11 +205,6 @@ func (u *appUpgradeContext) prepare(t *task.Task) error {
 	if err = copyUpgradeStageFile(u.original.GetPath(), u.stageDir, ".env"); err != nil {
 		return err
 	}
-	if u.original.App.Key == constant.AppOpenclaw {
-		if err = copyUpgradeStageFile(u.original.GetPath(), u.stageDir, path.Join("data", "conf", "openclaw.json")); err != nil {
-			return err
-		}
-	}
 	if u.original.App.Key == constant.AppOpenresty {
 		for _, relativePath := range []string{
 			nginxModuleBuildDir,
@@ -232,22 +221,6 @@ func (u *appUpgradeContext) prepare(t *task.Task) error {
 	stagedInstall.Name = path.Base(u.stageDir)
 	stagedInstall.Version = u.detail.Version
 	stagedInstall.AppDetailId = u.req.DetailID
-	if stagedInstall.App.Key == vllmAppKeyForUpgrade {
-		envs := make(map[string]interface{})
-		if err = json.Unmarshal([]byte(stagedInstall.Env), &envs); err != nil {
-			return err
-		}
-		image := buildVllmUpgradeImage(loadVllmImageFromEnv(stagedInstall.Env), u.original.Version, u.detail.Version)
-		envs[vllmImageEnvKey] = image
-		paramBytes, marshalErr := json.Marshal(envs)
-		if marshalErr != nil {
-			return marshalErr
-		}
-		stagedInstall.Env = string(paramBytes)
-	}
-	if err = migrateOpenclawProtocolUpgrade(&stagedInstall, u.original.Version, u.detail.Version); err != nil {
-		return err
-	}
 
 	u.candidate = stagedInstall
 	u.candidate.Name = u.original.Name
@@ -386,9 +359,6 @@ func (u *appUpgradeContext) cutover(t *task.Task) error {
 		u.snapshot, err = createOpenrestyUpgradeSnapshot(u.original.GetPath())
 	} else {
 		snapshotPaths := []string{".env", "docker-compose.yml", "scripts"}
-		if u.original.App.Key == constant.AppOpenclaw {
-			snapshotPaths = append(snapshotPaths, path.Join("data", "conf", "openclaw.json"))
-		}
 		u.snapshot, err = createUpgradeFileSnapshot(u.original.GetPath(), snapshotPaths)
 	}
 	if err != nil {
@@ -512,11 +482,6 @@ func (u *appUpgradeContext) applyStagedFiles() error {
 	}
 	if err := replaceUpgradePath(u.stageDir, u.original.GetPath(), "scripts"); err != nil {
 		return err
-	}
-	if u.original.App.Key == constant.AppOpenclaw {
-		if err := replaceUpgradePath(u.stageDir, u.original.GetPath(), path.Join("data", "conf", "openclaw.json")); err != nil {
-			return err
-		}
 	}
 	if u.original.App.Key == constant.AppOpenresty {
 		for _, relativePath := range []string{
@@ -773,9 +738,6 @@ func renderUpgradeEnv(install *model.AppInstall, original []byte) ([]byte, error
 func renderUpgradeCompose(install model.AppInstall, detail model.AppDetail, customCompose string) (string, error) {
 	if customCompose != "" {
 		return customCompose, nil
-	}
-	if install.App.Key == vllmAppKeyForUpgrade {
-		return install.DockerCompose, nil
 	}
 	return getUpgradeCompose(install, detail)
 }

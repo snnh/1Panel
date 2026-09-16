@@ -1653,22 +1653,6 @@ func GetAllowIps(website model.Website) []string {
 	return ips
 }
 
-func ConfigAIProxy(website model.Website) error {
-	nginxFull, err := getNginxFull(&website)
-	if err != nil {
-		return nil
-	}
-	config := nginxFull.SiteConfig.Config
-	server := config.FindServers()[0]
-	dirs := server.GetDirectives()
-	for _, dir := range dirs {
-		if dir.GetName() == "location" && dir.GetParameters()[0] == "/" {
-			server.UpdateRootProxyForAi([]string{fmt.Sprintf("http://%s", website.Proxy)})
-		}
-	}
-	return nil
-}
-
 func handleDefaultOwn(dir string) {
 	parentDir := path.Dir(dir)
 	info, err := os.Stat(parentDir)

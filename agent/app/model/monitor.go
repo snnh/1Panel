@@ -32,15 +32,3 @@ type MonitorNetwork struct {
 	Down float64 `json:"down"`
 }
 
-type MonitorGPU struct {
-	BaseModel
-	ProductName   string  `json:"productName"`
-	GPUUtil       float64 `json:"gpuUtil"`
-	Temperature   float64 `json:"temperature"`
-	PowerDraw     float64 `json:"powerDraw"`
-	MaxPowerLimit float64 `json:"maxPowerLimit"`
-	MemUsed       float64 `json:"memUsed"`
-	MemTotal      float64 `json:"memTotal"`
-	FanSpeed      int     `json:"fanSpeed"`
-	Processes     string  `json:"processes"`
-}

@@ -443,16 +443,8 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 				req     request.AppInstallCreate
 				install *model.AppInstall
 			)
-			appDetail, err := appDetailRepo.GetFirst(repo.WithByID(create.AppInstall.AppDetailId))
-			if err != nil {
+			if _, err := appDetailRepo.GetFirst(repo.WithByID(create.AppInstall.AppDetailId)); err != nil {
 				return err
-			}
-			app, err := appRepo.GetFirst(repo.WithByID(appDetail.AppId))
-			if err != nil {
-				return err
-			}
-			if isAgentAppKey(app.Key) {
-				return fmt.Errorf("%s does not support website deployment", app.Key)
 			}
 			req.Name = create.AppInstall.Name
 			req.AppDetailId = create.AppInstall.AppDetailId
@@ -600,9 +592,6 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 
 	if err := createTask.Execute(); err != nil {
 		return err
-	}
-	if err := bindDeploymentWebsiteToAgentByAppInstall(website); err != nil {
-		global.LOG.Errorf("bind deployment website to agent failed: %v", err)
 	}
 	return nil
 }
@@ -804,9 +793,6 @@ func (w WebsiteService) DeleteWebsite(req request.WebsiteDelete) error {
 	}()
 
 	if err := websiteRepo.DeleteBy(ctx, repo.WithByID(req.ID)); err != nil {
-		return err
-	}
-	if err := agentRepo.ClearWebsiteIDByWebsiteIDWithCtx(ctx, req.ID); err != nil {
 		return err
 	}
 	if err := websiteDomainRepo.DeleteBy(ctx, websiteDomainRepo.WithWebsiteId(req.ID)); err != nil {

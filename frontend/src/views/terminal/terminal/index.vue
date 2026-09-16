@@ -57,7 +57,6 @@
                 ></div>
 
                 <div class="flex items-center gap-2 w-full py-2 flex-wrap">
-                    <AiSetting v-if="!isMobile" class="shrink-0" />
                     <el-cascader
                         v-model="quickCmd"
                         :options="commandTree"
@@ -135,7 +134,6 @@ import { useGlobalStore } from '@/composables/useGlobalStore';
 import router from '@/routers';
 import { getCommandTree } from '@/api/modules/command';
 import { getAgentSettingInfo } from '@/api/modules/setting';
-import AiSetting from '@/views/terminal/setting/ai/index.vue';
 import { TerminalSessionStore } from '@/store';
 import ConnectionMenu from '@/components/terminal/connection-menu/index.vue';
 import type { TerminalConnectionOptions } from '@/components/terminal/connection-menu/types';

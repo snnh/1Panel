@@ -103,23 +103,3 @@ type FileSharePublicInfo struct {
 	HasPassword bool   `json:"hasPassword"`
 }
 
-type FileAIContentHit struct {
-	Path string `json:"path"`
-	Line int    `json:"line"`
-	Text string `json:"text"`
-}
-
-type FileAISearchResult struct {
-	Mode                 string             `json:"mode"`
-	Summary              string             `json:"summary"`
-	Hits                 []FileAIContentHit `json:"hits"`
-	ContentScannedFiles  int                `json:"contentScannedFiles"`
-	ContentHitsTruncated bool               `json:"contentHitsTruncated"`
-	Truncated            bool               `json:"truncated"`
-	PreFiltered          bool               `json:"preFiltered"`
-	ItemCount            int                `json:"itemCount"`
-	PromptTokens         int                `json:"promptTokens"`
-	CompletionTokens     int                `json:"completionTokens"`
-	TotalTokens          int                `json:"totalTokens"`
-	Duration             string             `json:"duration"`
-}

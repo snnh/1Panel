@@ -222,16 +222,6 @@
                                 </template>
                             </el-input>
                         </div>
-                        <el-button
-                            v-permission
-                            v-node-admin
-                            class="max-w-20"
-                            plain
-                            type="primary"
-                            @click="openAiSearchDrawer"
-                        >
-                            {{ $t('file.aiSearch') }}
-                        </el-button>
                     </div>
                 </div>
                 <LayoutContent class="file-layout" :title="$t('menu.files')" v-loading="loading">
@@ -719,14 +709,7 @@
         <TerminalDialog ref="dialogTerminalRef" />
         <Convert ref="convertRef" @close="search" />
 
-        <FileAiSearchDrawer
-            ref="aiSearchDrawerRef"
-            v-model="aiSearchDrawerVisible"
-            :list-path="req.path"
-            @pick-directory="openAiSearchPathPicker"
-            @open-editor="onAiSearchOpenEditor"
-        />
-        <FileList ref="fileRef" @choose="getSearchPath" />
+        <FileList ref="fileRef" />
         <FileShare ref="fileShareRef" @close="search" />
     </div>
 </template>
@@ -789,7 +772,6 @@ import Preview from './preview/index.vue';
 import TextPreview from './text-preview/index.vue';
 import VscodeOpenDialog from '@/components/vscode-open/index.vue';
 import Convert from './convert/index.vue';
-import FileAiSearchDrawer from './ai-search/file-ai-search-drawer.vue';
 import FileShare from './share/index.vue';
 import { debounce } from 'lodash-es';
 import TerminalDialog from './terminal/index.vue';
@@ -862,7 +844,6 @@ const fileEdit = reactive<{
     name: string;
     language: string;
     extension: string;
-    initialLine?: number;
 }>({ content: '', path: '', name: '', language: 'plaintext', extension: '' });
 const filePreview = reactive({ path: '', name: '', extension: '', fileType: '', imageFiles: [], currentNode: '' });
 const codeReq = reactive({ path: '', expand: false, page: 1, pageSize: 100, isDetail: false });
@@ -886,21 +867,6 @@ const fileConvert = reactive<{
     ],
 });
 const ffmpegExist = ref(false);
-
-const aiSearchDrawerVisible = ref(false);
-const aiSearchDrawerRef = ref<InstanceType<typeof FileAiSearchDrawer> | null>(null);
-
-const openAiSearchDrawer = () => {
-    aiSearchDrawerVisible.value = true;
-};
-
-const getSearchPath = (path: string | string[]) => {
-    aiSearchDrawerRef.value?.applyPathFromPicker(path);
-};
-
-const openAiSearchPathPicker = (path?: string) => {
-    fileRef.value.acceptParams({ path: path || req.path, dir: true, multiple: false });
-};
 
 const createRef = ref();
 const roleRef = ref();
@@ -1636,19 +1602,12 @@ const openPreview = (item: File.File, fileType: string) => {
     previewRef.value.acceptParams(filePreview);
 };
 
-const openPathInCodeEditor = (
-    path: string,
-    opts?: {
-        initialLine?: number;
-    },
-) => {
+const openPathInCodeEditor = (path: string) => {
     if (!path) {
         return;
     }
     codeReq.path = path;
     codeReq.expand = true;
-
-    const line = opts?.initialLine && opts.initialLine > 0 ? Math.floor(opts.initialLine) : undefined;
 
     getFileContent(codeReq)
         .then((res) => {
@@ -1657,15 +1616,9 @@ const openPathInCodeEditor = (
             fileEdit.name = res.data.name;
             fileEdit.extension = res.data.extension;
             fileEdit.language = resolveEditorLanguage(res.data.path, res.data.extension, res.data.name);
-            fileEdit.initialLine = line;
             codeEditorRef.value.acceptParams(fileEdit);
-            fileEdit.initialLine = undefined;
         })
         .catch(() => {});
-};
-
-const onAiSearchOpenEditor = (payload: { path: string; initialLine?: number }) => {
-    openPathInCodeEditor(payload.path, { initialLine: payload.initialLine });
 };
 
 const openCodeEditor = (path: string) => {

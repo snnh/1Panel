@@ -68,7 +68,6 @@
                                     :key="index"
                                     :label="app.name"
                                     :value="app.id"
-                                    :disabled="isRestrictedDeploymentApp(app.key)"
                                 ></el-option>
                             </el-select>
                         </el-form-item>
@@ -711,10 +710,6 @@ const getProxyTargetFromApp = (app: Pick<App.AppInstalled, 'httpPort' | 'httpsPo
     };
 };
 
-const isRestrictedDeploymentApp = (appKey?: string) => {
-    return appKey === 'openclaw' || appKey === 'copaw' || appKey === 'hermes-agent';
-};
-
 const changeInstall = () => {
     appInstalls.value.forEach((app) => {
         if (app.id === website.value.appInstallId) {
@@ -729,7 +724,7 @@ const searchAppList = () => {
     searchApp(appReq).then((res) => {
         apps.value = res.data.items;
 
-        const selectableApp = res.data.items.find((item) => !isRestrictedDeploymentApp(item.key));
+        const selectableApp = res.data.items[0];
         if (selectableApp) {
             website.value.appinstall.appId = selectableApp.id;
             website.value.appinstall.appkey = selectableApp.key;

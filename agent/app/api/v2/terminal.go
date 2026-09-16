@@ -287,8 +287,6 @@ func loadContainerTerminalCommand(c *gin.Context) (*terminal.LocalCommand, error
 	switch source {
 	case "redis", "redis-cluster":
 		initCmd, err = loadRedisInitCmd(c, source)
-	case "ollama":
-		initCmd, err = loadOllamaInitCmd(c)
 	case "container":
 		initCmd, err = loadContainerInitCmd(c)
 	case "database":
@@ -328,19 +326,6 @@ func loadRedisInitCmd(c *gin.Context, redisType string) ([]string, error) {
 		}
 	}
 	return commands, nil
-}
-
-func loadOllamaInitCmd(c *gin.Context) ([]string, error) {
-	name := c.Query("name")
-	if cmd.CheckIllegal(name) {
-		return nil, fmt.Errorf("ollama model %s contains illegal characters", name)
-	}
-	ollamaInfo, err := appInstallService.LoadConnInfo(dto.OperationWithNameAndType{Name: "", Type: "ollama"})
-	if err != nil {
-		return nil, fmt.Errorf("no such app in db, err: %v", err)
-	}
-	containerName := ollamaInfo.ContainerName
-	return []string{"exec", "-it", containerName, "ollama", "run", name}, nil
 }
 
 func loadContainerInitCmd(c *gin.Context) ([]string, error) {

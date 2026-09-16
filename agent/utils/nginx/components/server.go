@@ -290,54 +290,6 @@ func (s *Server) UpdateRoot(path string) {
 	s.UpdateDirective("root", []string{path})
 }
 
-func (s *Server) UpdateRootProxyForAi(proxy []string) {
-	newDir := Directive{
-		Name:       "location",
-		Parameters: []string{"/"},
-		Block:      &Block{},
-	}
-	block := &Block{}
-	block.AppendDirectives(
-		&Directive{
-			Name: "proxy_buffering",
-			Parameters: []string{
-				"off",
-			},
-		},
-		&Directive{
-			Name: "proxy_cache",
-			Parameters: []string{
-				"off",
-			},
-		},
-		&Directive{
-			Name: "proxy_http_version",
-			Parameters: []string{
-				"1.1",
-			},
-		},
-		&Directive{
-			Name: "proxy_set_header",
-			Parameters: []string{
-				"Connection", "''",
-			},
-		},
-		&Directive{
-			Name: "chunked_transfer_encoding",
-			Parameters: []string{
-				"off",
-			},
-		},
-		&Directive{
-			Name:       "proxy_pass",
-			Parameters: proxy,
-		},
-	)
-
-	newDir.Block = block
-	s.UpdateDirectiveBySecondKey("location", "/", newDir)
-}
-
 func (s *Server) UpdateRootLocation() {
 	newDir := Directive{
 		Name:       "location",

@@ -18,7 +18,6 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/buserr"
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
-	"github.com/1Panel-dev/1Panel/agent/utils/ai_tools/accelerator"
 	"github.com/1Panel-dev/1Panel/agent/utils/cmd"
 	"github.com/1Panel-dev/1Panel/agent/utils/common"
 	"github.com/1Panel-dev/1Panel/agent/utils/controller"
@@ -243,7 +242,6 @@ func (u *DashboardService) LoadCurrentInfo(ioOption string, netOption string) *d
 	currentInfo.SwapMemoryUsedPercent = swapInfo.UsedPercent
 
 	currentInfo.DiskData = loadDiskInfo()
-	currentInfo.GPUData, currentInfo.NPUData, currentInfo.XPUData = loadAcceleratorInfo()
 
 	if ioOption == "all" {
 		diskInfo, _ := disk.IOCounters()
@@ -567,66 +565,6 @@ func loadDiskInfo() []dto.DiskInfo {
 	return datas
 }
 
-func loadAcceleratorInfo() ([]dto.GPUInfo, []dto.NPUInfo, []dto.XPUInfo) {
-	ok, client := accelerator.New()
-	if !ok {
-		return nil, nil, nil
-	}
-	snapshot, err := client.Collect(context.Background())
-	if err != nil || len(snapshot.Devices) == 0 {
-		return nil, nil, nil
-	}
-	if warning := snapshot.Warning(); warning != nil {
-		global.LOG.Warnf("load accelerator dashboard data partially failed, err: %v", warning)
-	}
-
-	var (
-		gpuData []dto.GPUInfo
-		npuData []dto.NPUInfo
-		xpuData []dto.XPUInfo
-	)
-	for _, device := range snapshot.Devices {
-		switch device.Kind {
-		case accelerator.KindGPU:
-			if device.GPU == nil {
-				continue
-			}
-			var dataItem dto.GPUInfo
-			if err := copier.Copy(&dataItem, device.GPU); err != nil {
-				continue
-			}
-			dataItem.PowerUsage = dataItem.PowerDraw + " / " + dataItem.MaxPowerLimit
-			dataItem.MemoryUsage = dataItem.MemUsed + " / " + dataItem.MemTotal
-			gpuData = append(gpuData, dataItem)
-		case accelerator.KindNPU:
-			if device.NPU == nil {
-				continue
-			}
-			var dataItem dto.NPUInfo
-			if err := copier.Copy(&dataItem, device.NPU); err != nil {
-				continue
-			}
-			npuData = append(npuData, dataItem)
-		case accelerator.KindXPU:
-			if device.XPU == nil {
-				continue
-			}
-			xpuData = append(xpuData, dto.XPUInfo{
-				DeviceID:      device.Index,
-				DeviceName:    device.Name,
-				PciBdfAddress: device.BusID,
-				Memory:        device.XPU.Basic.Memory,
-				Temperature:   device.Metrics.Temperature.Display,
-				GPUUtil:       device.Metrics.Utilization.Display,
-				MemoryUsed:    device.Metrics.MemoryUsed.Display,
-				Power:         device.Metrics.Power.Display,
-				MemoryUtil:    device.Metrics.MemoryUtil.Display,
-			})
-		}
-	}
-	return gpuData, npuData, xpuData
-}
-
 type AppLauncher struct {
 	Key string `json:"key"`
 }
@@ -656,9 +594,6 @@ func loadQuickJump(base *dto.DashboardBase) {
 	website, _ := websiteRepo.GetBy()
 	base.WebsiteNumber = len(website)
 
-	agents, _ := agentRepo.List()
-	base.AgentNumber = len(agents)
-
 	postgresqlDbs, _ := postgresqlRepo.List()
 	mysqlDbs, _ := mysqlRepo.List()
 	base.DatabaseNumber = len(mysqlDbs) + len(postgresqlDbs)
@@ -672,8 +607,6 @@ func loadQuickJump(base *dto.DashboardBase) {
 	quicks := launcherRepo.ListQuickJump(false)
 	for i := 0; i < len(quicks); i++ {
 		switch quicks[i].Name {
-		case "Agent":
-			quicks[i].Detail = fmt.Sprintf("%d", base.AgentNumber)
 		case "Website":
 			quicks[i].Detail = fmt.Sprintf("%d", base.WebsiteNumber)
 		case "Database":

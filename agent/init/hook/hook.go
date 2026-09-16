@@ -31,9 +31,6 @@ func Init() {
 	global.LOG.Info("agent hook: handle snapshot status start")
 	handleSnapStatus()
 	global.LOG.Info("agent hook: handle snapshot status done")
-	global.LOG.Info("agent hook: handle ollama model status start")
-	handleOllamaModelStatus()
-	global.LOG.Info("agent hook: handle ollama model status done")
 
 	global.LOG.Info("agent hook: load local dir start")
 	loadLocalDir()
@@ -127,13 +124,6 @@ func handleRecordStatus() {
 	}).Error
 }
 
-func handleOllamaModelStatus() {
-	_ = global.DB.Model(&model.OllamaModel{}).Where("status = ?", constant.StatusWaiting).Updates(map[string]interface{}{
-		"status":  constant.StatusCanceled,
-		"message": constant.InterruptedMsg,
-	}).Error
-}
-
 func handleCronJobAlert(cronjob *model.Cronjob) {
 	pushAlert := dto.PushAlert{
 		TaskName:  cronjob.Name,
@@ -174,6 +164,6 @@ func initAlertTask() {
 }
 
 func initMonitorDB() {
-	_ = global.MonitorDB.AutoMigrate(&model.MonitorBase{}, &model.MonitorNetwork{}, &model.MonitorGPU{}, &model.MonitorIO{})
+	_ = global.MonitorDB.AutoMigrate(&model.MonitorBase{}, &model.MonitorNetwork{}, &model.MonitorIO{})
 	_ = global.TaskDB.AutoMigrate(&model.Task{})
 }

@@ -10,7 +10,6 @@ import (
 
 	"github.com/1Panel-dev/1Panel/agent/global"
 	"github.com/1Panel-dev/1Panel/agent/i18n"
-	terminalai "github.com/1Panel-dev/1Panel/agent/utils/terminal/ai"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	gossh "golang.org/x/crypto/ssh"
@@ -79,9 +78,7 @@ type Session struct {
 	backend sessionBackend
 	ring    *ringBuffer
 
-	lang          string
-	aiInterceptor *aiInputInterceptor
-	aiVersion     uint64
+	lang string
 
 	done    chan struct{}
 	closeFn func()
@@ -191,8 +188,6 @@ func openBackend(backend sessionBackend, ring *ringBuffer, opts SessionOptions) 
 		backend:       backend,
 		ring:          ring,
 		lang:          lang,
-		aiInterceptor: newAIInputInterceptor("", lang),
-		aiVersion:     terminalai.CurrentTerminalRuntimeVersion(),
 		done:          make(chan struct{}),
 	}
 	s.closeFn = sync.OnceFunc(s.doClose)
@@ -369,16 +364,6 @@ func (s *Session) writeInput(data []byte) {
 	if _, err := s.backend.Write(data); err != nil {
 		global.LOG.Errorf("ws cmd bytes write to ssh.stdin pipe failed, err: %v", err)
 	}
-}
-
-func (s *Session) ensureAIInterceptor() *aiInputInterceptor {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if v := terminalai.CurrentTerminalRuntimeVersion(); s.aiInterceptor == nil || s.aiVersion != v {
-		s.aiVersion = v
-		s.aiInterceptor = newAIInputInterceptor("", s.lang)
-	}
-	return s.aiInterceptor
 }
 
 func (s *Session) pump() {

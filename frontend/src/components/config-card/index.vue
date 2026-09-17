@@ -14,9 +14,7 @@
             {{ description }}
         </el-text>
         <span class="ml-5" v-if="website">
-            <el-tooltip :content="$t('xpack.waf.websiteHelper')" placement="bottom">
-                <el-tag type="primary" size="small">{{ $t('menu.website') }}</el-tag>
-            </el-tooltip>
+            <el-tag type="primary" size="small">{{ $t('menu.website') }}</el-tag>
         </span>
 
         <div class="config-content">

@@ -38,11 +38,6 @@
                     <el-tag class="msg-tag" v-if="taskCount !== 0" size="small" round>{{ taskCount }}</el-tag>
                 </div>
                 <el-divider v-if="showNodes()" class="divider" />
-                <div class="dropdown-item" @click="openNodeDashboard" v-if="isXpackOrEE">
-                    <SvgIcon class="icon" iconName="p-gailan1" />
-                    {{ $t('xpack.node.multiOverview') }}
-                </div>
-                <el-divider v-if="isXpackOrEE" class="divider" />
 
                 <div v-if="showNodes()">
                     <el-scrollbar max-height="288px" :noresize="true">
@@ -103,9 +98,8 @@ import bus from '@/global/bus';
 import { logOutApi } from '@/api/modules/auth';
 import { submitSAML2Navigation } from '@/utils/saml2';
 import router from '@/routers';
-import { loadProductProFromDB } from '@/utils/xpack';
 import { routerToNameWithQuery } from '@/utils/router';
-import { changeToLocal, listNodes, setDefaultNodeInfo } from '@/utils/node';
+import { changeToLocal } from '@/utils/node';
 import { Login } from '@/api/interface/auth';
 import { syncAuthInfo } from '@/utils/rbac';
 import UserInfo from './user-info/index.vue';
@@ -113,8 +107,7 @@ import NodeDrawer from './node-drawer/index.vue';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 
 const currentUser = ref<Login.AuthInfo>();
-const { globalStore, currentNode, currentNodeAddr, defaultNetwork, entrance, isEnterprise, isXpackOrEE } =
-    useGlobalStore();
+const { globalStore, currentNode, currentNodeAddr, defaultNetwork, entrance, isEnterprise } = useGlobalStore();
 const menuStore = MenuStore();
 const nodes = ref([]);
 const nodeOptions = ref([]);
@@ -171,24 +164,8 @@ const handleFavoriteChange = async () => {
 const loadNodes = async () => {
     loading.value = true;
     nodes.value = [];
-    if (!isXpackOrEE.value) {
-        changeToLocal();
-        loading.value = false;
-        return;
-    }
-    await listNodes('all')
-        .then((res) => {
-            nodes.value = res || [];
-            if (nodes.value.length === 0) {
-                setDefaultNodeInfo();
-            }
-            nodeOptions.value = nodes.value || [];
-            loading.value = false;
-        })
-        .catch(() => {
-            setDefaultNodeInfo();
-            loading.value = false;
-        });
+    changeToLocal();
+    loading.value = false;
 };
 const changeNode = async (command: string) => {
     if (currentNode.value === command || switchingNode.value) {
@@ -209,7 +186,6 @@ const changeNode = async (command: string) => {
                     localStorage.removeItem('upgradeChecked');
                     menuStore.setMenuList([]);
                     emit('refresh');
-                    loadProductProFromDB();
                     routerToNameWithQuery('home', { t: Date.now() });
                     return;
                 }
@@ -235,7 +211,6 @@ const changeNode = async (command: string) => {
                 }
                 menuStore.setMenuList([]);
                 emit('refresh');
-                loadProductProFromDB();
                 routerToNameWithQuery('home', { t: Date.now() });
                 return;
             }
@@ -252,7 +227,7 @@ const loadGlobalSetting = async (currentNode?: string) => {
 };
 
 const showNodes = () => {
-    return nodes.value.length > 0 && isXpackOrEE.value;
+    return nodes.value.length > 0;
 };
 
 const taskCount = ref(0);
@@ -265,10 +240,6 @@ const checkTask = async () => {
 
 const openTask = () => {
     emit('openTask');
-};
-
-const openNodeDashboard = () => {
-    routerToNameWithQuery('NodeDashboard', { uncached: 'true' });
 };
 
 const logout = () => {

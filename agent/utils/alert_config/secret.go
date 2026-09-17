@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/1Panel-dev/1Panel/agent/app/model"
 	"github.com/1Panel-dev/1Panel/agent/constant"
@@ -94,12 +93,6 @@ func Prepare(configType, rawMutation, status string, existing *model.AlertConfig
 		}
 	}
 	if status == constant.AlertEnable {
-		if configType == constant.SMSConfig {
-			phone, err := storedSecret(root, "phone")
-			if err != nil || phone == "" {
-				return "", fmt.Errorf("SMS phone is required while the config is enabled")
-			}
-		}
 		if isWebhookType(configType) && !hasWebhookURL(root) {
 			return "", fmt.Errorf("webhook URL is required while the config is enabled")
 		}
@@ -111,9 +104,7 @@ func secretField(configType string) string {
 	switch configType {
 	case constant.EmailConfig:
 		return "password"
-	case constant.SMSConfig:
-		return "phone"
-	case constant.WeCom, constant.DingTalk, constant.FeiShu, constant.Bark:
+	case constant.Bark:
 		return "url"
 	default:
 		return ""
@@ -122,7 +113,7 @@ func secretField(configType string) string {
 
 func isWebhookType(configType string) bool {
 	switch configType {
-	case constant.WeCom, constant.DingTalk, constant.FeiShu, constant.Bark:
+	case constant.Bark:
 		return true
 	default:
 		return false
@@ -216,19 +207,8 @@ func mergeSecret(field string, raw json.RawMessage, existing string, hasExisting
 	}
 }
 
-func isLegacyMaskValue(field, value string) bool {
-	if field == "phone" {
-		return isLegacyMaskedPhone(value)
-	}
+func isLegacyMaskValue(_, value string) bool {
 	return value == MaskedSecret
-}
-
-func isLegacyMaskedPhone(value string) bool {
-	value = strings.TrimSpace(value)
-	if !strings.Contains(value, "*") {
-		return false
-	}
-	return maskPhone(strings.ReplaceAll(value, "*", "0")) == value
 }
 
 func rawIsObject(raw json.RawMessage) bool {
@@ -295,18 +275,4 @@ func hasWebhookURL(root map[string]json.RawMessage) bool {
 		}
 	}
 	return false
-}
-
-func maskPhone(value string) string {
-	runes := []rune(strings.TrimSpace(value))
-	switch {
-	case len(runes) >= 11:
-		return string(runes[:3]) + strings.Repeat("*", len(runes)-7) + string(runes[len(runes)-4:])
-	case len(runes) >= 8:
-		return string(runes[:2]) + strings.Repeat("*", len(runes)-4) + string(runes[len(runes)-2:])
-	case utf8.RuneCountInString(value) == 0:
-		return ""
-	default:
-		return MaskedSecret
-	}
 }

@@ -400,7 +400,6 @@ const {
     ignoreCaptcha,
     isAdmin,
     isEnterprise,
-    isEnterpriseLicenseLoaded,
     isFxplay,
     isIntl,
     isLogin,
@@ -915,7 +914,6 @@ const getSetting = async () => {
         isFxplay.value = res.data.isFxplay;
         isOffline.value = res.data.isOffline;
         isEnterprise.value = res.data.isEnterprise;
-        isEnterpriseLicenseLoaded.value = !res.data.isEnterprise;
         ignoreCaptcha.value = !res.data.needCaptcha;
         passkeySetting.value = res.data.passkeySetting;
         if (!ignoreCaptcha.value) {

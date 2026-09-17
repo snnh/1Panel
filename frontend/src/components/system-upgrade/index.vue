@@ -2,13 +2,7 @@
     <div>
         <div class="flex flex-wrap items-center">
             <div class="flex flex-wrap items-center">
-                <el-link v-if="isEE" underline="never" type="primary" @click="toEdition">
-                    {{ $t('license.ee') }}
-                </el-link>
-                <el-link v-else-if="isMasterPro" underline="never" type="primary" @click="toLxware">
-                    {{ $t('license.pro') }}
-                </el-link>
-                <el-link v-else-if="isOffline" underline="never" type="primary" @click="to1Panel">
+                <el-link v-if="isOffline" underline="never" type="primary" @click="to1Panel">
                     {{ $t('license.offLine') }}
                 </el-link>
                 <el-link v-else underline="never" type="primary" @click="toEdition">
@@ -19,7 +13,7 @@
                 </el-link>
                 <el-badge
                     is-dot
-                    v-if="isAdmin && !isOffline && !isEE"
+                    v-if="isAdmin && !isOffline"
                     class="-mt-0.5"
                     :hidden="version === 'Waiting' || !hasNewVersion"
                 >
@@ -45,7 +39,7 @@ import { MsgSuccess } from '@/utils/message';
 import { onMounted, ref } from 'vue';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 
-const { isOffline, isMasterPro, isEE, isIntl, isAdmin, hasNewVersion } = useGlobalStore();
+const { isOffline, isIntl, isAdmin, hasNewVersion } = useGlobalStore();
 const upgradeRef = ref();
 const releasesRef = ref();
 
@@ -64,14 +58,6 @@ const getVersionLog = () => {
         return;
     }
     releasesRef.value.acceptParams();
-};
-
-const toLxware = () => {
-    if (!isIntl.value) {
-        window.open('https://www.lxware.cn/1panel' + '', '_blank', 'noopener,noreferrer');
-    } else {
-        window.open('https://1panel.pro/pricing' + '', '_blank', 'noopener,noreferrer');
-    }
 };
 
 const to1Panel = () => {

@@ -28,8 +28,9 @@ export const redirectToEntrance = () => {
     });
 };
 
+// 密码过期（313）：过期页已下线，直接回登录入口重新登录
 export const redirectToExpired = () => {
-    router.push({ name: 'Expired' });
+    redirectToEntrance();
 };
 
 export const handleAuthResponseCode = (data: any, options: AuthResponseOptions = {}): AuthResponseResult => {

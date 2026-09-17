@@ -163,14 +163,7 @@ var WebUrlMap = map[string]struct{}{
 
 	"/login": {},
 
-	"/xpack":                {},
-	"/xpack/waf/dashboard":  {},
-	"/xpack/waf/global":     {},
-	"/xpack/waf/websites":   {},
-	"/xpack/waf/log":        {},
-	"/xpack/waf/block":      {},
-	"/xpack/waf/blackwhite": {},
-	"/xpack/waf/stat":       {},
+	"/xpack": {},
 
 	"/xpack/monitor/dashboard": {},
 	"/xpack/monitor/setting":   {},
@@ -238,7 +231,6 @@ var DynamicRoutes = []string{
 	`^/databases/mysql/setting/[^/]+/[^/]+$`,
 	`^/databases/postgresql/setting/[^/]+/[^/]+$`,
 	`^/websites/[^/]+/config/[^/]+$`,
-	`^/xpack/waf/websites/[^/]+$`,
 	`^/s/[A-Za-z0-9]{10,16}$`,
 }
 

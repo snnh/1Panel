@@ -6,23 +6,19 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/1Panel-dev/1Panel/agent/app/dto"
-	"github.com/1Panel-dev/1Panel/agent/app/model"
 	"github.com/1Panel-dev/1Panel/agent/app/repo"
 	"github.com/1Panel-dev/1Panel/agent/app/task"
 	"github.com/1Panel-dev/1Panel/agent/buserr"
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
-	"github.com/1Panel-dev/1Panel/agent/utils/alert_push"
 	"github.com/1Panel-dev/1Panel/agent/utils/clam"
 	"github.com/1Panel-dev/1Panel/agent/utils/cmd"
 	"github.com/1Panel-dev/1Panel/agent/utils/common"
 	"github.com/1Panel-dev/1Panel/agent/utils/controller"
-	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
 	"github.com/jinzhu/copier"
 	"github.com/robfig/cron/v3"
 )
@@ -150,17 +146,6 @@ func (c *ClamService) SearchWithPage(req dto.SearchClamWithPage) (int64, interfa
 		} else {
 			datas[i].LastRecordTime = "-"
 		}
-		alertBase := dto.AlertBase{
-			AlertType: "clams",
-			EntryID:   datas[i].ID,
-		}
-		alertInfo, _ := alertRepo.Get(alertRepo.WithByType(alertBase.AlertType), alertRepo.WithByProject(strconv.Itoa(int(alertBase.EntryID))), repo.WithByStatus(constant.AlertEnable))
-		datas[i].AlertMethod = alertInfo.Method
-		if alertInfo.SendCount != 0 {
-			datas[i].AlertCount = alertInfo.SendCount
-		} else {
-			datas[i].AlertCount = 0
-		}
 	}
 	return total, datas, err
 }
@@ -179,30 +164,8 @@ func (c *ClamService) Create(req dto.ClamCreate, operator string) error {
 	if clam.InfectedStrategy == "none" || clam.InfectedStrategy == "remove" {
 		clam.InfectedDir = ""
 	}
-	if len(req.Spec) != 0 {
-		entryID, err := xpack.MultiNodeProvider.StartClam(&clam, false)
-		if err != nil {
-			return err
-		}
-		clam.EntryID = entryID
-		clam.Status = constant.StatusEnable
-	}
 	if err := clamRepo.Create(&clam); err != nil {
 		return err
-	}
-	if req.AlertCount != 0 && req.AlertTitle != "" && req.AlertMethod != "" {
-		createAlert := dto.AlertCreate{
-			Title:     req.AlertTitle,
-			SendCount: req.AlertCount,
-			Method:    req.AlertMethod,
-			Type:      "clams",
-			Project:   strconv.Itoa(int(clam.ID)),
-			Status:    constant.AlertEnable,
-		}
-		err := NewIAlertService().CreateAlert(createAlert, operator)
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -218,50 +181,14 @@ func (c *ClamService) Update(req dto.ClamUpdate, operator string) error {
 	if req.InfectedStrategy == "none" || req.InfectedStrategy == "remove" {
 		req.InfectedDir = ""
 	}
-	var clamItem model.Clam
-	if err := copier.Copy(&clamItem, &req); err != nil {
-		return buserr.WithDetail("ErrStructTransform", err.Error(), nil)
-	}
-	clamItem.EntryID = clam.EntryID
 	upMap := map[string]interface{}{}
-	if len(clam.Spec) != 0 && clam.EntryID != 0 {
-		global.Cron.Remove(cron.EntryID(clamItem.EntryID))
-		upMap["entry_id"] = 0
-	}
-	if len(req.Spec) == 0 {
-		upMap["status"] = ""
-		upMap["entry_id"] = 0
-	}
-	if len(req.Spec) != 0 && clam.Status != constant.StatusDisable {
-		newEntryID, err := xpack.MultiNodeProvider.StartClam(&clamItem, true)
-		if err != nil {
-			return err
-		}
-		upMap["entry_id"] = newEntryID
-	}
-	if len(clam.Spec) == 0 && len(req.Spec) != 0 {
-		upMap["status"] = constant.StatusEnable
-	}
-
 	upMap["name"] = req.Name
 	upMap["path"] = req.Path
 	upMap["infected_dir"] = req.InfectedDir
 	upMap["infected_strategy"] = req.InfectedStrategy
-	upMap["spec"] = req.Spec
 	upMap["timeout"] = req.Timeout
 	upMap["description"] = req.Description
 	if err := clamRepo.Update(req.ID, upMap); err != nil {
-		return err
-	}
-	updateAlert := dto.AlertCreate{
-		Title:     req.AlertTitle,
-		SendCount: req.AlertCount,
-		Method:    req.AlertMethod,
-		Type:      "clams",
-		Project:   strconv.Itoa(int(clam.ID)),
-	}
-	err := NewIAlertService().ExternalUpdateAlert(updateAlert, operator)
-	if err != nil {
 		return err
 	}
 	return nil
@@ -272,21 +199,12 @@ func (c *ClamService) UpdateStatus(id uint, status string) error {
 	if clam.ID == 0 {
 		return buserr.New("ErrRecordNotFound")
 	}
-	var (
-		entryID int
-		err     error
-	)
-	if status == constant.StatusEnable {
-		entryID, err = xpack.MultiNodeProvider.StartClam(&clam, true)
-		if err != nil {
-			return err
-		}
-	} else {
+	if status != constant.StatusEnable {
 		global.Cron.Remove(cron.EntryID(clam.EntryID))
 		global.LOG.Infof("stop cronjob entryID: %v", clam.EntryID)
 	}
 
-	return clamRepo.Update(clam.ID, map[string]interface{}{"status": status, "entry_id": entryID})
+	return clamRepo.Update(clam.ID, map[string]interface{}{"status": status, "entry_id": 0})
 }
 
 func (c *ClamService) Delete(req dto.ClamDelete) error {
@@ -295,7 +213,7 @@ func (c *ClamService) Delete(req dto.ClamDelete) error {
 		if clam.ID == 0 {
 			continue
 		}
-		if len(clam.Spec) != 0 {
+		if clam.EntryID != 0 {
 			global.Cron.Remove(cron.EntryID(clam.EntryID))
 		}
 		_ = c.CleanRecord(clam.ID)
@@ -303,10 +221,6 @@ func (c *ClamService) Delete(req dto.ClamDelete) error {
 			_ = os.RemoveAll(path.Join(clam.InfectedDir, "1panel-infected", clam.Name))
 		}
 		if err := clamRepo.Delete(repo.WithByID(id)); err != nil {
-			return err
-		}
-		err := alertRepo.Delete(alertRepo.WithByProject(strconv.Itoa(int(clam.ID))), alertRepo.WithByType("clams"))
-		if err != nil {
 			return err
 		}
 	}
@@ -340,7 +254,6 @@ func (c *ClamService) HandleOnce(id uint) error {
 		}
 		clam.AnalysisFromLog(taskItem.LogFile, &record)
 		clamRepo.EndRecords(record, constant.StatusDone, "")
-		handleAlert(record.InfectedFiles, clamItem.Name, clamItem.ID)
 	}()
 	return nil
 }
@@ -492,16 +405,3 @@ func (c *ClamService) loadConfigPath(confType string) string {
 	}
 }
 
-func handleAlert(infectedFiles, clamName string, clamId uint) {
-	itemInfected, _ := strconv.Atoi(strings.TrimSpace(infectedFiles))
-	if itemInfected <= 0 {
-		return
-	}
-	pushAlert := dto.PushAlert{
-		TaskName:  clamName,
-		AlertType: "clams",
-		EntryID:   clamId,
-		Param:     strconv.Itoa(itemInfected),
-	}
-	_ = alert_push.PushAlert(pushAlert)
-}

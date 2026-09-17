@@ -88,7 +88,6 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import { ElTree } from 'element-plus';
 import i18n from '@/lang';
-import { listNodeOptions } from '@/api/modules/setting';
 import { getHostTree, testByID, testLocalConn } from '@/api/modules/terminal';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import { MsgError } from '@/utils/message';
@@ -101,7 +100,7 @@ const props = defineProps<{
     openSession: (options: TerminalConnectionOptions) => Promise<void>;
 }>();
 const visible = defineModel<boolean>({ default: false });
-const { isNodeAdmin, isXpackOrEE, currentNode, globalStore } = useGlobalStore();
+const { isNodeAdmin, currentNode, globalStore } = useGlobalStore();
 const hostDialogRef = ref<InstanceType<typeof HostDialog>>();
 const onNewSsh = () => {
     if (isNodeAdmin.value || connecting.value) return;
@@ -134,22 +133,6 @@ const loadingConnections = ref(false);
 const connecting = ref(false);
 const connectionTree = computed<ConnectionTreeItem[]>(() => {
     const groups: ConnectionTreeItem[] = [];
-    const childNodes = isXpackOrEE.value
-        ? nodes.value.filter((node) => node.name !== 'local' && node.status !== 'Deleted')
-        : [];
-    if (childNodes.length > 0) {
-        groups.push({
-            id: 'panel-nodes',
-            label: i18n.global.t('xpack.node.node'),
-            kind: 'group',
-            children: childNodes.map((node) => ({
-                id: `node-${node.id}`,
-                label: node.name,
-                kind: 'node',
-                node,
-            })),
-        });
-    }
     if (!isNodeAdmin.value) {
         groups.push(
             ...hostTree.value.map((group): ConnectionTreeItem => ({
@@ -169,9 +152,6 @@ const connectionTree = computed<ConnectionTreeItem[]>(() => {
 });
 const loadNodes = async () => {
     nodes.value = [];
-    if (!isXpackOrEE.value) return;
-    const res = await listNodeOptions('all');
-    nodes.value = res.data || [];
 };
 const loadHosts = async () => {
     hostTree.value = [];

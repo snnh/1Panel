@@ -23,25 +23,7 @@
             <Sidebar @menu-click="handleMenuClick" :menu-router="!classObj.openMenuTabs" @open-task="openTask" />
         </div>
 
-        <el-watermark
-            v-if="isXpackOrEE && watermarkShow && watermark"
-            :content="loadContent()"
-            :font="{
-                fontSize: watermark.fontSize,
-                color: isDarkTheme ? watermark.darkColor : watermark.lightColor,
-                textBaseline: 'top',
-            }"
-            :rotate="watermark.rotate"
-            :gap="[watermark.gap, watermark.gap]"
-        >
-            <div class="main-container">
-                <mobile-header v-if="classObj.mobile" />
-                <Tabs v-if="classObj.openMenuTabs" />
-                <app-main :keep-alive="classObj.openMenuTabs ? tabsStore.keepAliveTabs : null" class="app-main" />
-                <Footer class="app-footer" v-if="!isFullScreen" />
-            </div>
-        </el-watermark>
-        <div class="main-container" v-else>
+        <div class="main-container">
             <mobile-header v-if="classObj.mobile" />
             <Tabs v-if="classObj.openMenuTabs" />
             <app-main :keep-alive="classObj.openMenuTabs ? tabsStore.keepAliveTabs : null" class="app-main" />
@@ -62,27 +44,13 @@ import useResize from './hooks/useResize';
 import { MenuStore, TabsStore } from '@/store';
 import { getSystemAvailable } from '@/api/modules/setting';
 import { useRoute, useRouter } from 'vue-router';
-import { loadMasterProductProFromDB, loadProductProFromDB } from '@/utils/xpack';
+import { loadBaseDataFromDB } from '@/utils/xpack';
 import { useTheme } from '@/global/use-theme';
 import TaskList from '@/components/task-list/index.vue';
 import i18n from '@/lang';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 
-const {
-    globalStore,
-    currentNode,
-    currentNodeAddr,
-    entrance,
-    isDarkTheme,
-    isFullScreen,
-    isLoading,
-    isMobile,
-    isXpackOrEE,
-    loadingText: globalLoadingText,
-    openMenuTabs,
-    watermark,
-    watermarkShow,
-} = useGlobalStore();
+const { entrance, isFullScreen, isLoading, isMobile, loadingText: globalLoadingText, openMenuTabs } = useGlobalStore();
 const { switchTheme } = useTheme();
 
 useResize();
@@ -123,19 +91,6 @@ const handleClickOutside = () => {
 
 const handleCollapse = () => {
     menuStore.setCollapse();
-};
-
-const loadContent = () => {
-    if (!watermark.value) {
-        return '';
-    }
-
-    let itemName = watermark.value.content.replaceAll(
-        '${nodeName}',
-        currentNode.value === 'local' ? globalStore.getMasterAlias() : currentNode.value,
-    );
-    itemName = itemName.replaceAll('${nodeAddr}', currentNodeAddr.value || '127.0.0.1');
-    return itemName;
 };
 
 watch(
@@ -195,8 +150,7 @@ onMounted(() => {
     }
 
     loadStatus();
-    loadProductProFromDB();
-    loadMasterProductProFromDB();
+    loadBaseDataFromDB();
     isFullScreen.value = false;
 
     const mqList = window.matchMedia('(prefers-color-scheme: dark)');

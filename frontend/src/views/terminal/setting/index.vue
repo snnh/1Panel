@@ -328,7 +328,7 @@ const loadConnShow = async () => {
 };
 
 const changeShow = async () => {
-    let op = form.showDefaultConn ? i18n.global.t('xpack.waf.allow') : i18n.global.t('xpack.waf.deny');
+    let op = form.showDefaultConn ? i18n.global.t('firewall.allow') : i18n.global.t('firewall.deny');
     opRef.value.acceptParams({
         title: i18n.global.t('terminal.defaultConn'),
         names: [],

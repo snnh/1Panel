@@ -482,16 +482,8 @@ import { MsgSuccess } from '@/utils/message';
 import { useCan } from '@/composables/useMenuManagePermission';
 const router = useRouter();
 import { useGlobalStore } from '@/composables/useGlobalStore';
-const {
-    showEntranceWarn,
-    defaultNetwork,
-    defaultIO,
-    isAdmin,
-    isOnRestart,
-    hasNewVersion,
-    isAdminOrNodeAdmin,
-    isXpackOrEE,
-} = useGlobalStore();
+const { showEntranceWarn, defaultNetwork, defaultIO, isAdmin, isOnRestart, hasNewVersion, isAdminOrNodeAdmin } =
+    useGlobalStore();
 
 const DASHBOARD_CACHE_TTL = {
     safeStatus: 10 * 60 * 1000,
@@ -823,7 +815,7 @@ const quickJump = (item: any) => {
 };
 
 const showSimpleNode = () => {
-    return simpleNodeCarouselSetting.value === 'Enable' && isXpackOrEE.value && simpleNodes.value?.length !== 0;
+    return simpleNodeCarouselSetting.value === 'Enable' && simpleNodes.value?.length !== 0;
 };
 
 const toggleSensitiveInfo = () => {

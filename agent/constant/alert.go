@@ -13,17 +13,11 @@ const (
 
 const (
 	CommonConfig = "common"
-	SMSConfig    = "sms"
 	EmailConfig  = "email"
 )
 
 const (
-	WeChat   = "wechat"
-	SMS      = "sms"
-	Email    = "email"
-	WeCom    = "weCom"
-	DingTalk = "dingTalk"
-	FeiShu   = "feiShu"
-	Custom   = "custom"
-	Bark     = "bark"
+	Email  = "email"
+	Custom = "custom"
+	Bark   = "bark"
 )

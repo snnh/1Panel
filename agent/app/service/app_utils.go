@@ -2027,7 +2027,7 @@ func handleOpenrestyFile(appInstall *model.AppInstall) error {
 			return err
 		}
 	}
-	return createAllWebsitesWAFConfig(websites)
+	return nil
 }
 
 func handleDefaultServer(appInstall *model.AppInstall) error {

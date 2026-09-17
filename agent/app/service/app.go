@@ -32,7 +32,6 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/utils/docker"
 	"github.com/1Panel-dev/1Panel/agent/utils/files"
 	"github.com/1Panel-dev/1Panel/agent/utils/req_helper"
-	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
 	"gopkg.in/yaml.v3"
 )
 
@@ -972,10 +971,6 @@ func deleteCustomApp() {
 }
 
 func (a AppService) SyncAppListFromRemote(taskID string) (err error) {
-	if xpack.MultiNodeProvider.IsUseCustomApp() {
-		return nil
-	}
-
 	appStoreSyncMu.Lock()
 	global.LOG.Info("[AppStore] sync app from remote task create start")
 	if appStoreSyncing {

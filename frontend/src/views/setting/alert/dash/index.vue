@@ -18,23 +18,7 @@
                     <el-select filterable clearable v-model="req.type" @change="search()" class="!w-52 dropdown">
                         <template #prefix>{{ $t('commons.table.type') }}</template>
                         <template v-if="isMaster">
-                            <el-option
-                                v-if="!isEE"
-                                value="panelPwdEndTime"
-                                :label="$t('xpack.alert.panelPwdEndTime')"
-                            />
                             <el-option value="panelLogin" :label="$t('xpack.alert.panelLogin')" />
-                            <el-option
-                                v-if="isProductPro && !isEE"
-                                value="licenseException"
-                                :label="$t('xpack.alert.licenseException')"
-                            />
-                            <el-option
-                                v-if="isProductPro"
-                                value="nodeException"
-                                :label="$t('xpack.alert.nodeException')"
-                            />
-                            <el-option v-if="!isEE" value="panelUpdate" :label="$t('xpack.alert.panelUpdate')" />
                         </template>
                         <el-option value="sshLogin" :label="$t('xpack.alert.sshLogin')" />
                         <el-option value="ssl" :label="$t('xpack.alert.ssl')" />
@@ -131,17 +115,6 @@
                             {{ formatRule(row) }}
                         </template>
                     </el-table-column>
-                    <el-table-column
-                        v-if="isEE"
-                        :label="$t('commons.table.creator')"
-                        prop="createUser"
-                        width="100px"
-                        show-overflow-tooltip
-                    >
-                        <template #default="{ row }">
-                            {{ row.createUser || '-' }}
-                        </template>
-                    </el-table-column>
                     <fu-table-operations
                         :ellipsis="2"
                         width="130px"
@@ -168,7 +141,7 @@ import AddTask from '@/views/setting/alert/dash/task/index.vue';
 import { Alert } from '@/api/interface/alert';
 import { UpdateAlertStatus, SearchAlerts, DeleteAlert, PageAlertConfigs } from '@/api/modules/alert';
 
-const { isMobile, isMaster, isProductPro, isEE } = useGlobalStore();
+const { isMobile, isMaster } = useGlobalStore();
 
 const { t } = i18n.global;
 const loading = ref(false);
@@ -213,12 +186,12 @@ const buttons = [
 const openView = async (
     title: string,
     rowData: Partial<Alert.AlertInfo> = {
-        type: isMaster.value && !isEE.value ? 'panelPwdEndTime' : 'sshLogin',
-        cycle: isMaster.value && !isEE.value ? 15 : 30,
-        count: isMaster.value && !isEE.value ? 0 : 3,
+        type: 'sshLogin',
+        cycle: 30,
+        count: 3,
         sendCount: 3,
         method: '',
-        project: isMaster.value && !isEE.value ? '' : 'all',
+        project: 'all',
         status: 'Enable',
         title: '',
     },

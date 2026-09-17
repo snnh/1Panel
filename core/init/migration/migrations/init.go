@@ -18,7 +18,6 @@ import (
 	"github.com/1Panel-dev/1Panel/core/utils/common"
 	"github.com/1Panel-dev/1Panel/core/utils/ctl_conf"
 	"github.com/1Panel-dev/1Panel/core/utils/encrypt"
-	"github.com/1Panel-dev/1Panel/core/utils/menutree"
 	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
@@ -48,14 +47,12 @@ var InitSetting = &gormigrate.Migration{
 		if global.CONF.Base.Language == "zh" {
 			language = "zh"
 		}
-		if !global.CONF.Base.IsEnterprise {
-			if err := tx.Create(&model.Setting{Key: "UserName", Value: global.CONF.Base.Username}).Error; err != nil {
-				return err
-			}
-			pass, _ := encrypt.StringEncrypt(global.CONF.Base.Password)
-			if err := tx.Create(&model.Setting{Key: "Password", Value: pass}).Error; err != nil {
-				return err
-			}
+		if err := tx.Create(&model.Setting{Key: "UserName", Value: global.CONF.Base.Username}).Error; err != nil {
+			return err
+		}
+		pass, _ := encrypt.StringEncrypt(global.CONF.Base.Password)
+		if err := tx.Create(&model.Setting{Key: "Password", Value: pass}).Error; err != nil {
+			return err
 		}
 		_ = ctl_conf.UpdateInFile("/usr/local/bin/1pctl", "ORIGINAL_PASSWORD", "**********")
 		if err := tx.Create(&model.Setting{Key: "Theme", Value: "light"}).Error; err != nil {
@@ -986,36 +983,6 @@ func buildAiMenuChildren(children []dto.ShowMenu) []dto.ShowMenu {
 		}, "AIModel", "OllamaModel"),
 	}
 
-	if global.CONF.Base.IsEnterprise {
-		result = append(result, normalizeAiMenuChild(children, dto.ShowMenu{
-			ID:       "46",
-			Label:    "AIProxyManagement",
-			Disabled: false,
-			IsShow:   true,
-			Title:    "aiTools.aiProxy.title",
-			Path:     "/ai/ai-proxy/model-pool",
-			Sort:     150,
-		}, "AIProxyManagement"))
-		result = append(result, normalizeAiMenuChild(children, dto.ShowMenu{
-			ID:       "47",
-			Label:    "SkillsHub",
-			Disabled: false,
-			IsShow:   true,
-			Title:    "aiTools.skillsHub.title",
-			Path:     "/ai/skills-hub",
-			Sort:     155,
-		}, "SkillsHub"))
-		result = append(result, normalizeAiMenuChild(children, dto.ShowMenu{
-			ID:       "45",
-			Label:    "AIBenchmark",
-			Disabled: false,
-			IsShow:   true,
-			Title:    "aiTools.benchmark.title",
-			Path:     "/ai/benchmark",
-			Sort:     160,
-		}, "AIBenchmark"))
-	}
-
 	result = append(result,
 		normalizeAiMenuChild(children, dto.ShowMenu{
 			ID:       "42",
@@ -1061,55 +1028,21 @@ func normalizeAiMenuChild(children []dto.ShowMenu, fallback dto.ShowMenu, labels
 var AddAIBenchmarkMenu = &gormigrate.Migration{
 	ID: "20260429-add-ai-benchmark-menu",
 	Migrate: func(tx *gorm.DB) error {
-		if !global.CONF.Base.IsEnterprise {
-			return nil
-		}
-		return helper.UpsertChildMenuByLabel(tx, "AI-Menu", dto.ShowMenu{
-			ID:       "45",
-			Disabled: false,
-			Title:    "aiTools.benchmark.title",
-			IsShow:   true,
-			Label:    "AIBenchmark",
-			Path:     "/ai/benchmark",
-			Sort:     160,
-		}, "AIProxyManagement")
+		return nil
 	},
 }
 
 var AddAIProxyMenu = &gormigrate.Migration{
 	ID: "20260509-add-ai-proxy-menu",
 	Migrate: func(tx *gorm.DB) error {
-		if !global.CONF.Base.IsEnterprise {
-			return nil
-		}
-		return helper.UpdateHideMenu(tx, func(menus []dto.ShowMenu) []dto.ShowMenu {
-			for i := range menus {
-				if menus[i].Label != "AI-Menu" {
-					continue
-				}
-				menus[i].Children = buildAiMenuChildren(menus[i].Children)
-				break
-			}
-			return menus
-		})
+		return nil
 	},
 }
 
 var AddSkillsHubMenu = &gormigrate.Migration{
 	ID: "20260517-add-skills-hub-menu",
 	Migrate: func(tx *gorm.DB) error {
-		if !global.CONF.Base.IsEnterprise {
-			return nil
-		}
-		return helper.UpsertChildMenuByLabel(tx, "AI-Menu", dto.ShowMenu{
-			ID:       "47",
-			Disabled: false,
-			Title:    "aiTools.skillsHub.title",
-			IsShow:   true,
-			Label:    "SkillsHub",
-			Path:     "/ai/skills-hub",
-			Sort:     155,
-		}, "AIProxyManagement")
+		return nil
 	},
 }
 
@@ -1160,61 +1093,28 @@ var UpdateXpackSyncMenu = &gormigrate.Migration{
 var AddUserManagementMenu = &gormigrate.Migration{
 	ID: "20260415-add-user-management-menu",
 	Migrate: func(tx *gorm.DB) error {
-		if !global.CONF.Base.IsEnterprise {
-			return nil
-		}
-		return helper.UpsertChildMenuByLabel(tx, "Xpack-Menu", dto.ShowMenu{
-			ID:       "121",
-			Disabled: false,
-			Title:    "xpack.user.userManage",
-			IsShow:   true,
-			Label:    "UserManagement",
-			Path:     "/enterprise/users",
-			Sort:     400,
-		}, "NodeDashboard")
+		return nil
 	},
 }
 
 var AddOpsReportMenu = &gormigrate.Migration{
 	ID: "20260512-add-ops-report-menu",
 	Migrate: func(tx *gorm.DB) error {
-		if !global.CONF.Base.IsEnterprise {
-			return nil
-		}
-		return helper.UpsertChildMenuByLabel(tx, "Xpack-Menu", dto.ShowMenu{
-			ID:       "122",
-			Disabled: false,
-			Title:    "xpack.opsReport.name",
-			IsShow:   true,
-			Label:    "OpsReport",
-			Path:     "/enterprise/ops-report",
-			Sort:     500,
-		}, "UserManagement")
+		return nil
 	},
 }
 
 var AddVirtualMachineMenu = &gormigrate.Migration{
 	ID: "20260623-add-virtual-machine-menu",
 	Migrate: func(tx *gorm.DB) error {
-		if !global.CONF.Base.IsEnterprise {
-			return nil
-		}
-		return helper.UpsertChildMenuByLabel(tx, "Xpack-Menu", dto.ShowMenu{
-			ID:       "123",
-			Disabled: false,
-			Title:    "xpack.vm.title",
-			IsShow:   true,
-			Label:    "VirtualMachine",
-			Path:     "/enterprise/vm",
-			Sort:     900,
-		}, "Upage")
+		return nil
 	},
 }
 
 var UpdateXpackMenuSort = &gormigrate.Migration{
 	ID: "20260706-update-xpack-menu-sort",
 	Migrate: func(tx *gorm.DB) error {
-		return helper.UpdateChildMenuSortByLabel(tx, "Xpack-Menu", helper.XpackMenuSort())
+		return nil
 	},
 }
 
@@ -1354,16 +1254,7 @@ func reconcileHideMenuSetting(tx *gorm.DB) error {
 	if err := json.Unmarshal([]byte(setting.Value), &menus); err != nil || len(menus) == 0 {
 		return updateValue(helper.LoadMenus())
 	}
-
-	updatedMenus, changed := menutree.ReconcileHideMenuIntegrity(menus, nil)
-	if !changed {
-		return nil
-	}
-	updatedJSON, err := json.Marshal(updatedMenus)
-	if err != nil {
-		return err
-	}
-	return updateValue(string(updatedJSON))
+	return nil
 }
 
 var RepairXpackAppMenus = &gormigrate.Migration{

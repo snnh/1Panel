@@ -2,7 +2,7 @@ import { useGlobalStore } from '@/composables/useGlobalStore';
 import { getXpackSetting } from '@/utils/xpack';
 
 export const useLogo = async () => {
-    const { themeConfig, watermark, watermarkShow } = useGlobalStore();
+    const { themeConfig } = useGlobalStore();
     const res = await getXpackSetting();
     if (res) {
         localStorage.setItem('1p-favicon', res.data.logo);
@@ -14,12 +14,6 @@ export const useLogo = async () => {
         themeConfig.value.loginBackground = res.data?.loginBackground;
         themeConfig.value.loginBtnLinkColor = res.data?.loginBtnLinkColor;
         themeConfig.value.favicon = res.data.favicon;
-        watermarkShow.value = res.data.watermarkShow === 'Enable';
-        try {
-            watermark.value = JSON.parse(res.data.watermark);
-        } catch {
-            watermark.value = null;
-        }
     }
 
     const link = (document.querySelector("link[rel*='icon']") || document.createElement('link')) as HTMLLinkElement;

@@ -6,9 +6,7 @@ import (
 	"mime"
 	network "net"
 	"net/http"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/1Panel-dev/1Panel/agent/app/dto"
@@ -339,36 +337,6 @@ func CreateAlertParams(param string) []dto.Param {
 	}
 }
 
-var checkTaskMutex sync.Mutex
-
-func CheckSMSSendLimit(config model.AlertConfig, method string) bool {
-	if config.Type != constant.SMS {
-		return false
-	}
-	alertRepo := repo.NewIAlertRepo()
-	var cfg dto.AlertSmsConfig
-	cfg, err := ParseAlertSmsConfig(config.Config)
-	if err != nil {
-		return false
-	}
-	limitCount, err := strconv.ParseUint(cfg.AlertDailyNum, 10, 64)
-	if err != nil {
-		return false
-	}
-	checkTaskMutex.Lock()
-	defer checkTaskMutex.Unlock()
-	todayCount, err := alertRepo.GetLicensePushCount(method)
-	if err != nil {
-		global.LOG.Errorf("error getting license push count info, err: %v", err)
-		return false
-	}
-	if todayCount >= uint(limitCount) {
-		return false
-	}
-
-	return true
-}
-
 func IsAlertConfigEnabled(config model.AlertConfig) bool {
 	return config.Status == constant.AlertEnable
 }
@@ -477,8 +445,6 @@ func GetSendContent(alertType string, params []dto.Param, agentInfo *dto.AgentIn
 		return i18n.GetMsgWithMap("SSHAndPanelLoginAlert", map[string]interface{}{"name": getValueByIndex(params, "1"), "loginIp": getValueByIndex(params, "2"), "node": getNodeName(agentInfo), "ip": getNodeIp(agentInfo)})
 	case "nodeException":
 		return i18n.GetMsgWithMap("NodeExceptionAlert", map[string]interface{}{"num": getValueByIndex(params, "1"), "node": getNodeName(agentInfo), "ip": getNodeIp(agentInfo)})
-	case "licenseException":
-		return i18n.GetMsgWithMap("LicenseExceptionAlert", map[string]interface{}{"num": getValueByIndex(params, "1"), "node": getNodeName(agentInfo), "ip": getNodeIp(agentInfo)})
 	default:
 		return ""
 	}
@@ -589,26 +555,3 @@ func loadOutboundIP() string {
 	return localAddr.IP.String()
 }
 
-func ParseAlertSmsConfig(configJSON string) (dto.AlertSmsConfig, error) {
-	var tempMap map[string]interface{}
-	err := json.Unmarshal([]byte(configJSON), &tempMap)
-	if err != nil {
-		return dto.AlertSmsConfig{}, err
-	}
-
-	var cfg dto.AlertSmsConfig
-	if phone, ok := tempMap["phone"].(string); ok {
-		cfg.Phone = phone
-	}
-
-	switch v := tempMap["alertDailyNum"].(type) {
-	case float64:
-		cfg.AlertDailyNum = strconv.FormatFloat(v, 'f', 0, 64)
-	case string:
-		cfg.AlertDailyNum = v
-	default:
-		cfg.AlertDailyNum = "50"
-	}
-
-	return cfg, nil
-}

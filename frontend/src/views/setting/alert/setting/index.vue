@@ -49,9 +49,6 @@
                     <template #title>
                         <div class="flex items-center justify-start">
                             {{ $t('xpack.alert.alertConfigHelper') }}
-                            <span v-if="!isProductPro && !isEE">
-                                {{ $t('commons.units.semicolon') }}{{ $t('xpack.alert.alertConfigProHelper') }}
-                            </span>
                             <el-link
                                 class="ml-1 text-xs"
                                 type="primary"
@@ -121,17 +118,6 @@
                             />
                         </template>
                     </el-table-column>
-                    <el-table-column
-                        v-if="isEE"
-                        :label="$t('commons.table.creator')"
-                        width="100px"
-                        prop="createUser"
-                        show-overflow-tooltip
-                    >
-                        <template #default="{ row }">
-                            <span>{{ row.createUser || '-' }}</span>
-                        </template>
-                    </el-table-column>
                     <fu-table-operations
                         width="130px"
                         :ellipsis="2"
@@ -159,7 +145,7 @@ import {
     UpdateAlertConfigStatus,
 } from '@/api/modules/alert';
 import { ElMessageBox } from 'element-plus';
-import { Message, ChatDotRound, Bell, View, Hide, Link } from '@element-plus/icons-vue';
+import { Message, Bell, View, Hide, Link } from '@element-plus/icons-vue';
 import SendTimeRange from '@/views/setting/alert/setting/time-range/index.vue';
 import i18n from '@/lang';
 import { MsgError, MsgSuccess } from '@/utils/message';
@@ -168,7 +154,7 @@ import { Alert } from '@/api/interface/alert';
 import { formatCustomWebhookDetails, formatCustomWebhookSafeSummary } from './drawer/custom-webhook';
 import { getAlertConfigDisplayName, rawSecretValue } from './drawer/secret-field';
 
-const { docsUrl, isMaster, isMobile, isProductPro, isEE, isIntl } = useGlobalStore();
+const { docsUrl, isMaster, isMobile } = useGlobalStore();
 
 const loading = ref(false);
 const alertDrawerRef = ref();
@@ -251,9 +237,6 @@ function getConfigDetails(row: Alert.AlertConfigInfo): string {
                 cfg.recipients && cfg.recipients.length > 0 ? cfg.recipients.join(', ') : cfg.recipient || '';
             return `${cfg.sender || ''} → ${cfg.host || ''}:${cfg.port || ''} | ${i18n.global.t('xpack.alert.recipient')}: ${recipients}`;
         }
-        if (row.type === 'sms') {
-            return `${i18n.global.t('xpack.alert.phone')}: ${rawSecretValue(cfg.phone)}`;
-        }
         if (row.type === 'custom') {
             return formatCustomWebhookDetails(cfg, i18n.global.t('commons.msg.noneData'));
         }
@@ -290,9 +273,6 @@ function getConfigSummary(row: Alert.AlertConfigInfo): string {
                 cfg.recipients && cfg.recipients.length > 0 ? cfg.recipients.length : cfg.recipient ? 1 : 0;
             return `${maskString(cfg.sender || '')} → ${cfg.host || ''}:${cfg.port || ''} | ${i18n.global.t('xpack.alert.recipient')}: ${recipientCount}`;
         }
-        if (row.type === 'sms') {
-            return `${i18n.global.t('xpack.alert.phone')}: ${maskString(rawSecretValue(cfg.phone), 4)}`;
-        }
         if (row.type === 'custom') {
             return formatCustomWebhookSafeSummary(cfg, { includeUrl: false });
         }
@@ -305,10 +285,6 @@ function getConfigSummary(row: Alert.AlertConfigInfo): string {
 const getTypeIcon = (type: string) => {
     const map: Record<string, any> = {
         email: Message,
-        sms: Message,
-        weCom: ChatDotRound,
-        dingTalk: ChatDotRound,
-        feiShu: ChatDotRound,
         bark: Bell,
         custom: Link,
     };
@@ -318,10 +294,6 @@ const getTypeIcon = (type: string) => {
 const getTypeColor = (type: string) => {
     const map: Record<string, string> = {
         email: '#409eff',
-        sms: '#909399',
-        weCom: '#67c23a',
-        dingTalk: '#409eff',
-        feiShu: '#7c3aed',
         bark: '#e6a23c',
         custom: '#6366f1',
     };
@@ -331,10 +303,6 @@ const getTypeColor = (type: string) => {
 const getTypeTagType = (type: string) => {
     const map: Record<string, string> = {
         email: '',
-        sms: 'info',
-        weCom: 'success',
-        dingTalk: '',
-        feiShu: 'danger',
         bark: 'warning',
         custom: 'primary',
     };
@@ -458,8 +426,10 @@ const onStatusChange = async (row: Alert.AlertConfigInfo) => {
     }
 };
 
+const removedAlertTypes = ['weCom', 'dingTalk', 'feiShu', 'sms'];
+
 const isStatusChangeDisabled = (row: Alert.AlertConfigInfo): boolean => {
-    return !isProductPro.value && ['weCom', 'dingTalk', 'feiShu', 'sms'].includes(row.type);
+    return removedAlertTypes.includes(row.type);
 };
 
 const onDelete = (id: number) => {
@@ -503,9 +473,7 @@ const buttons = computed(() => [
         click: (row: Alert.AlertConfigInfo) => {
             openEditDrawer(row);
         },
-        disabled: (row: Alert.AlertConfigInfo) =>
-            !row.updatedAt ||
-            ((isIntl.value || !isProductPro.value) && ['weCom', 'dingTalk', 'feiShu', 'sms'].includes(row.type)),
+        disabled: (row: Alert.AlertConfigInfo) => !row.updatedAt || removedAlertTypes.includes(row.type),
     },
     {
         label: i18n.global.t('commons.button.delete'),

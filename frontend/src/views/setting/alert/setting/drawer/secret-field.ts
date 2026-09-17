@@ -80,11 +80,6 @@ export const getAlertConfigDisplayName = (type: string, config: Record<string, u
     const sender = typeof config.sender === 'string' ? config.sender.trim() : '';
     if (sender) return sender;
 
-    if (type === 'sms') {
-        const phone = rawSecretValue(config.phone);
-        if (phone) return phone;
-    }
-
     if (Array.isArray(config.webhooks)) {
         return config.webhooks
             .map((webhook) =>

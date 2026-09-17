@@ -22,47 +22,12 @@ var userListCmd = &cobra.Command{
 			fmt.Println(i18n.GetMsgWithMapForCmd("SudoHelper", map[string]interface{}{"cmd": "sudo 1pctl user-list"}))
 			return nil
 		}
-		if isEnterprise() {
-			db, err := loadDBConn("enterprise.db")
-			if err != nil {
-				return err
-			}
-			return listEnterpriseUsers(db)
-		}
 		db, err := loadDBConn("core.db")
 		if err != nil {
 			return err
 		}
 		return listCommunityUsers(db)
 	},
-}
-
-func listEnterpriseUsers(db *gorm.DB) error {
-	var userModels []User
-	if err := db.Order("created_at desc").Find(&userModels).Error; err != nil {
-		return err
-	}
-
-	rows := make([]enterpriseUserRow, 0, len(userModels))
-	for _, user := range userModels {
-		superAdmin := "no"
-		if user.IsSuperAdmin {
-			superAdmin = "yes"
-		}
-		rows = append(rows, enterpriseUserRow{
-			Name:       user.Name,
-			MFAStatus:  user.MFAStatus,
-			SuperAdmin: superAdmin,
-			CreatedAt:  user.CreatedAt.Format(time.RFC3339),
-		})
-	}
-
-	if len(rows) == 0 {
-		fmt.Println(i18n.GetMsgByKeyForCmd("UserEmptyList"))
-		return nil
-	}
-
-	return printUserRows(rows)
 }
 
 func listCommunityUsers(db *gorm.DB) error {
@@ -133,13 +98,6 @@ type enterpriseUserRow struct {
 	MFAStatus  string
 	SuperAdmin string
 	CreatedAt  string
-}
-
-type User struct {
-	Name         string
-	MFAStatus    string
-	IsSuperAdmin bool
-	CreatedAt    time.Time
 }
 
 func joinColumns(values []string, widths []int) string {

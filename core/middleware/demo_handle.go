@@ -60,10 +60,6 @@ var demoAllowedRoutes = map[demoRoute]struct{}{
 	{http.MethodPost, "/api/v2/core/enterprise/ai-proxy/usage/attempts"}:         {},
 	{http.MethodPost, "/api/v2/core/enterprise/ai-proxy/usage/statistics"}:       {},
 
-	{http.MethodPost, "/api/v2/xpack/waf/attack/stat"}:    {},
-	{http.MethodPost, "/api/v2/xpack/waf/config/website"}: {},
-	{http.MethodPost, "/api/v2/xpack/waf/relation/stat"}:  {},
-
 	{http.MethodPost, "/api/v2/xpack/monitor/stat"}:         {},
 	{http.MethodPost, "/api/v2/xpack/monitor/visitors"}:     {},
 	{http.MethodPost, "/api/v2/xpack/monitor/visitors/loc"}: {},
@@ -72,7 +68,6 @@ var demoAllowedRoutes = map[demoRoute]struct{}{
 	{http.MethodPost, "/api/v2/xpack/monitor/websites"}:     {},
 	{http.MethodPost, "/api/v2/xpack/monitor/trend"}:        {},
 	{http.MethodPost, "/api/v2/xpack/monitor/rank"}:         {},
-	{http.MethodPost, "/api/v2/xpack/waf/cdn"}:              {},
 
 	{http.MethodPost, "/api/v2/core/nodes/list"}: {},
 }

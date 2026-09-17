@@ -30,33 +30,18 @@ import (
 type AlertService struct{}
 
 var eeHiddenAlertTypes = []string{"licenseException", "panelUpdate", "panelPwdEndTime"}
-var communityAlertMethodTypeNames = map[string]string{
-	constant.WeCom:    "WeCom",
-	constant.DingTalk: "DingTalk",
-	constant.FeiShu:   "FeiShu",
-	constant.SMS:      "SMS",
-}
 
 var legacyAlertMethodTypeMap = map[string]string{
-	"mail":            constant.Email,
-	constant.Email:    constant.Email,
-	constant.SMS:      constant.SMS,
-	constant.Bark:     constant.Bark,
-	constant.WeChat:   constant.WeCom,
-	constant.WeCom:    constant.WeCom,
-	constant.DingTalk: constant.DingTalk,
-	constant.FeiShu:   constant.FeiShu,
-	constant.Custom:   constant.Custom,
+	"mail":          constant.Email,
+	constant.Email:  constant.Email,
+	constant.Bark:   constant.Bark,
+	constant.Custom: constant.Custom,
 }
 
 var supportedAlertMethodTypes = map[string]struct{}{
-	constant.Email:    {},
-	constant.SMS:      {},
-	constant.Bark:     {},
-	constant.WeCom:    {},
-	constant.DingTalk: {},
-	constant.FeiShu:   {},
-	constant.Custom:   {},
+	constant.Email:  {},
+	constant.Bark:   {},
+	constant.Custom: {},
 }
 
 type IAlertService interface {
@@ -166,7 +151,7 @@ func (a AlertService) GetAlerts() ([]dto.AlertDTO, error) {
 }
 
 func (a AlertService) CreateAlert(create dto.AlertCreate, operator string) error {
-	if err := a.validateCommunityAlertMethod(create.Method); err != nil {
+	if _, err := a.validateAlertMethodReferences(create.Method); err != nil {
 		return err
 	}
 	var alertID uint
@@ -207,14 +192,8 @@ func (a AlertService) CreateAlert(create dto.AlertCreate, operator string) error
 }
 
 func (a AlertService) UpdateAlert(req dto.AlertUpdate, operator string) error {
-	methodTypes, err := a.validateAlertMethodReferences(req.Method)
-	if err != nil {
+	if _, err := a.validateAlertMethodReferences(req.Method); err != nil {
 		return err
-	}
-	if req.Status != constant.AlertDisable {
-		if err := a.validateAlertMethodEntitlement(methodTypes); err != nil {
-			return err
-		}
 	}
 
 	upMap := make(map[string]interface{})
@@ -273,17 +252,10 @@ func (a AlertService) UpdateStatus(id uint, status string) error {
 	if alertInfo.ID == 0 {
 		return buserr.New("ErrRecordNotFound")
 	}
-	methodTypes, err := a.validateAlertMethodReferences(alertInfo.Method)
-	if err != nil {
+	if _, err := a.validateAlertMethodReferences(alertInfo.Method); err != nil {
 		return err
 	}
-	if status == constant.AlertEnable {
-		if err := a.validateAlertMethodEntitlement(methodTypes); err != nil {
-			return err
-		}
-	}
-	err = alertRepo.Update(map[string]interface{}{"status": status}, repo.WithByID(alertInfo.ID))
-	if err != nil {
+	if err := alertRepo.Update(map[string]interface{}{"status": status}, repo.WithByID(alertInfo.ID)); err != nil {
 		return err
 	}
 	alerts, err := a.GetAlerts()
@@ -589,18 +561,12 @@ func (a AlertService) UpdateAlertConfig(req dto.AlertConfigUpdate, operator stri
 		}
 		existing = &stored
 	}
-	if err := a.validateCommunityAlertConfigType(req.Type); err != nil {
-		return err
-	}
 	prepared, err := alertconfig.Prepare(req.Type, req.Config, req.Status, existing)
 	if err != nil {
 		return err
 	}
 	req.Config = prepared
 	if err := a.checkAlertConfigDisplayNameUnique(req); err != nil {
-		return err
-	}
-	if err := a.checkAlertConfigSMSPhoneUnique(req); err != nil {
 		return err
 	}
 	if req.ID != 0 {
@@ -686,9 +652,6 @@ func (a AlertService) UpdateAlertConfigStatus(req dto.AlertConfigStatusUpdate, o
 		return err
 	}
 	if req.Status == constant.AlertEnable {
-		if err := a.validateCommunityAlertConfigType(config.Type); err != nil {
-			return err
-		}
 		if config.Type == constant.Custom {
 			if _, err := alertwebhook.Resolve(config); err != nil {
 				return err
@@ -722,29 +685,6 @@ func exposeCustomAlertConfigSecrets(configs []model.AlertConfig) error {
 	return nil
 }
 
-func (a AlertService) checkAlertConfigSMSPhoneUnique(req dto.AlertConfigUpdate) error {
-	if req.Type != constant.SMSConfig {
-		return nil
-	}
-
-	phone := alertConfigSMSPhone(req.Config)
-	configs, err := alertRepo.AlertConfigList(alertRepo.WithByType(req.Type))
-	if err != nil {
-		return err
-	}
-
-	for _, config := range configs {
-		if req.ID != 0 && config.ID == req.ID {
-			continue
-		}
-		if alertConfigSMSPhone(config.Config) == phone {
-			return buserr.New("ErrAlertConfigPhoneExist")
-		}
-	}
-
-	return nil
-}
-
 func (a AlertService) checkAlertConfigDisplayNameUnique(req dto.AlertConfigUpdate) error {
 	if req.Type != constant.Custom && (global.CONF.Base.IsEnterprise || global.CONF.Base.Edition == "cn") {
 		return nil
@@ -769,14 +709,6 @@ func (a AlertService) checkAlertConfigDisplayNameUnique(req dto.AlertConfigUpdat
 	}
 
 	return nil
-}
-
-func (a AlertService) validateCommunityAlertMethod(method string) error {
-	methodTypes, err := a.validateAlertMethodReferences(method)
-	if err != nil {
-		return err
-	}
-	return a.validateAlertMethodEntitlement(methodTypes)
 }
 
 func (a AlertService) validateAlertMethodReferences(method string) ([]string, error) {
@@ -814,37 +746,9 @@ func (a AlertService) validateAlertMethodReferences(method string) ([]string, er
 	return methodTypes, nil
 }
 
-func (a AlertService) validateAlertMethodEntitlement(methodTypes []string) error {
-	for _, configType := range methodTypes {
-		if configType == constant.Custom {
-			continue
-		}
-		if global.CONF.Base.IsEnterprise || global.CONF.Base.Edition == "cn" {
-			continue
-		}
-		if _, ok := communityAlertMethodTypeNames[configType]; ok {
-			return buserr.WithErr("ErrAlertMethodNotSupported", nil)
-		}
-	}
-	return nil
-}
-
-func (a AlertService) validateCommunityAlertConfigType(configType string) error {
-	if configType == constant.Custom {
-		return nil
-	}
-	if global.CONF.Base.IsEnterprise || global.CONF.Base.Edition == "cn" {
-		return nil
-	}
-	if _, ok := communityAlertMethodTypeNames[configType]; ok {
-		return buserr.WithErr("ErrAlertMethodNotSupported", nil)
-	}
-	return nil
-}
-
 func alertConfigDisplayName(configType, configData string) string {
 	switch configType {
-	case constant.Email, constant.WeCom, constant.DingTalk, constant.FeiShu, constant.Bark, constant.SMS, constant.Custom:
+	case constant.Email, constant.Bark, constant.Custom:
 		var cfg struct {
 			DisplayName string `json:"displayName"`
 		}
@@ -855,16 +759,6 @@ func alertConfigDisplayName(configType, configData string) string {
 	default:
 		return ""
 	}
-}
-
-func alertConfigSMSPhone(configData string) string {
-	var cfg struct {
-		Phone string `json:"phone"`
-	}
-	if err := json.Unmarshal([]byte(configData), &cfg); err != nil {
-		return ""
-	}
-	return strings.TrimSpace(cfg.Phone)
 }
 
 func (a AlertService) DeleteAlertConfig(id uint) error {
@@ -991,16 +885,8 @@ func (a AlertService) TestCustomAlertConfig(req dto.AlertConfigTest) (dto.AlertC
 }
 
 func (a AlertService) ExternalUpdateAlert(updateAlert dto.AlertCreate, operator string) error {
-	var methodTypes []string
 	if updateAlert.SendCount != 0 || strings.TrimSpace(updateAlert.Method) != "" {
-		var err error
-		methodTypes, err = a.validateAlertMethodReferences(updateAlert.Method)
-		if err != nil {
-			return err
-		}
-	}
-	if updateAlert.SendCount != 0 {
-		if err := a.validateAlertMethodEntitlement(methodTypes); err != nil {
+		if _, err := a.validateAlertMethodReferences(updateAlert.Method); err != nil {
 			return err
 		}
 	}

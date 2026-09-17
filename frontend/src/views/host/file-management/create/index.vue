@@ -1,11 +1,5 @@
 <template>
     <DrawerPro v-model="open" :header="$t('commons.button.create')" @close="handleClose" size="normal">
-        <el-alert
-            v-if="addForm.isAppendOnly"
-            type="warning"
-            :title="$t('xpack.tamper.tamperCreateHint')"
-            :closable="false"
-        />
         <el-form
             ref="fileForm"
             class="mt-2"
@@ -81,7 +75,6 @@ let addForm = reactive({
     isLink: false,
     isSymlink: true,
     linkPath: '',
-    isAppendOnly: false,
 });
 let open = ref(false);
 const em = defineEmits(['close']);
@@ -153,7 +146,6 @@ const acceptParams = (create: File.FileCreate) => {
     addForm.path = create.path;
     addForm.name = '';
     addForm.isLink = false;
-    addForm.isAppendOnly = Boolean(create.isAppendOnly);
 
     init();
 };

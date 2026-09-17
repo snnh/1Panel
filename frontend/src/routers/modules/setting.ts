@@ -75,18 +75,6 @@ const settingRouter = {
                     },
                 },
                 {
-                    path: 'license',
-                    name: 'License',
-                    component: () => import('@/views/setting/license/index.vue'),
-                    hidden: true,
-                    meta: {
-                        parent: 'menu.settings',
-                        title: 'setting.license',
-                        activeMenu: '/settings',
-                        adminOnly: true,
-                    },
-                },
-                {
                     path: 'about',
                     name: 'About',
                     component: () => import('@/views/setting/about/index.vue'),
@@ -120,16 +108,6 @@ const settingRouter = {
                         title: 'setting.snapshot',
                         activeMenu: '/settings',
                         adminOnly: true,
-                    },
-                },
-                {
-                    path: 'expired',
-                    name: 'Expired',
-                    hidden: true,
-                    component: () => import('@/views/setting/expired.vue'),
-                    meta: {
-                        activeMenu: '/settings',
-                        ignoreTab: true,
                     },
                 },
             ],

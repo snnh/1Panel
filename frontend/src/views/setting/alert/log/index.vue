@@ -4,9 +4,6 @@
             <template #toolbar>
                 <div class="flex justify-between gap-2 flex-wrap sm:flex-row">
                     <div class="flex flex-wrap gap-3">
-                        <el-button v-permission type="primary" @click="syncAll" v-if="isProductPro && !isIntl">
-                            {{ $t('commons.button.sync') }}
-                        </el-button>
                         <el-button v-permission type="primary" plain @click="onClean">
                             {{ $t('xpack.alert.cleanLog') }}
                         </el-button>
@@ -66,15 +63,6 @@
                             {{ formatCount(row) }}
                         </template>
                     </el-table-column>
-                    <fu-table-operations
-                        v-if="isProductPro && !isIntl"
-                        :ellipsis="2"
-                        width="130px"
-                        :buttons="buttons"
-                        :label="$t('commons.table.operate')"
-                        :fixed="isMobile ? false : 'right'"
-                        fix
-                    />
                 </ComplexTable>
             </template>
         </LayoutContent>
@@ -87,20 +75,12 @@ import { dateFormat } from '@/utils/date';
 import { MsgSuccess } from '@/utils/message';
 import i18n from '@/lang';
 import { Alert } from '@/api/interface/alert';
-import {
-    SearchAlertLogs,
-    SyncAlertInfo,
-    CleanAlertLogs,
-    SyncAlertAll,
-    SyncOfflineAlert,
-    ListAlertConfigs,
-    PageAlertConfigs,
-} from '@/api/modules/alert';
+import { SearchAlertLogs, CleanAlertLogs, ListAlertConfigs, PageAlertConfigs } from '@/api/modules/alert';
 import { ElMessageBox } from 'element-plus';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import { getAlertConfigDisplayName } from '@/views/setting/alert/setting/drawer/secret-field';
 
-const { isMobile, isProductPro, isIntl, isMaster } = useGlobalStore();
+const { isMaster } = useGlobalStore();
 const { t } = i18n.global;
 const loading = ref(false);
 const data = ref();
@@ -145,26 +125,6 @@ const req = reactive({
     status: '',
 });
 
-const buttons = [
-    {
-        label: i18n.global.t('commons.button.sync'),
-        permission: true,
-        click: function (row: Alert.AlertLog) {
-            syncAlert(row);
-        },
-        disabled: (row: Alert.AlertLog) => {
-            const isSms = row.method
-                .split(',')
-                .filter(Boolean)
-                .some((item) => {
-                    const config = configMap.value.get(item.trim());
-                    return config ? config.type === 'sms' : item.trim() === 'sms';
-                });
-            return (!isSms && row.status != 'PushSuccess' && row.status != 'SyncError') || row.status == 'Success';
-        },
-    },
-];
-
 const statusMap = {
     PushSuccess: { type: 'success', text: 'xpack.alert.pushSuccess' },
     Pushing: { type: 'warning', text: 'xpack.alert.pushing' },
@@ -176,21 +136,6 @@ const statusMap = {
 
 const statusConfig = (row) => {
     return statusMap[row.status] || statusMap['default'];
-};
-
-const syncAlert = (row: Alert.AlertLog) => {
-    ElMessageBox.confirm(t('xpack.alert.syncAlertInfoMsg'), t('xpack.alert.syncAlertInfo'), {
-        confirmButtonText: t('commons.button.confirm'),
-        cancelButtonText: t('commons.button.cancel'),
-    }).then(async () => {
-        if (!isMaster.value && isOffline.value == 'Enable') {
-            await SyncOfflineAlert();
-        } else {
-            await SyncAlertInfo({ id: row.id });
-        }
-        MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));
-        await search();
-    });
 };
 
 const formatMessage = (row: Alert.AlertInfo) => {
@@ -258,16 +203,6 @@ const formatMethod = (row: Alert.AlertLog) => {
             case 'mail':
             case 'email':
                 return t('xpack.alert.mail');
-            case 'dingTalk':
-                return t('xpack.alert.dingTalk');
-            case 'weCom':
-                return t('xpack.alert.weCom');
-            case 'feiShu':
-                return t('xpack.alert.feiShu');
-            case 'wechat':
-                return t('xpack.alert.wechat');
-            case 'sms':
-                return t('xpack.alert.sms');
             case 'webhook':
             case 'custom':
                 return t('xpack.alert.custom');
@@ -312,25 +247,6 @@ const search = async () => {
     }
 };
 
-const syncAll = async () => {
-    ElMessageBox.confirm(t('xpack.alert.syncAlertInfoMsg'), t('xpack.alert.syncAlertInfo'), {
-        confirmButtonText: t('commons.button.confirm'),
-        cancelButtonText: t('commons.button.cancel'),
-    }).then(async () => {
-        await syncAllAlert();
-        await search();
-        MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));
-    });
-};
-
-const syncAllAlert = async () => {
-    if (!isMaster.value && isOffline.value == 'Enable') {
-        await SyncOfflineAlert();
-    } else {
-        await SyncAlertAll();
-    }
-};
-
 const onClean = async () => {
     ElMessageBox.confirm(i18n.global.t('commons.msg.clean'), i18n.global.t('xpack.alert.cleanAlertLogs'), {
         confirmButtonText: i18n.global.t('commons.button.confirm'),
@@ -367,9 +283,6 @@ const searchAlertInfo = async () => {
 onMounted(async () => {
     await loadConfigMap();
     await searchAlertInfo();
-    if (isProductPro.value && !isIntl.value) {
-        await syncAllAlert();
-    }
     await search();
 });
 </script>

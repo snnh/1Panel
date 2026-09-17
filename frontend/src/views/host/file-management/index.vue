@@ -835,7 +835,7 @@ let pathWidth = ref(0);
 const history: string[] = [];
 let pointer = -1;
 
-const fileCreate = reactive({ path: '/', isDir: false, mode: 0o755, isAppendOnly: false });
+const fileCreate = reactive({ path: '/', isDir: false, mode: 0o755 });
 const fileCompress = reactive({ files: [''], name: '', dst: '', operate: 'compress' });
 const fileDeCompress = reactive({ path: '', name: '', dst: '', type: '' });
 const fileEdit = reactive<{
@@ -847,9 +847,9 @@ const fileEdit = reactive<{
 }>({ content: '', path: '', name: '', language: 'plaintext', extension: '' });
 const filePreview = reactive({ path: '', name: '', extension: '', fileType: '', imageFiles: [], currentNode: '' });
 const codeReq = reactive({ path: '', expand: false, page: 1, pageSize: 100, isDetail: false });
-const fileUpload = reactive({ path: '', isAppendOnly: false });
+const fileUpload = reactive({ path: '' });
 const fileRename = reactive({ path: '', oldName: '', newName: '' });
-const fileWget = reactive({ path: '', isAppendOnly: false });
+const fileWget = reactive({ path: '' });
 const fileMove = reactive({ oldPaths: [''], allNames: [''], type: '', path: '', name: '', count: 0, isDir: false });
 const fileConvert = reactive<{
     outputPath: string;
@@ -1075,9 +1075,6 @@ const handleSearchResult = (res: ResultData<File.File>) => {
     if (res.data.path) {
         req.path = res.data.path;
     }
-    fileCreate.isAppendOnly = res.data.isAppendOnly;
-    fileUpload.isAppendOnly = res.data.isAppendOnly;
-    fileWget.isAppendOnly = res.data.isAppendOnly;
     scheduleRemarkLoad();
 };
 

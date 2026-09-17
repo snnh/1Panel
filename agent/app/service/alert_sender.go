@@ -57,12 +57,6 @@ func (s *AlertSender) sendByConfig(config model.AlertConfig, quota string, param
 		return
 	}
 	switch config.Type {
-	case constant.SMS:
-		if isResource {
-			s.sendResourceSMSWithConfig(config, quota, params)
-		} else {
-			s.sendSMSWithConfig(config, quota, params)
-		}
 	case constant.Email:
 		if isResource {
 			s.sendResourceEmailWithConfig(config, quota, params)
@@ -75,7 +69,7 @@ func (s *AlertSender) sendByConfig(config model.AlertConfig, quota string, param
 		} else {
 			s.sendBarkWithConfig(config, quota, params)
 		}
-	case constant.WeCom, constant.DingTalk, constant.FeiShu, constant.Custom:
+	case constant.Custom:
 		if isResource {
 			s.sendResourceWebhookWithConfig(config, quota, params)
 		} else {
@@ -86,7 +80,7 @@ func (s *AlertSender) sendByConfig(config model.AlertConfig, quota string, param
 
 func (s *AlertSender) sendByLegacyMethod(method string, quota string, params []dto.Param, isResource bool) {
 	alertRepo := repo.NewIAlertRepo()
-	typeMap := map[string]string{"mail": constant.Email, constant.Bark: constant.Bark, constant.SMS: constant.SMS, constant.Custom: constant.Custom}
+	typeMap := map[string]string{"mail": constant.Email, constant.Bark: constant.Bark, constant.Custom: constant.Custom}
 	configType := method
 	if mapped, ok := typeMap[method]; ok {
 		configType = mapped
@@ -99,45 +93,6 @@ func (s *AlertSender) sendByLegacyMethod(method string, quota string, params []d
 		return
 	}
 	s.sendByConfig(config, quota, params, isResource)
-}
-
-func (s *AlertSender) sendSMSWithConfig(config model.AlertConfig, quota string, params []dto.Param) {
-	if !alertUtil.IsAlertConfigEnabled(config) {
-		return
-	}
-	method := strconv.Itoa(int(config.ID))
-	if !alertUtil.CheckSMSSendLimit(config, method) {
-		return
-	}
-
-	totalCount, isValid := s.canSendAlert(method)
-	if !isValid {
-		return
-	}
-
-	create := dto.AlertLogCreate{
-		Status:  constant.AlertSuccess,
-		Count:   totalCount + 1,
-		AlertId: s.alert.ID,
-		Type:    s.alert.Type,
-		Method:  method,
-	}
-
-	err := xpack.AlertProvider.CreateSMSAlertLog(s.alert.Type, s.alert, create, quota, params, config, method)
-	if err != nil {
-		global.LOG.Errorf("%s alert sms push failed: %v", s.alert.Type, err)
-		return
-	}
-	alertUtil.CreateNewAlertTask(quota, s.alert.Type, s.quotaType, method)
-}
-
-func (s *AlertSender) sendSMS(quota string, params []dto.Param) {
-	alertRepo := repo.NewIAlertRepo()
-	config, err := alertRepo.GetConfig(alertRepo.WithByType(constant.SMS))
-	if err != nil {
-		return
-	}
-	s.sendSMSWithConfig(config, quota, params)
 }
 
 func (s *AlertSender) sendEmailWithConfig(config model.AlertConfig, quota string, params []dto.Param) {
@@ -308,23 +263,17 @@ func (s *AlertSender) sendWebhookWithConfig(config model.AlertConfig, quota stri
 	}
 	transport := xpack.MultiNodeProvider.LoadRequestTransport()
 	agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
-	queued := false
-	var err error
-	if config.Type == constant.Custom {
-		task := dto.AlertTaskMetadata{
-			AlertID:   s.alert.ID,
-			Type:      s.alert.Type,
-			Quota:     quota,
-			QuotaType: s.quotaType,
-			Method:    strconv.Itoa(int(config.ID)),
-		}
-		result, deliveryErr := xpack.DeliverCustomWebhookAlertLog(s.alert.Type, s.alert, create, quota, params, config, transport, agentInfo, task)
-		queued, err = result.Queued, deliveryErr
-		if err == nil && result.Queued {
-			_, err = alertUtil.RecordQueuedAlertTask(result.LogID, task)
-		}
-	} else {
-		err = xpack.AlertProvider.CreateWebhookAlertLog(s.alert.Type, s.alert, create, quota, params, config, transport, agentInfo)
+	task := dto.AlertTaskMetadata{
+		AlertID:   s.alert.ID,
+		Type:      s.alert.Type,
+		Quota:     quota,
+		QuotaType: s.quotaType,
+		Method:    strconv.Itoa(int(config.ID)),
+	}
+	result, err := xpack.DeliverCustomWebhookAlertLog(s.alert.Type, s.alert, create, quota, params, config, transport, agentInfo, task)
+	queued := result.Queued
+	if err == nil && result.Queued {
+		_, err = alertUtil.RecordQueuedAlertTask(result.LogID, task)
 	}
 	if err != nil {
 		global.LOG.Errorf("%s alert %s webhook push failed: %v", s.alert.Type, config.Type, err)
@@ -353,23 +302,17 @@ func (s *AlertSender) sendResourceWebhookWithConfig(config model.AlertConfig, qu
 	}
 	transport := xpack.MultiNodeProvider.LoadRequestTransport()
 	agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
-	queued := false
-	var err error
-	if config.Type == constant.Custom {
-		task := dto.AlertTaskMetadata{
-			AlertID:   s.alert.ID,
-			Type:      s.alert.Type,
-			Quota:     quota,
-			QuotaType: s.quotaType,
-			Method:    strconv.Itoa(int(config.ID)),
-		}
-		result, deliveryErr := xpack.DeliverCustomWebhookAlertLog(s.alert.Type, s.alert, create, quota, params, config, transport, agentInfo, task)
-		queued, err = result.Queued, deliveryErr
-		if err == nil && result.Queued {
-			_, err = alertUtil.RecordQueuedAlertTask(result.LogID, task)
-		}
-	} else {
-		err = xpack.AlertProvider.CreateWebhookAlertLog(s.alert.Type, s.alert, create, quota, params, config, transport, agentInfo)
+	task := dto.AlertTaskMetadata{
+		AlertID:   s.alert.ID,
+		Type:      s.alert.Type,
+		Quota:     quota,
+		QuotaType: s.quotaType,
+		Method:    strconv.Itoa(int(config.ID)),
+	}
+	result, err := xpack.DeliverCustomWebhookAlertLog(s.alert.Type, s.alert, create, quota, params, config, transport, agentInfo, task)
+	queued := result.Queued
+	if err == nil && result.Queued {
+		_, err = alertUtil.RecordQueuedAlertTask(result.LogID, task)
 	}
 	if err != nil {
 		global.LOG.Errorf("%s alert %s webhook push failed: %v", s.alert.Type, config.Type, err)
@@ -396,44 +339,6 @@ func (s *AlertSender) sendResourceWebhook(quota string, params []dto.Param, meth
 		return
 	}
 	s.sendResourceWebhookWithConfig(config, quota, params)
-}
-
-func (s *AlertSender) sendResourceSMSWithConfig(config model.AlertConfig, quota string, params []dto.Param) {
-	if !alertUtil.IsAlertConfigEnabled(config) {
-		return
-	}
-	method := strconv.Itoa(int(config.ID))
-	if !alertUtil.CheckSMSSendLimit(config, method) {
-		return
-	}
-
-	todayCount, isValid := s.canResourceSendAlert(method)
-	if !isValid {
-		return
-	}
-
-	create := dto.AlertLogCreate{
-		Status:  constant.AlertSuccess,
-		Count:   todayCount + 1,
-		AlertId: s.alert.ID,
-		Type:    s.alert.Type,
-		Method:  method,
-	}
-
-	if err := xpack.AlertProvider.CreateSMSAlertLog(s.alert.Type, s.alert, create, quota, params, config, method); err != nil {
-		global.LOG.Errorf("failed to send SMS alert: %v", err)
-		return
-	}
-	alertUtil.CreateNewAlertTask(quota, s.alert.Type, s.quotaType, method)
-}
-
-func (s *AlertSender) sendResourceSMS(quota string, params []dto.Param) {
-	alertRepo := repo.NewIAlertRepo()
-	config, err := alertRepo.GetConfig(alertRepo.WithByType(constant.SMSConfig))
-	if err != nil {
-		return
-	}
-	s.sendResourceSMSWithConfig(config, quota, params)
 }
 
 func (s *AlertSender) canSendAlert(method string) (uint, bool) {

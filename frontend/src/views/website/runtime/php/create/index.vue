@@ -208,7 +208,7 @@
 <script lang="ts" setup>
 import { App } from '@/api/interface/app';
 import { Runtime } from '@/api/interface/runtime';
-import { getAppByKey, getAppDetail, getCurrentNodeCustomAppConfig, searchApp } from '@/api/modules/app';
+import { getAppByKey, getAppDetail, searchApp } from '@/api/modules/app';
 import { CreateRuntime, GetRuntime, ListPHPExtensions, UpdateRuntime } from '@/api/modules/runtime';
 import { Rules } from '@/global/form-rules';
 import i18n from '@/lang';
@@ -218,8 +218,7 @@ import { FormInstance } from 'element-plus';
 import { reactive, ref } from 'vue';
 import { getLabel } from '@/utils/app-store';
 import { useGlobalStore } from '@/composables/useGlobalStore';
-import { resolveRuntimeAppResource } from '@/utils/runtime-app-resource';
-const { docsUrl, isFxplay, isIntl, isOffline, isXpackOrEE } = useGlobalStore();
+const { docsUrl, isFxplay, isIntl, isOffline } = useGlobalStore();
 
 interface OperateRrops {
     id?: number;
@@ -341,18 +340,7 @@ const changeResource = (resource: string) => {
 };
 
 const loadRuntimeAppResource = async () => {
-    if (isOffline.value) {
-        return 'custom';
-    }
-    if (!isXpackOrEE.value) {
-        return 'remote';
-    }
-    try {
-        const res = await getCurrentNodeCustomAppConfig();
-        return resolveRuntimeAppResource(isOffline.value, res.data?.status);
-    } catch (error) {
-        return 'remote';
-    }
+    return isOffline.value ? 'custom' : 'remote';
 };
 
 const searchAppList = async (appId: number) => {

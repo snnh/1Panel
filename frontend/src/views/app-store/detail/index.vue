@@ -136,7 +136,7 @@ const toLink = (link: string) => {
 };
 
 const openInstall = () => {
-    if (!jumpToInstall(app.value.type, app.value.key)) {
+    if (!jumpToInstall(app.value.type)) {
         const params = {
             app: app.value,
         };

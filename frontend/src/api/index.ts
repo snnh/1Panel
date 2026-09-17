@@ -86,19 +86,6 @@ class RequestHttp {
                     }
                     return Promise.reject(data);
                 }
-                if (data.code == ResultEnum.ERR_XPACK) {
-                    globalStore.isProductPro = false;
-                    window.location.reload();
-                    return Promise.reject(data);
-                }
-                if (data.code == ResultEnum.ERR_ENTERPRISE) {
-                    globalStore.isEnterpriseLicensed = false;
-                    const routeName = router.currentRoute.value.name;
-                    if (globalStore.isLogin && routeName !== 'EnterpriseLicenseRequired') {
-                        router.push({ name: 'EnterpriseLicenseRequired' });
-                    }
-                    return Promise.reject(data);
-                }
                 if (data.code == ResultEnum.NODE_UNBIND) {
                     changeToLocal();
                     window.location.reload();
@@ -117,10 +104,6 @@ class RequestHttp {
                     return data;
                 }
                 if (data.code && data.code !== ResultEnum.SUCCESS) {
-                    if (data.message.toLowerCase().indexOf('operation not permitted') !== -1) {
-                        MsgError(i18n.global.t('license.tamperHelper'));
-                        return Promise.reject(data);
-                    }
                     if (!(response.config as RequestConfig).skipErrorMessage) {
                         MsgError(data.message);
                     }
@@ -134,9 +117,6 @@ class RequestHttp {
                 if (error.message.indexOf('timeout') !== -1) MsgError(i18n.global.t('commons.msg.requestTimeout'));
                 if (response) {
                     switch (response.status) {
-                        case 313:
-                            router.push({ name: 'Expired' });
-                            return;
                         case 403:
                             if (isCsrfForbidden(response)) {
                                 return Promise.reject(error);

@@ -84,13 +84,7 @@
                             </el-button>
                         </template>
                     </el-table-column>
-                    <el-table-column
-                        v-if="isProductPro"
-                        :label="$t('commons.table.status')"
-                        :min-width="70"
-                        prop="status"
-                        sortable
-                    >
+                    <el-table-column :label="$t('commons.table.status')" :min-width="70" prop="status" sortable>
                         <template #default="{ row }">
                             <Status
                                 v-if="row.status === 'Enable'"
@@ -103,18 +97,6 @@
                                 @click="onChangeStatus(row.id, 'enable')"
                             />
                             <span v-if="row.status === ''">-</span>
-                        </template>
-                    </el-table-column>
-                    <el-table-column
-                        v-if="isProductPro"
-                        :label="$t('cronjob.cronSpec')"
-                        show-overflow-tooltip
-                        :min-width="120"
-                    >
-                        <template #default="{ row }">
-                            <span>
-                                {{ row.spec !== '' ? transSpecToStr(row.spec) : '-' }}
-                            </span>
                         </template>
                     </el-table-column>
                     <el-table-column
@@ -197,14 +179,13 @@ import LogDialog from '@/views/toolbox/clam/record/index.vue';
 import ClamStatus from '@/views/toolbox/clam/status/index.vue';
 import SettingDialog from '@/views/toolbox/clam/setting/index.vue';
 import { Toolbox } from '@/api/interface/toolbox';
-import { transSpecToStr } from '@/views/cronjob/cronjob/helper';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import { routerToFileWithPath, routerToName } from '@/utils/router';
 
 const loading = ref();
 const selects = ref<any>([]);
 
-const { docsUrl, isFxplay, isProductPro, isMobile } = useGlobalStore();
+const { docsUrl, isFxplay, isMobile } = useGlobalStore();
 const data = ref();
 const paginationConfig = reactive({
     cacheSizeKey: 'clam-page-size',
@@ -274,14 +255,6 @@ const onOpenDialog = async (
     title: string,
     rowData: Partial<Toolbox.ClamInfo> = {
         infectedStrategy: 'none',
-        specObj: {
-            specType: 'perDay',
-            week: 1,
-            day: 3,
-            hour: 1,
-            minute: 30,
-            second: 30,
-        },
         timeoutItem: 5,
         timeoutUnit: 'h',
     },

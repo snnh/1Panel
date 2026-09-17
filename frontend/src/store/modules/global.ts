@@ -33,8 +33,6 @@ const GlobalStore = defineStore('GlobalState', {
         isFullScreen: false,
         openMenuTabs: false,
         menuAccordion: false,
-        watermark: null,
-        watermarkShow: false,
         isLoading: false,
         loadingText: '',
         csrfToken: '',
@@ -64,12 +62,6 @@ const GlobalStore = defineStore('GlobalState', {
         docWithRegion: true,
         isFxplay: false,
         isOffline: false,
-        // license
-        isProductPro: false,
-        productProExpires: 0,
-        isMasterProductPro: false,
-        isEnterpriseLicensed: false,
-        isEnterpriseLicenseLoaded: false,
         // multi-node
         masterAlias: '',
         currentNode: 'local',
@@ -79,7 +71,6 @@ const GlobalStore = defineStore('GlobalState', {
         isDarkTheme: (state) =>
             state.themeConfig.theme === 'dark' ||
             (state.themeConfig.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches),
-        isDarkGoldTheme: (state) => state.themeConfig.primary === '#F0BE96' && state.isProductPro,
         isNodeAdmin: (state) =>
             state.nodeRoles.some((item) => item.nodeName === state.currentNode && item.roleName === 'Node Admin'),
         isAdminOrNodeAdmin: (state) =>
@@ -95,12 +86,6 @@ const GlobalStore = defineStore('GlobalState', {
         },
         isMaster: (state) => state.currentNode === 'local',
         isMobile: (state) => state.device === DeviceType.Mobile,
-
-        isXpackOrEE: (state) => {
-            return (state.isEnterprise && state.isEnterpriseLicensed) || state.isMasterProductPro;
-        },
-        isEE: (state) => state.isEnterprise && state.isEnterpriseLicensed,
-        isMasterPro: (state) => state.isMasterProductPro,
     },
     actions: {
         setScreenFull() {

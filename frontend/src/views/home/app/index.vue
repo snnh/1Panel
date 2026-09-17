@@ -162,7 +162,7 @@ const acceptParams = (): void => {
 };
 
 const goInstall = (key: string, type: string) => {
-    if (!jumpToInstall(type, key)) {
+    if (!jumpToInstall(type)) {
         routerToNameWithQuery('AppAll', { install: key });
     }
 };

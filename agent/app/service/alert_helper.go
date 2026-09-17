@@ -53,7 +53,7 @@ var memoryLoad1, memoryLoad5, memoryLoad15 []float64
 var alertTaskMu sync.Mutex
 
 var baseTypes = map[string]bool{"ssl": true, "siteEndTime": true, "panelPwdEndTime": true, "panelUpdate": true}
-var resourceTypes = map[string]bool{"cpu": true, "memory": true, "disk": true, "load": true, "panelLogin": true, "sshLogin": true, "nodeException": true, "licenseException": true}
+var resourceTypes = map[string]bool{"cpu": true, "memory": true, "disk": true, "load": true, "panelLogin": true, "sshLogin": true, "nodeException": true}
 
 func NewIAlertTaskHelper() IAlertTaskHelper {
 	return &AlertTaskHelper{
@@ -236,13 +236,6 @@ func resourceTask(resourceAlert []dto.AlertDTO) {
 		case "nodeException":
 			if execute && global.IsMaster {
 				loadNodeException(alert)
-			}
-		case "licenseException":
-			if global.CONF.Base.IsEnterprise {
-				continue
-			}
-			if execute && global.IsMaster {
-				loadLicenseException(alert)
 			}
 		}
 	}
@@ -638,34 +631,6 @@ func loadNodeException(alert dto.AlertDTO) {
 
 }
 
-func loadLicenseException(alert dto.AlertDTO) {
-	// only master alert
-	failCount, err := xpack.AlertProvider.GetLicenseErrorAlert()
-	if err != nil {
-		global.LOG.Errorf("error getting license, err: %s", err)
-		return
-	}
-	if failCount > 0 {
-		quotaType := "license-error"
-		params := []dto.Param{
-			{
-				Index: "1",
-				Key:   "cycle",
-				Value: strconv.Itoa(int(failCount)),
-			},
-		}
-		newDate, err := alertRepo.GetTaskLog(alert.Type, alert.ID)
-		if err != nil {
-			global.LOG.Errorf("record not found, err: %v", err)
-			return
-		}
-		if isAlertDue(newDate) {
-			sender := NewAlertSender(alert, quotaType)
-			sender.ResourceSend(strconv.Itoa(int(failCount)), params)
-		}
-	}
-}
-
 func sendAlerts(alert dto.AlertDTO, alertType, quota, quotaType string, params []dto.Param) {
 	methods := strings.Split(alert.Method, ",")
 	newDate, err := alertRepo.GetTaskLog(alertType, alert.ID)
@@ -697,7 +662,6 @@ func sendAlertsByLegacyMethod(alert dto.AlertDTO, alertType, quota, quotaType st
 	typeMap := map[string]string{
 		"mail":          constant.Email,
 		constant.Bark:   constant.Bark,
-		constant.SMS:    constant.SMS,
 		constant.Custom: constant.Custom,
 	}
 	configType, ok := typeMap[method]
@@ -717,27 +681,6 @@ func doSendAlert(alert dto.AlertDTO, alertType, quota, quotaType string, params 
 	}
 	methodStr := strconv.Itoa(int(config.ID))
 	switch config.Type {
-	case constant.SMS:
-		if !alertUtil.CheckSMSSendLimit(config, methodStr) {
-			return
-		}
-		todayCount, isValid := canSendAlertToday(alertType, quotaType, alert.SendCount, methodStr)
-		if !isValid {
-			return
-		}
-		create := dto.AlertLogCreate{
-			Type:    alertType,
-			AlertId: alert.ID,
-			Count:   todayCount + 1,
-			Method:  methodStr,
-		}
-		alertErr := xpack.AlertProvider.CreateSMSAlertLog(alertType, alert, create, quotaType, params, config, methodStr)
-		if alertErr != nil {
-			global.LOG.Infof("%s alert sms push faild, err: %v", alertType, alertErr.Error())
-			return
-		}
-		alertUtil.CreateNewAlertTask(quota, alertType, quotaType, methodStr)
-
 	case constant.Email:
 		todayCount, isValid := canSendAlertToday(alertType, quotaType, alert.SendCount, methodStr)
 		if !isValid {
@@ -786,7 +729,7 @@ func doSendAlert(alert dto.AlertDTO, alertType, quota, quotaType string, params 
 		}
 		alertUtil.CreateNewAlertTask(quota, alertType, quotaType, methodStr)
 
-	case constant.WeCom, constant.DingTalk, constant.FeiShu, constant.Custom:
+	case constant.Custom:
 		todayCount, isValid := canSendAlertToday(alertType, quotaType, alert.SendCount, methodStr)
 		if !isValid {
 			return
@@ -799,23 +742,17 @@ func doSendAlert(alert dto.AlertDTO, alertType, quota, quotaType string, params 
 		}
 		transport := xpack.MultiNodeProvider.LoadRequestTransport()
 		agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
-		queued := false
-		var alertErr error
-		if config.Type == constant.Custom {
-			task := dto.AlertTaskMetadata{
-				AlertID:   alert.ID,
-				Type:      alertType,
-				Quota:     quota,
-				QuotaType: quotaType,
-				Method:    methodStr,
-			}
-			result, deliveryErr := xpack.DeliverCustomWebhookAlertLog(alertType, alert, create, quotaType, params, config, transport, agentInfo, task)
-			queued, alertErr = result.Queued, deliveryErr
-			if alertErr == nil && result.Queued {
-				_, alertErr = alertUtil.RecordQueuedAlertTask(result.LogID, task)
-			}
-		} else {
-			alertErr = xpack.AlertProvider.CreateWebhookAlertLog(alertType, alert, create, quotaType, params, config, transport, agentInfo)
+		task := dto.AlertTaskMetadata{
+			AlertID:   alert.ID,
+			Type:      alertType,
+			Quota:     quota,
+			QuotaType: quotaType,
+			Method:    methodStr,
+		}
+		result, alertErr := xpack.DeliverCustomWebhookAlertLog(alertType, alert, create, quotaType, params, config, transport, agentInfo, task)
+		queued := result.Queued
+		if alertErr == nil && result.Queued {
+			_, alertErr = alertUtil.RecordQueuedAlertTask(result.LogID, task)
 		}
 		if alertErr != nil {
 			global.LOG.Infof("%s alert webhook %s push faild, err: %v", alertType, methodStr, alertErr)

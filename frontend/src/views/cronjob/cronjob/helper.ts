@@ -70,7 +70,6 @@ export function loadDefaultSpec(type: string) {
         case 'directory':
         case 'cutWebsiteLog':
         case 'cleanLog':
-        case 'syncIpGroup':
         case 'ntp':
             item.specType = 'perDay';
             item.hour = 1;
@@ -95,7 +94,6 @@ export function loadDefaultSpecCustom(type: string) {
         case 'directory':
         case 'cutWebsiteLog':
         case 'ntp':
-        case 'syncIpGroup':
             return '30 1 * * *';
         default:
             return '30 1 * * 1';
@@ -229,6 +227,5 @@ export const cronjobTypes = [
     { value: 'clean', label: i18n.global.t('setting.diskClean') },
     { value: 'snapshot', label: i18n.global.t('cronjob.snapshot') },
     { value: 'ntp', label: i18n.global.t('cronjob.ntp') },
-    { value: 'syncIpGroup', label: i18n.global.t('cronjob.syncIpGroup') },
     { value: 'cleanLog', label: i18n.global.t('cronjob.cleanLog') },
 ];

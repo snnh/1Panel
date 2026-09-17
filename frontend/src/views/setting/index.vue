@@ -11,7 +11,7 @@
 import { computed } from 'vue';
 import i18n from '@/lang';
 import { useGlobalStore } from '@/composables/useGlobalStore';
-const { globalStore, isOffline, isFxplay, isAdmin, isEnterprise } = useGlobalStore();
+const { globalStore, isFxplay, isAdmin } = useGlobalStore();
 
 const buttons = computed<RouterButton[]>(() => {
     const items = [
@@ -53,14 +53,6 @@ const buttons = computed<RouterButton[]>(() => {
                   },
               ]
             : []),
-        ...((isOffline.value && !isEnterprise.value) || (isEnterprise.value && !isAdmin.value)
-            ? []
-            : [
-                  {
-                      label: i18n.global.t('setting.license'),
-                      path: isEnterprise.value ? '/enterprise/license' : '/settings/license',
-                  },
-              ]),
         ...(isFxplay.value
             ? []
             : [

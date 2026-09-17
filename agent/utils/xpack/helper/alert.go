@@ -27,14 +27,6 @@ func NewIAlertProvider() providers.AlertProvider {
 	return &alertHelper{}
 }
 
-func (a *alertHelper) CreateTaskScanSMSAlertLog(alert dto.AlertDTO, alertType string, create dto.AlertLogCreate, pushAlert dto.PushAlert, config model.AlertConfig, method string) error {
-	return nil
-}
-
-func (a *alertHelper) CreateSMSAlertLog(alertType string, info dto.AlertDTO, create dto.AlertLogCreate, project string, params []dto.Param, config model.AlertConfig, method string) error {
-	return nil
-}
-
 func (a *alertHelper) CreateTaskScanWebhookAlertLog(alert dto.AlertDTO, alertType string, create dto.AlertLogCreate, pushAlert dto.PushAlert, config model.AlertConfig, transport *http.Transport, agentInfo *dto.AgentInfo) error {
 	if config.Type == constant.Custom {
 		return alertUtil.CreateTaskScanCustomWebhookAlertLog(alert, alertType, create, pushAlert, config, transport, agentInfo)
@@ -62,10 +54,6 @@ func (a *alertHelper) CreateTaskScanCustomWebhookAlertLog(alert dto.AlertDTO, al
 func (a *alertHelper) TestCustomWebhook(config dto.AlertCustomWebhookResolvedConfig) (dto.AlertConfigTestResult, error) {
 	transport, agentInfo := loadCommunityCustomWebhookContext()
 	return alertUtil.TestCustomWebhook(config, transport, agentInfo)
-}
-
-func (a *alertHelper) GetLicenseErrorAlert() (uint, error) {
-	return 0, nil
 }
 
 func (a *alertHelper) GetNodeErrorAlert() (uint, error) {

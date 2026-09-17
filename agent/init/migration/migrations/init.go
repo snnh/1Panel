@@ -688,12 +688,7 @@ func alertLegacyMethodTypeMap() map[string]string {
 	return map[string]string{
 		"mail":            constant.Email,
 		constant.Email:    constant.Email,
-		constant.SMS:      constant.SMS,
 		constant.Bark:     constant.Bark,
-		constant.WeChat:   constant.WeCom,
-		constant.WeCom:    constant.WeCom,
-		constant.DingTalk: constant.DingTalk,
-		constant.FeiShu:   constant.FeiShu,
 		constant.Custom:   constant.Custom,
 	}
 }

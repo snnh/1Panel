@@ -18,10 +18,6 @@
                     <el-option :label="$t('logs.detail.websites')" value="websites" />
                     <el-option :label="$t('logs.detail.monitor')" value="monitor" />
                     <el-option :label="$t('logs.detail.runtimes')" value="runtimes" />
-                    <el-option :label="$t('logs.detail.ai')" value="ai" />
-                    <el-option :label="$t('logs.detail.ai_proxy')" value="ai-proxy" />
-                    <el-option :label="$t('logs.detail.ai_benchmark')" value="ai_benchmark" />
-                    <el-option :label="$t('logs.detail.skills_hub')" value="skills-hub" />
                     <el-option :label="$t('logs.detail.databases')" value="databases" />
                     <el-option :label="$t('logs.detail.containers')" value="containers" />
                     <el-option :label="$t('menu.system')" value="hosts" />
@@ -29,11 +25,8 @@
                     <el-option :label="$t('logs.detail.cronjobs')" value="cronjobs" />
                     <el-option :label="$t('logs.detail.toolbox')" value="toolbox" />
                     <el-option :label="$t('logs.detail.process')" value="process" />
-                    <el-option label="WAF" value="waf" />
                     <el-option :label="$t('logs.detail.nodes')" value="nodes" />
-                    <el-option :label="$t('logs.detail.tampers')" value="tampers" />
                     <el-option :label="$t('logs.detail.xsetting')" value="xsetting" />
-                    <el-option :label="$t('logs.detail.licenses')" value="licenses" />
                     <el-option :label="$t('logs.detail.logs')" value="logs" />
                     <el-option :label="$t('logs.detail.settings')" value="settings" />
                     <el-option :label="$t('logs.detail.alert')" value="alert" />
@@ -82,11 +75,6 @@
                             <span v-if="language === 'en'">{{ row.detailEN }}</span>
                         </template>
                     </el-table-column>
-                    <el-table-column v-if="isXpackOrEE" :label="$t('xpack.node.node')" prop="node">
-                        <template #default="{ row }">
-                            <span>{{ loadNodeName(row.node) }}</span>
-                        </template>
-                    </el-table-column>
                     <el-table-column :label="$t('commons.table.status')" prop="status">
                         <template #default="{ row }">
                             <Status :status="row.status" :msg="row.message" />
@@ -132,7 +120,7 @@ const searchStatus = ref<string>('');
 const searchNode = ref<string>('');
 const nodes = ref();
 
-const { globalStore, currentNode, isAdmin, isXpackOrEE, language } = useGlobalStore();
+const { globalStore, currentNode, isAdmin, language } = useGlobalStore();
 
 const search = async () => {
     let params = {
@@ -271,11 +259,6 @@ const exactReplacements: Record<string, string> = {
     SessionTimeout: 'setting.sessionTimeout',
     SecurityEntrance: 'setting.entrance',
     ExpirationDays: 'setting.expirationTime',
-    OpsReportExportFormat: 'xpack.opsReport.page.defaultFormat',
-    OpsReportSchedule: 'xpack.opsReport.page.generationRule',
-    OpsReportSavePath: 'xpack.opsReport.page.savePath',
-    OpsReportThreshold: 'xpack.opsReport.page.threshold',
-    OpsReportAutoExport: 'xpack.opsReport.page.autoExport',
     ComplexityVerification: 'setting.complexity',
     MFAStatus: 'setting.mfa',
     MonitorStatus: 'monitor.enableMonitor',
@@ -309,7 +292,7 @@ const onSubmitClean = async () => {
 };
 
 onMounted(() => {
-    if (isAdmin.value && isXpackOrEE.value) {
+    if (isAdmin.value) {
         loadNodes();
     }
     searchNode.value = isAdmin.value ? '' : currentNode.value;

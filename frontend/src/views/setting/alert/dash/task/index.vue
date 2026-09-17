@@ -25,17 +25,6 @@
                                 />
                             </template>
                         </el-select>
-                        <span class="input-help" v-if="dialogData.rowData!.type === 'panelPwdEndTime' && !isEE">
-                            {{ $t('xpack.alert.panelPwdEndTimeRulesHelper') }}
-                            <el-link
-                                style="font-size: 12px; margin-left: 5px"
-                                icon="Position"
-                                @click="quickJump('Safe')"
-                                type="primary"
-                            >
-                                {{ $t('firewall.quickJump') }}
-                            </el-link>
-                        </span>
                     </el-form-item>
 
                     <el-form-item
@@ -311,9 +300,7 @@
                             {{
                                 timeTypes.includes(dialogData.rowData!.type)
                                     ? $t('xpack.alert.sendCountRulesHelper')
-                                    : noParamTypes.includes(dialogData.rowData!.type)
-                                      ? $t('xpack.alert.panelUpdateRulesHelper')
-                                      : $t('xpack.alert.oneDaySendCountRulesHelper')
+                                    : $t('xpack.alert.oneDaySendCountRulesHelper')
                             }}
                         </span>
                     </el-form-item>
@@ -362,22 +349,13 @@
                             }}
                         </span>
                     </el-form-item>
-
-                    <el-form-item v-if="dialogData.title === 'edit' && isEE" :label="$t('commons.table.updater')">
-                        <el-input :model-value="dialogData.rowData?.updateUser || '-'" readonly disabled />
-                    </el-form-item>
                 </el-col>
             </el-row>
         </el-form>
         <template #footer>
             <span class="dialog-footer">
                 <el-button :disabled="loading" @click="visible = false">{{ $t('commons.button.cancel') }}</el-button>
-                <el-button
-                    v-permission
-                    type="primary"
-                    @click="onSubmit(formRef)"
-                    :disabled="dialogData.rowData?.type === 'panelPwdEndTime' && loading"
-                >
+                <el-button v-permission type="primary" @click="onSubmit(formRef)" :disabled="loading">
                     {{ $t('commons.button.confirm') }}
                 </el-button>
             </span>
@@ -399,7 +377,7 @@ import { checkCidr, checkCidrV6, checkIpV4V6 } from '@/utils/validate';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import { getAlertConfigDisplayName } from '@/views/setting/alert/setting/drawer/secret-field';
 
-const { isMaster, isProductPro, isEE, isIntl } = useGlobalStore();
+const { isMaster } = useGlobalStore();
 
 const alertConfigs = ref<Alert.AlertConfigInfo[]>([]);
 const loadAlertConfigs = async () => {
@@ -414,6 +392,8 @@ onMounted(() => {
 
 const ALL_SEND_METHOD = '__all__';
 
+const removedAlertTypes = ['weCom', 'dingTalk', 'feiShu', 'sms'];
+
 const configOptions = computed(() => {
     return alertConfigs.value
         .filter((c) => c.type !== 'common')
@@ -422,9 +402,7 @@ const configOptions = computed(() => {
             label: getConfigOptionLabel(c),
             typeLabel: getConfigTypeLabel(c.type),
             type: c.type,
-            disabled:
-                c.status !== 'Enable' ||
-                ((isIntl.value || !isProductPro.value) && ['weCom', 'dingTalk', 'feiShu', 'sms'].includes(c.type)),
+            disabled: c.status !== 'Enable' || removedAlertTypes.includes(c.type),
         }))
         .sort((a, b) => Number(a.disabled) - Number(b.disabled));
 });
@@ -438,11 +416,7 @@ const allConfigValues = computed(() => configOptions.value.filter((c) => !c.disa
 const legacyMethodTypeMap: Record<string, string> = {
     mail: 'email',
     email: 'email',
-    sms: 'sms',
     bark: 'bark',
-    weCom: 'weCom',
-    dingTalk: 'dingTalk',
-    feiShu: 'feiShu',
     webhook: 'custom',
     custom: 'custom',
 };
@@ -517,11 +491,10 @@ const clamsOptions = ref([]);
 const cronJobOptions = ref([]);
 type FormInstance = InstanceType<typeof ElForm>;
 const formRef = ref<FormInstance>();
-const timeTypes = ['ssl', 'siteEndTime', 'panelPwdEndTime'];
+const timeTypes = ['ssl', 'siteEndTime'];
 const avgTypes = ['cpu', 'memory', 'load'];
 const ipTypes = ['sshLogin', 'panelLogin'];
-const noParamTypes = ['panelUpdate'];
-const intervalTypes = ['cpu', 'memory', 'load', 'disk', 'sshLogin', 'panelLogin', 'nodeException', 'licenseException'];
+const intervalTypes = ['cpu', 'memory', 'load', 'disk', 'sshLogin', 'panelLogin'];
 
 const diskTypes = ['disk'];
 const cronjobTypes = [
@@ -572,28 +545,16 @@ const rules = reactive({
 });
 
 const allTaskOptions = [
-    { value: 'panelPwdEndTime', label: 'xpack.alert.panelPwdEndTime', show: isMaster.value && !isEE.value },
     { value: 'sshLogin', label: 'xpack.alert.sshLogin', show: true },
     { value: 'panelLogin', label: 'xpack.alert.panelLogin', show: isMaster.value },
-    {
-        value: 'licenseException',
-        label: 'xpack.alert.licenseException',
-        show: isMaster.value && isProductPro.value && !isEE.value,
-    },
     { value: 'ssl', label: 'xpack.alert.ssl', show: true },
     { value: 'siteEndTime', label: 'xpack.alert.siteEndTime', show: true },
-    {
-        value: 'nodeException',
-        label: 'xpack.alert.nodeException',
-        show: isMaster.value && isProductPro.value,
-    },
     { value: 'cpu', label: 'xpack.alert.cpu', show: true },
     { value: 'memory', label: 'xpack.alert.memory', show: true },
     { value: 'disk', label: 'xpack.alert.disk', show: true },
     { value: 'load', label: 'xpack.alert.load', show: true },
     { value: 'cronJob', label: 'xpack.alert.cronjob', show: true },
     { value: 'clams', label: 'xpack.alert.clams', show: true },
-    { value: 'panelUpdate', label: 'xpack.alert.panelUpdate', show: isMaster.value && !isEE.value },
 ];
 
 function checkRange(value: any, min: number, max: number, callback: any) {
@@ -644,8 +605,6 @@ function checkSendCount(rule: any, value: any, callback: any) {
 
     if (type === 'disk' || avgTypes.includes(type) || ipTypes.includes(type)) {
         return checkRange(value, 1, 50, callback);
-    } else if (noParamTypes.includes(type)) {
-        return checkRange(value, 1, 30, callback);
     } else {
         if (cycle > 0) {
             return checkRange(value, 1, cycle, callback);
@@ -707,8 +666,6 @@ const changeType = () => {
     const typeToCycleMap = {
         ssl: 15,
         siteEndTime: 15,
-        panelPwdEndTime: 15,
-        panelUpdate: 0,
         disk: 2,
         cpu: 5,
         load: 5,
@@ -727,15 +684,11 @@ const changeType = () => {
         ntp: 0,
         sshLogin: 30,
         panelLogin: 30,
-        nodeException: 0,
-        licenseException: 0,
     };
 
     const typeToCountMap = {
         ssl: 0,
         siteEndTime: 0,
-        panelPwdEndTime: 0,
-        panelUpdate: 0,
         disk: 80,
         cpu: 80,
         load: 80,
@@ -754,14 +707,10 @@ const changeType = () => {
         ntp: 0,
         sshLogin: 3,
         panelLogin: 3,
-        nodeException: 0,
-        licenseException: 0,
     };
     const typeToProjectMap = {
         ssl: 'all',
         siteEndTime: 'all',
-        panelPwdEndTime: 'all',
-        panelUpdate: 'all',
         disk: 'all',
         cpu: 'all',
         load: 'all',
@@ -780,8 +729,6 @@ const changeType = () => {
         ntp: '',
         sshLogin: 'all',
         panelLogin: 'all',
-        nodeException: 'all',
-        licenseException: 'all',
     };
 
     const rowData = dialogData.value.rowData;

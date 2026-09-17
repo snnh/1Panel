@@ -11,7 +11,6 @@ import (
 	"github.com/1Panel-dev/1Panel/core/utils/common"
 	"github.com/1Panel-dev/1Panel/core/utils/ctl_conf"
 	"github.com/1Panel-dev/1Panel/core/utils/encrypt"
-	"github.com/1Panel-dev/1Panel/core/utils/xpack"
 )
 
 func Init() {
@@ -67,24 +66,15 @@ func handleUserInfo(tags string, settingRepo repo.ISettingRepo) {
 	if strings.Contains(global.CONF.Base.ChangeUserInfo, "entrance") {
 		settingMap["SecurityEntrance"] = common.RandStrAndNum(10)
 	}
-	if global.CONF.Base.IsEnterprise {
-		if len(settingMap["UserName"]) != 0 || len(settingMap["Password"]) != 0 {
-			if err := xpack.AuthProvider.ResetSuperAdminUser(settingMap["UserName"], settingMap["Password"]); err != nil {
-				global.LOG.Fatalf("reset enterprise super admin failed, err: %v", err)
-				return
-			}
+	for key, val := range settingMap {
+		if len(val) == 0 {
+			continue
 		}
-	} else {
-		for key, val := range settingMap {
-			if len(val) == 0 {
-				continue
-			}
-			if key == "Password" {
-				val, _ = encrypt.StringEncrypt(val)
-			}
-			if err := settingRepo.Update(key, val); err != nil {
-				global.LOG.Errorf("update %s before start failed, err: %v", key, err)
-			}
+		if key == "Password" {
+			val, _ = encrypt.StringEncrypt(val)
+		}
+		if err := settingRepo.Update(key, val); err != nil {
+			global.LOG.Errorf("update %s before start failed, err: %v", key, err)
 		}
 	}
 

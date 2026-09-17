@@ -24,28 +24,6 @@
         <div v-if="currentNodeVersionMismatch" class="mt-3">
             <el-alert type="warning" :closable="false" show-icon :title="$t('setting.currentNodeVersionNotSame')" />
         </div>
-        <div class="mt-3" v-if="showExpiresAt && expiresAlertVisible && productProExpires && productProExpires !== 0">
-            <el-alert type="warning" @close="handleExpiresAlertClose">
-                <template #title>
-                    <div>
-                        <div class="flex flex-col gap-2 items-center justify-center w-full sm:flex-row">
-                            <span>
-                                {{ $t(expiresAlertKey, [expiresInfo]) }}
-                            </span>
-                            <el-link
-                                class="cursor-pointer"
-                                style="font-size: 12px"
-                                icon="Position"
-                                type="primary"
-                                @click="goXpack"
-                            >
-                                {{ $t('firewall.quickJump') }}
-                            </el-link>
-                        </div>
-                    </div>
-                </template>
-            </el-alert>
-        </div>
     </div>
 </template>
 
@@ -72,7 +50,7 @@ const props = defineProps({
 });
 
 const router = useRouter();
-const { currentNode, isEnterprise, isIntl, isXpackOrEE, productProExpires } = useGlobalStore();
+const { currentNode } = useGlobalStore();
 const buttonArray = computed(() => {
     return props.buttons.filter((button) => {
         if (!hasPermissionMetaAccess(button.permission)) {
@@ -88,9 +66,6 @@ const buttonArray = computed(() => {
 
 const activeName = ref('');
 const currentNodeVersionMismatch = ref(false);
-const expiresInfo = ref(0);
-const expiresAlertVisible = ref(false);
-const expiresAlertKey = computed(() => (isEnterprise.value ? 'xpack.expiresEnterpriseAlert' : 'xpack.expiresProAlert'));
 
 const handleChange = (label: string) => {
     const btn = buttonArray.value.find((btn) => btn.label === label);
@@ -102,7 +77,6 @@ const handleChange = (label: string) => {
 
 onMounted(() => {
     syncActiveName();
-    loadExpiresAlert();
 });
 
 watch(
@@ -112,18 +86,11 @@ watch(
     },
 );
 
-watch(
-    () => [props.showExpiresAt, productProExpires.value],
-    () => {
-        loadExpiresAlert();
-    },
-);
-
-watch([currentNode, isXpackOrEE], checkCurrentNodeVersion, { immediate: true });
+watch(currentNode, checkCurrentNodeVersion, { immediate: true });
 
 async function checkCurrentNodeVersion() {
     const checkedNode = currentNode.value;
-    if (checkedNode === 'local' || !isXpackOrEE.value) {
+    if (checkedNode === 'local') {
         currentNodeVersionMismatch.value = false;
         return;
     }
@@ -164,52 +131,6 @@ function syncActiveName() {
             activeName.value = buttonArray.value[0].label;
         }
     }
-}
-
-function getExpiresAlertDateKey() {
-    const newDate = new Date();
-    return newDate.getFullYear() + '-' + newDate.getMonth() + '-' + newDate.getDate();
-}
-
-function loadExpiresAlert() {
-    const expires = productProExpires.value;
-    if (!props.showExpiresAt || !expires || expires === 0) {
-        expiresInfo.value = 0;
-        expiresAlertVisible.value = false;
-        return;
-    }
-
-    if (getExpiresAlertDateKey() === localStorage.getItem('xpack-expires-alert')) {
-        expiresInfo.value = 0;
-        expiresAlertVisible.value = false;
-        return;
-    }
-
-    const currentTimestamp = Date.now() / 1000;
-    if (expires < currentTimestamp) {
-        expiresInfo.value = 0;
-        expiresAlertVisible.value = false;
-        return;
-    }
-
-    const daySeconds = 24 * 60 * 60;
-    const diffSeconds = Math.abs(expires - currentTimestamp);
-    expiresInfo.value = Math.floor(diffSeconds / daySeconds) + 1;
-    expiresAlertVisible.value = expiresInfo.value <= 15;
-}
-
-function goXpack() {
-    if (isIntl.value && !isEnterprise.value) {
-        window.open('https://1panel.hk/pricing', '_blank', 'noopener,noreferrer');
-        return;
-    }
-    const url = isEnterprise.value ? 'https://1panel.cn/enterprise.html' : 'https://www.lxware.cn/1panel';
-    window.open(url, '_blank', 'noopener,noreferrer');
-}
-
-function handleExpiresAlertClose() {
-    localStorage.setItem('xpack-expires-alert', getExpiresAlertDateKey());
-    loadExpiresAlert();
 }
 </script>
 

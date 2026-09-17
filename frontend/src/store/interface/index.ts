@@ -17,15 +17,6 @@ export interface ThemeConfigProp {
     themeColor: string;
 }
 
-export interface Watermark {
-    lightColor: string;
-    darkColor: string;
-    fontSize: number;
-    content: string;
-    rotate: number;
-    gap: number;
-}
-
 export interface GlobalState {
     language: string; // zh | en | tw
     device: DeviceType;
@@ -34,8 +25,6 @@ export interface GlobalState {
     isFullScreen: boolean;
     openMenuTabs: boolean;
     menuAccordion: boolean;
-    watermark: Watermark | null;
-    watermarkShow: boolean;
     isLoading: boolean;
     loadingText: string;
     // auth
@@ -65,12 +54,6 @@ export interface GlobalState {
     docWithRegion: boolean;
     isFxplay: boolean;
     isOffline: boolean;
-    // license
-    isProductPro: boolean;
-    productProExpires: number;
-    isMasterProductPro: boolean;
-    isEnterpriseLicensed: boolean;
-    isEnterpriseLicenseLoaded: boolean;
     // multi-node
     masterAlias: string;
     currentNode: string;

@@ -62,33 +62,18 @@
                                 @change="updateConfig('InstallAllowPort', config.installAllowPort)"
                             />
                         </el-form-item>
-                        <CustomSetting v-if="isXpackOrEE" />
-                        <span class="input-help logText" v-else>
-                            {{ $t('xpack.customApp.licenseHelper') }}
-                            <el-link class="link" @click="toUpload" type="primary">
-                                {{ $t('license.levelUpPro') }}
-                            </el-link>
-                        </span>
                     </el-col>
                 </el-row>
             </el-form>
         </template>
     </LayoutContent>
-    <LicenseImport ref="licenseRef" />
 </template>
 
 <script setup lang="ts">
-import { getCurrentNodeCustomAppConfig } from '@/api/modules/app';
 import { getAppStoreConfig, updateAppStoreConfig } from '@/api/modules/setting';
 import { FormRules } from 'element-plus';
 import { MsgSuccess } from '@/utils/message';
 import i18n from '@/lang';
-import { defineAsyncComponent } from 'vue';
-import { loadOptionalComponent } from '@/extensions/optional';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-const { isXpackOrEE } = useGlobalStore();
-
-const CustomSetting = defineAsyncComponent(() => loadOptionalComponent('/src/xpack/views/appstore/index.vue'));
 
 const rules = ref<FormRules>({});
 const config = ref({
@@ -100,9 +85,7 @@ const config = ref({
 });
 const loading = ref(false);
 const configForm = ref();
-const useCustomApp = ref(false);
 const isInitializing = ref(true);
-const licenseRef = ref();
 
 const search = async () => {
     loading.value = true;
@@ -118,20 +101,6 @@ const search = async () => {
     } catch (error) {
     } finally {
         loading.value = false;
-    }
-};
-
-const toUpload = () => {
-    licenseRef.value.acceptParams();
-};
-
-const getNodeConfig = async () => {
-    if (isXpackOrEE.value) {
-        return;
-    }
-    const res = await getCurrentNodeCustomAppConfig();
-    if (res && res.data) {
-        useCustomApp.value = res.data.status === 'enable';
     }
 };
 
@@ -156,7 +125,6 @@ const updateConfig = async (scope: string, value: string) => {
 
 onMounted(() => {
     search();
-    getNodeConfig();
 });
 </script>
 

@@ -1,7 +1,7 @@
 import { jumpToPath } from './router';
 import router from '@/routers';
 
-export const jumpToInstall = (type: string, key: string) => {
+export const jumpToInstall = (type: string) => {
     switch (type) {
         case 'php':
         case 'node':
@@ -10,17 +10,6 @@ export const jumpToInstall = (type: string, key: string) => {
         case 'python':
         case 'dotnet':
             jumpToPath(router, '/websites/runtimes/' + type);
-            return true;
-    }
-    switch (key) {
-        case 'mysql-cluster':
-            jumpToPath(router, '/xpack/cluster/mysql');
-            return true;
-        case 'redis-cluster':
-            jumpToPath(router, '/xpack/cluster/redis');
-            return true;
-        case 'postgresql-cluster':
-            jumpToPath(router, '/xpack/cluster/postgres');
             return true;
     }
     return false;

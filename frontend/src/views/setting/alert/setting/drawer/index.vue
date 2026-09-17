@@ -75,21 +75,6 @@
                         </el-form-item>
                     </template>
 
-                    <template v-else-if="form.type === 'sms'">
-                        <el-form-item :label="$t('xpack.alert.displayName')" prop="smsDisplayName">
-                            <el-input v-model.trim="form.smsDisplayName" />
-                            <span class="input-help">{{ $t('xpack.alert.displayNameHelper') }}</span>
-                        </el-form-item>
-                        <el-form-item :label="$t('xpack.alert.phone')" prop="smsPhone">
-                            <el-input clearable v-model.trim="form.smsPhone" />
-                            <span class="input-help">{{ $t('xpack.alert.phoneHelper') }}</span>
-                        </el-form-item>
-                        <el-form-item :label="$t('xpack.alert.dailyAlertNum')" prop="smsDailyAlertNum">
-                            <el-input clearable v-model.number="form.smsDailyAlertNum" min="20" max="100" />
-                            <span class="input-help">{{ $t('xpack.alert.dailyAlertNumHelper') }}</span>
-                        </el-form-item>
-                    </template>
-
                     <CustomWebhookForm
                         v-else-if="form.type === 'custom'"
                         v-model="form.customWebhook"
@@ -105,10 +90,6 @@
                             <el-input v-model.trim="form.webhookUrl" :rows="2" type="password" show-password />
                         </el-form-item>
                     </template>
-
-                    <el-form-item v-if="isEdit && isEE" :label="$t('commons.table.updater')">
-                        <el-input :model-value="form.updateUser || '-'" readonly />
-                    </el-form-item>
                 </el-col>
             </el-row>
         </el-form>
@@ -161,7 +142,7 @@ import i18n from '@/lang';
 import { MsgError, MsgSuccess, MsgWarning } from '@/utils/message';
 import { FormInstance } from 'element-plus';
 import { ListAlertConfigs, TestAlertConfig, TestCustomAlertConfig, UpdateAlertConfig } from '@/api/modules/alert';
-import { Rules, checkNumberRange } from '@/global/form-rules';
+import { Rules } from '@/global/form-rules';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import { Alert } from '@/api/interface/alert';
 import CustomWebhookForm from './custom-webhook-form.vue';
@@ -176,7 +157,7 @@ import { buildLegacyEmailTestFields, rawSecretValue, serializeLegacySecretValue 
 
 const emit = defineEmits<{ (e: 'search'): void }>();
 
-const { isProductPro, isIntl, isEE, isMobile } = useGlobalStore();
+const { isMobile } = useGlobalStore();
 
 const emailRules = {
     'config.displayName': [Rules.requiredInput, { validator: checkDisplayNameDuplicate, trigger: 'blur' }],
@@ -184,12 +165,6 @@ const emailRules = {
     'config.host': [Rules.requiredInput],
     'config.port': [Rules.requiredInput],
     recipient: [Rules.requiredInput],
-};
-
-const smsRules = {
-    smsDisplayName: [Rules.requiredInput, { validator: checkSmsDisplayNameDuplicate, trigger: 'blur' }],
-    smsPhone: [Rules.phone],
-    smsDailyAlertNum: [Rules.integerNumber, checkNumberRange(20, 100)],
 };
 
 const webhookRules = {
@@ -203,23 +178,14 @@ const customWebhookRules = {
 
 const currentRules = computed(() => {
     if (form.type === 'email') return emailRules;
-    if (form.type === 'sms') return smsRules;
     if (form.type === 'custom') return customWebhookRules;
     return webhookRules;
 });
 
 const typeOptions = computed(() => {
     const options: { value: string; label: string }[] = [{ value: 'email', label: i18n.global.t('xpack.alert.mail') }];
-    if (isProductPro.value && !isIntl.value) {
-        options.push({ value: 'weCom', label: i18n.global.t('xpack.alert.weCom') });
-        options.push({ value: 'dingTalk', label: i18n.global.t('xpack.alert.dingTalk') });
-        options.push({ value: 'feiShu', label: i18n.global.t('xpack.alert.feiShu') });
-    }
     options.push({ value: 'bark', label: i18n.global.t('xpack.alert.bark') });
     options.push({ value: 'custom', label: i18n.global.t('xpack.alert.custom') });
-    if (isProductPro.value && !isEE.value && !isIntl.value) {
-        options.push({ value: 'sms', label: i18n.global.t('xpack.alert.sms') });
-    }
     return options;
 });
 
@@ -267,9 +233,6 @@ const form = reactive({
     recipient: '',
     webhookName: '',
     webhookUrl: '',
-    smsDisplayName: '',
-    smsPhone: '',
-    smsDailyAlertNum: 50,
     customWebhook: createDefaultCustomWebhookDraft(),
 });
 
@@ -323,43 +286,9 @@ function checkDisplayNameDuplicate(_rule: unknown, value: string, callback: (err
     callback();
 }
 
-function checkSmsDisplayNameDuplicate(_rule: unknown, value: string, callback: (error?: Error) => void) {
-    const currentValue = normalizeDisplayName(value);
-    if (!currentValue) {
-        callback();
-        return;
-    }
-
-    const duplicated = alertConfigs.value.some((item) => {
-        if (item.type !== 'sms') {
-            return false;
-        }
-        if (form.id && item.id === form.id) {
-            return false;
-        }
-        try {
-            const config = JSON.parse(item.config || '{}') as { displayName?: string };
-            return normalizeDisplayName(config.displayName) === currentValue;
-        } catch {
-            return false;
-        }
-    });
-
-    if (duplicated) {
-        callback(new Error(i18n.global.t('commons.rule.duplicate')));
-        return;
-    }
-
-    callback();
-}
-
 const titleMap: Record<string, string> = {
     email: 'xpack.alert.emailConfig',
-    weCom: 'xpack.alert.weCom',
-    dingTalk: 'xpack.alert.dingTalk',
-    feiShu: 'xpack.alert.feiShu',
     bark: 'xpack.alert.bark',
-    sms: 'xpack.alert.smsConfig',
     custom: 'xpack.alert.custom',
 };
 
@@ -374,7 +303,6 @@ interface DrawerProps {
 
 const acceptParams = (params: DrawerProps): void => {
     form.emailPassword = '';
-    form.smsPhone = '';
     form.webhookUrl = '';
     form.customWebhook = createDefaultCustomWebhookDraft();
     if (params.id && params.id > 0) {
@@ -391,10 +319,6 @@ const acceptParams = (params: DrawerProps): void => {
             delete form.config.password;
             form.emailPassword = rawSecretValue(params.config?.password);
             form.recipient = params.config?.recipient || '';
-        } else if (form.type === 'sms') {
-            form.smsDisplayName = params.config?.displayName || '';
-            form.smsPhone = rawSecretValue(params.config?.phone);
-            form.smsDailyAlertNum = params.config?.alertDailyNum || 50;
         } else if (form.type === 'custom') {
             form.customWebhook = hydrateCustomWebhookDraft(params.config || {});
         } else {
@@ -412,11 +336,8 @@ const acceptParams = (params: DrawerProps): void => {
         form.config = { ...defaultEmailForm };
         form.emailPassword = '';
         form.recipient = '';
-        form.smsDisplayName = '';
         form.webhookName = '';
         form.webhookUrl = '';
-        form.smsPhone = '';
-        form.smsDailyAlertNum = 50;
         form.customWebhook = createDefaultCustomWebhookDraft();
     }
 
@@ -429,7 +350,6 @@ const acceptParams = (params: DrawerProps): void => {
 
 const onTypeChange = (type: string) => {
     form.emailPassword = '';
-    form.smsPhone = '';
     form.webhookUrl = '';
     form.customWebhook = createDefaultCustomWebhookDraft();
     form.title = titleMap[type] || '';
@@ -437,10 +357,6 @@ const onTypeChange = (type: string) => {
         form.config = { ...defaultEmailForm };
         form.emailPassword = '';
         form.recipient = '';
-    } else if (type === 'sms') {
-        form.smsDisplayName = '';
-        form.smsPhone = '';
-        form.smsDailyAlertNum = 50;
     } else if (type === 'custom') {
         form.config = {};
         form.customWebhook = createDefaultCustomWebhookDraft();
@@ -474,22 +390,6 @@ const buildSavePayload = () => {
             status: form.status,
             config: JSON.stringify(configInfo),
             displayName: form.config.displayName,
-        };
-    }
-    if (form.type === 'sms') {
-        const configInfo = {
-            displayName: form.smsDisplayName,
-            phone: serializeLegacySecretValue(form.smsPhone, true),
-            alertDailyNum: form.smsDailyAlertNum,
-        };
-        return {
-            id: form.id || 0,
-            ...revisionPayload(),
-            type: 'sms',
-            title: titleMap['sms'],
-            status: form.status,
-            config: JSON.stringify(configInfo),
-            displayName: configInfo.displayName,
         };
     }
     if (form.type === 'custom') {
@@ -685,16 +585,6 @@ watch(
         }
     },
     { flush: 'sync' },
-);
-
-watch(
-    () => [form.smsDisplayName, form.smsPhone, form.smsDailyAlertNum],
-    () => {
-        if (form.type === 'sms') {
-            formRef.value?.clearValidate(['smsDisplayName', 'smsPhone']);
-        }
-    },
-    { deep: true, flush: 'sync' },
 );
 
 const handleClose = () => {

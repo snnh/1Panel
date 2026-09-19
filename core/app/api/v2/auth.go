@@ -16,6 +16,7 @@ import (
 	initauth "github.com/1Panel-dev/1Panel/core/init/auth"
 	"github.com/1Panel-dev/1Panel/core/utils/captcha"
 	"github.com/1Panel-dev/1Panel/core/utils/common"
+	"github.com/1Panel-dev/1Panel/core/utils/mfa"
 	"github.com/1Panel-dev/1Panel/core/utils/xpack"
 	"github.com/gin-gonic/gin"
 )
@@ -365,6 +366,7 @@ func (b *BaseApi) LoadMFA(c *gin.Context) {
 	if err := helper.CheckBindAndValidate(&req, c); err != nil {
 		return
 	}
+	var otp mfa.Otp
 	otp, err := xpack.AuthProvider.LoadMFA(c, req)
 	if err != nil {
 		helper.InternalServer(c, err)

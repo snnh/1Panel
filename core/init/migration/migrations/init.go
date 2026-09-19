@@ -1283,3 +1283,37 @@ var UpdateFirewallMenuPath = &gormigrate.Migration{
 		})
 	},
 }
+
+var RemoveXpackAndAiHideMenu = &gormigrate.Migration{
+	ID: "20260920-remove-xpack-and-ai-hide-menu",
+	Migrate: func(tx *gorm.DB) error {
+		return helper.UpdateHideMenu(tx, removeXpackAndAiMenus)
+	},
+}
+
+func removeXpackAndAiMenus(menus []dto.ShowMenu) []dto.ShowMenu {
+	kept := make([]dto.ShowMenu, 0, len(menus))
+	for i := range menus {
+		if isRemovedMenu(menus[i]) {
+			continue
+		}
+		children := make([]dto.ShowMenu, 0, len(menus[i].Children))
+		for j := range menus[i].Children {
+			if isRemovedMenu(menus[i].Children[j]) {
+				continue
+			}
+			children = append(children, menus[i].Children[j])
+		}
+		menus[i].Children = children
+		kept = append(kept, menus[i])
+	}
+	return kept
+}
+
+func isRemovedMenu(menu dto.ShowMenu) bool {
+	switch menu.Label {
+	case "Xpack-Menu", "AI-Menu":
+		return true
+	}
+	return strings.HasPrefix(menu.Path, "/xpack/") || strings.HasPrefix(menu.Path, "/ai/")
+}

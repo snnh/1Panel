@@ -1505,3 +1505,10 @@ var AddDockerPortGuardReadOnly = &gormigrate.Migration{
 		return tx.Migrator().CreateIndex(&model.DockerPortGuardPolicy{}, "idx_docker_port_guard_endpoint")
 	},
 }
+
+var RemoveNodeScopeSettings = &gormigrate.Migration{
+	ID: "20260920-remove-node-scope-settings",
+	Migrate: func(tx *gorm.DB) error {
+		return tx.Where("key IN ?", []string{"NodeScope", "NodePort"}).Delete(&model.Setting{}).Error
+	},
+}

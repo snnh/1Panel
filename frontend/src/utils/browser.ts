@@ -13,12 +13,3 @@ export const toLink = (link: string) => {
         window.open(link, '_blank');
     } catch (e) {}
 };
-
-export const preloadImage = (url: string): Promise<string> => {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(url);
-        img.onerror = () => resolve(url);
-        img.src = url;
-    });
-};

@@ -4,16 +4,9 @@
             <template #main>
                 <div style="text-align: center; margin-top: 20px">
                     <div style="justify-self: center" class="logo">
-                        <img
-                            v-if="themeConfig.logo && !logoLoadFailed"
-                            style="width: 80px"
-                            :src="`/api/v2/images/logo?t=${Date.now()}`"
-                            @error="logoLoadFailed = true"
-                            alt=""
-                        />
-                        <PrimaryLogo v-else />
+                        <PrimaryLogo style="width: 80px" />
                     </div>
-                    <h3 class="description">{{ themeConfig.title || $t('setting.description') }}</h3>
+                    <h3 class="description">{{ $t('setting.description') }}</h3>
                     <div class="flex justify-center">
                         <SystemUpgrade class="upgrade" />
                     </div>
@@ -47,9 +40,8 @@ import { onMounted, ref } from 'vue';
 import SystemUpgrade from '@/components/system-upgrade/index.vue';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import PrimaryLogo from '@/assets/images/1panel-logo.svg?component';
-const { docsUrl, themeConfig } = useGlobalStore();
+const { docsUrl } = useGlobalStore();
 const loading = ref();
-const logoLoadFailed = ref(false);
 
 const toDoc = () => {
     window.open(docsUrl.value.endsWith('/') ? docsUrl.value : `${docsUrl.value}/`, '_blank', 'noopener,noreferrer');

@@ -17,7 +17,7 @@
                 <div v-if="showLogo" class="flex justify-center" :style="{ height: containerHeight }">
                     <img
                         v-show="imgLoaded"
-                        :src="loadImage('loginImage')"
+                        :src="defaultLoginImage"
                         class="max-w-full max-h-full object-cover bg-cover bg-center"
                         alt="1panel"
                         @load="onImgLoad"
@@ -36,19 +36,14 @@
 import LoginForm from './components/login-form.vue';
 import { ref, onMounted } from 'vue';
 import { useGlobalStore } from '@/composables/useGlobalStore';
-import { preloadImage } from '@/utils/browser';
 import { hasExternalLoginTicket } from '@/utils/external-login';
 defineOptions({ name: 'Login' });
-const { entrance, isEnterprise, themeConfig } = useGlobalStore();
+const { entrance } = useGlobalStore();
 const backgroundOpacity = ref(1);
 const defaultLoginImage = new URL('@/assets/images/1panel-login.jpg', import.meta.url).href;
-const defaultEnterpriseLoginImage = new URL('@/assets/images/1panel-login-enterprise.png', import.meta.url).href;
 const defaultLoginBgImage = new URL('@/assets/images/1panel-login-bg.jpg', import.meta.url).href;
-const loadedLoginImage = ref<string | null>(null);
-const loadedBackgroundImage = ref<string | null>(null);
 const backgroundStyle = ref<{ backgroundImage?: string; backgroundColor?: string }>({});
 const imgLoaded = ref(false);
-const currentDefaultLoginImage = computed(() => (isEnterprise.value ? defaultEnterpriseLoginImage : defaultLoginImage));
 
 const externalLoginPending = ref(hasExternalLoginTicket());
 
@@ -69,69 +64,21 @@ const getStatus = async () => {
     }
 };
 
-const loadImage = (name: string) => {
-    const { loginImage, loginBackground, loginBgType } = themeConfig.value;
-    if (name === 'loginImage') {
-        if (loginImage === 'loginImage') {
-            return loadedLoginImage.value || currentDefaultLoginImage.value;
-        }
-        if (loginImage) {
-            return loginImage;
-        }
-        return currentDefaultLoginImage.value;
-    }
-    if (name === 'loginBackground') {
-        if (loginBgType === 'image') {
-            if (loginBackground === 'loginBackground') {
-                return loadedBackgroundImage.value || defaultLoginBgImage;
-            }
-            if (loginBackground) {
-                return loginBackground;
-            }
-            return defaultLoginBgImage;
-        }
-        if (loginBgType === 'color') {
-            return loginBackground;
-        }
-        return defaultLoginBgImage;
-    }
-    return '';
-};
-
 const onImgError = (event: any) => {
-    event.target.src = currentDefaultLoginImage.value;
+    event.target.src = defaultLoginImage;
     imgLoaded.value = true;
 };
 
 onMounted(async () => {
     await getStatus();
-    const loginImageUrl = `/api/v2/images/loginImage?t=${Date.now()}`;
-    const backgroundImageUrl = `/api/v2/images/loginBackground?t=${Date.now()}`;
-    if (themeConfig.value.loginImage === 'loginImage') {
-        loadedLoginImage.value = await preloadImage(loginImageUrl);
-    }
-    if (themeConfig.value.loginBgType === 'image' && themeConfig.value.loginBackground === 'loginBackground') {
-        loadedBackgroundImage.value = await preloadImage(backgroundImageUrl);
-    }
-    if (themeConfig.value.loginBgType === 'color') {
+    const img = new Image();
+    img.onload = () => {
         backgroundStyle.value = {
-            backgroundColor: themeConfig.value.loginBackground,
+            backgroundImage: `url(${defaultLoginBgImage})`,
         };
-    } else {
-        const img = new Image();
-        const url = loadImage('loginBackground');
-        img.onload = () => {
-            backgroundStyle.value = {
-                backgroundImage: `url(${url})`,
-            };
-        };
-        img.onerror = () => {
-            backgroundStyle.value = {
-                backgroundImage: `url(${defaultLoginBgImage})`,
-            };
-        };
-        img.src = url;
-    }
+    };
+    img.onerror = () => {};
+    img.src = defaultLoginBgImage;
 });
 
 const FIXED_WIDTH = 1000;

@@ -11,31 +11,14 @@ const switchTheme = () => {
     switchThemeFn();
 };
 
-export async function initFavicon() {
+export function initFavicon() {
     const globalStore = GlobalStore();
     document.title = globalStore.themeConfig.panelName;
-    const favicon = globalStore.themeConfig.favicon;
-    const customFaviconUrl = `/api/v2/images/favicon?t=${Date.now()}`;
-    const fallbackFavicon = '/public/favicon.png';
-    const setLink = (href: string) => {
-        let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
-        if (!link) {
-            link = document.createElement('link');
-            link.rel = 'shortcut icon';
-            link.type = 'image/x-icon';
-            document.head.appendChild(link);
-        }
-        link.href = href;
-    };
-
-    if (favicon) {
-        const testImg = new Image();
-        testImg.onload = () => setLink(customFaviconUrl);
-        testImg.onerror = () => setLink(fallbackFavicon);
-        testImg.src = customFaviconUrl;
-    } else {
-        setLink(fallbackFavicon);
-    }
+    const link = document.createElement('link');
+    link.rel = 'shortcut icon';
+    link.type = 'image/x-icon';
+    link.href = '/public/favicon.png';
+    document.head.appendChild(link);
 }
 
 export async function loadBaseDataFromDB() {

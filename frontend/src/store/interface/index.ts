@@ -5,15 +5,6 @@ export interface ThemeConfigProp {
     primary: string;
     theme: string; // dark | bright ｜ auto
     footer: boolean;
-
-    title: string;
-    logo: string;
-    logoWithText: string;
-    favicon: string;
-    loginImage: string;
-    loginBgType: string;
-    loginBackground: string;
-    loginBtnLinkColor: string;
     themeColor: string;
 }
 

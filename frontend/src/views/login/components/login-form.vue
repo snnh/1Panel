@@ -423,7 +423,6 @@ const showPasswordLogin = ref(false);
 const loginSource = ref<'local' | 'ldap'>('local');
 const isDemo = ref(false);
 const open = ref(false);
-const loginBtnLinkColor = ref<string | null>(null);
 let loginViewActive = true;
 
 const pendingExternalTickets = takeExternalTicketsFromURL();
@@ -929,15 +928,15 @@ const getSetting = async () => {
 };
 
 const applyLoginButtonTheme = () => {
-    loginBtnLinkColor.value = themeConfig.value.loginBtnLinkColor || '#005eeb';
-    document.documentElement.style.setProperty('--login-btn-link-color', loginBtnLinkColor.value);
+    const loginBtnLinkColor = '#005eeb';
+    document.documentElement.style.setProperty('--login-btn-link-color', loginBtnLinkColor);
     document.documentElement.style.setProperty(
         '--login-btn-link-hover-color',
-        adjustColorToRGBA(loginBtnLinkColor.value, -10, 80),
+        adjustColorToRGBA(loginBtnLinkColor, -10, 80),
     );
     document.documentElement.style.setProperty(
         '--login-loading-mask-color',
-        adjustColorToRGBA(loginBtnLinkColor.value, 30, 15),
+        adjustColorToRGBA(loginBtnLinkColor, 30, 15),
     );
 };
 

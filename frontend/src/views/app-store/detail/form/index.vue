@@ -204,7 +204,6 @@ const formRules = ref<FormRules>({
     specifyIP: [Rules.ipv4orV6],
     restartPolicy: [Rules.requiredSelect],
     format: [Rules.requiredInput],
-    nodes: [Rules.requiredSelect],
 });
 
 const initFormData = () => ({
@@ -226,8 +225,6 @@ const initFormData = () => ({
     gpuConfig: false,
     specifyIP: '',
     restartPolicy: 'always',
-    pushNode: false,
-    nodes: [],
 });
 
 const formData = ref(props.modelValue || initFormData());

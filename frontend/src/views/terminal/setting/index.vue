@@ -117,7 +117,7 @@
                             <el-form-item :label="$t('terminal.defaultConn')">
                                 <el-switch v-model="form.showDefaultConn" @change="changeShow" />
                             </el-form-item>
-                            <el-form-item :label="$t('xpack.node.connInfo')">
+                            <el-form-item :label="$t('terminal.connInfo')">
                                 <el-input disabled v-model="form.defaultConn">
                                     <template #append>
                                         <el-button @click="dialogRef.acceptParams(false)" icon="Setting">

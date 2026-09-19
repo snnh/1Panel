@@ -86,7 +86,7 @@
                                 class="external-login-button ldap-login-button"
                                 link
                                 native-type="button"
-                                :aria-label="$t('xpack.user.auth.ldap.loginWith')"
+                                :aria-label="$t('user.auth.ldap.loginWith')"
                                 @click="switchToLDAPLogin"
                             >
                                 <span>LDAP</span>
@@ -101,7 +101,7 @@
                                 class="external-login-button oidc-login-button"
                                 link
                                 native-type="button"
-                                :aria-label="$t('xpack.user.auth.oidc.loginWith', { provider: oidcDisplayName })"
+                                :aria-label="$t('user.auth.oidc.loginWith', { provider: oidcDisplayName })"
                                 :loading="oidcStarting"
                                 @click="beginOIDCLogin"
                             >
@@ -117,7 +117,7 @@
                                 class="external-login-button saml2-login-button"
                                 link
                                 native-type="button"
-                                :aria-label="$t('xpack.user.auth.saml2.loginWith', { provider: saml2DisplayName })"
+                                :aria-label="$t('user.auth.saml2.loginWith', { provider: saml2DisplayName })"
                                 :loading="saml2Starting"
                                 @click="beginSAML2Login"
                             >
@@ -152,11 +152,7 @@
                 <div class="flex justify-between items-center mb-6">
                     <div>
                         <div class="text-2xl font-medium text-gray-900">
-                            {{
-                                loginSource === 'ldap'
-                                    ? $t('xpack.user.auth.ldap.loginTitle')
-                                    : $t('commons.button.login')
-                            }}
+                            {{ loginSource === 'ldap' ? $t('user.auth.ldap.loginTitle') : $t('commons.button.login') }}
                         </div>
                         <el-link
                             v-if="loginSource === 'ldap'"
@@ -165,7 +161,7 @@
                             :underline="false"
                             @click="switchToLocalLogin"
                         >
-                            {{ $t('xpack.user.auth.ldap.backToLocalLogin') }}
+                            {{ $t('user.auth.ldap.backToLocalLogin') }}
                         </el-link>
                     </div>
                     <div class="cursor-pointer">
@@ -270,7 +266,7 @@
                                     class="external-login-button ldap-login-button"
                                     link
                                     native-type="button"
-                                    :aria-label="$t('xpack.user.auth.ldap.loginWith')"
+                                    :aria-label="$t('user.auth.ldap.loginWith')"
                                     @click="switchToLDAPLogin"
                                 >
                                     <span>LDAP</span>
@@ -285,7 +281,7 @@
                                     class="external-login-button oidc-login-button"
                                     link
                                     native-type="button"
-                                    :aria-label="$t('xpack.user.auth.oidc.loginWith', { provider: oidcDisplayName })"
+                                    :aria-label="$t('user.auth.oidc.loginWith', { provider: oidcDisplayName })"
                                     :loading="oidcStarting"
                                     @click="beginOIDCLogin"
                                 >
@@ -301,7 +297,7 @@
                                     class="external-login-button saml2-login-button"
                                     link
                                     native-type="button"
-                                    :aria-label="$t('xpack.user.auth.saml2.loginWith', { provider: saml2DisplayName })"
+                                    :aria-label="$t('user.auth.saml2.loginWith', { provider: saml2DisplayName })"
                                     :loading="saml2Starting"
                                     @click="beginSAML2Login"
                                 >
@@ -380,7 +376,7 @@ import { MsgError, MsgSuccess } from '@/utils/message';
 import { useI18n } from 'vue-i18n';
 import { encryptPassword, base64UrlToBuffer, bufferToBase64Url } from '@/utils/auth';
 import { takeExternalTicketsFromURL } from '@/utils/external-login';
-import { getXpackSettingForTheme } from '@/utils/xpack';
+import { applyLocalThemeSettings } from '@/panel-setting';
 import { routerToName } from '@/utils/router';
 import { Key } from '@element-plus/icons-vue';
 import { syncAuthInfo } from '@/utils/rbac';
@@ -985,9 +981,9 @@ onMounted(async () => {
         await Promise.all([loadLDAPStatus(), loadOIDCStatus(), loadSAML2Status()]);
     }
     try {
-        await getXpackSettingForTheme();
+        applyLocalThemeSettings();
     } catch (error) {
-        // 即使获取失败也不影响登录，默认为之前的主题配置
+        // 即使应用失败也不影响登录，默认为之前的主题配置
     }
     if (!loginViewActive) return;
     applyLoginButtonTheme();

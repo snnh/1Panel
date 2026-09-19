@@ -214,7 +214,6 @@ const rules = ref({
     nameserver2: [Rules.ipv4],
     shell: [Rules.requiredInput],
     description: [checkMaxLength(128)],
-    pushNodes: [Rules.requiredSelect],
 });
 const websiteID = ref();
 
@@ -237,9 +236,6 @@ const initData = () => ({
     nameserver2: '',
     execShell: false,
     shell: '',
-    pushNode: false,
-    pushNodes: [],
-    nodes: '',
     isIP: false,
 });
 
@@ -302,13 +298,6 @@ const acceptParams = (op: string, websiteSSL?: Website.SSLDTO) => {
         if (ssl.value.provider == 'selfSigned') {
             rules.value.primaryDomain = [];
         }
-        ssl.value.pushNode = websiteSSL.pushNode;
-        if (websiteSSL.nodes != '') {
-            ssl.value.pushNodes = websiteSSL.nodes
-                .split(',')
-                .map((item) => item.trim())
-                .filter((item) => item !== '');
-        }
         ssl.value.isIP = websiteSSL.isIP;
     }
     ssl.value.websiteId = Number(id.value);
@@ -370,13 +359,8 @@ const submit = async (formEl: FormInstance | undefined) => {
         if (!valid) {
             return;
         }
-        let nodes = '';
-        if (ssl.value.pushNode) {
-            nodes = ssl.value.pushNodes.join(',');
-        }
         loading.value = true;
         if (operate.value == 'create') {
-            ssl.value.nodes = nodes;
             createSSL(ssl.value)
                 .then((res: any) => {
                     if (ssl.value.provider != 'dnsManual') {
@@ -408,8 +392,6 @@ const submit = async (formEl: FormInstance | undefined) => {
                 nameserver2: ssl.value.nameserver2,
                 execShell: ssl.value.execShell,
                 shell: ssl.value.shell,
-                pushNode: ssl.value.pushNode,
-                nodes: nodes,
                 isIP: ssl.value.isIP,
             };
             updateSSL(sslUpdate)

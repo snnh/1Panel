@@ -120,8 +120,6 @@ func Start() {
 	global.LOG.Info("agent startup: hook initialized")
 	go firewall.Init()
 	global.LOG.Info("agent startup: firewall init scheduled")
-	InitOthers()
-	global.LOG.Info("agent startup: edition initialized")
 
 	rootRouter := router.Routers()
 	global.LOG.Info("agent startup: router initialized")

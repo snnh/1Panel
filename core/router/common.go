@@ -11,3 +11,6 @@ func commonGroups() []CommonRouter {
 		&ScriptRouter{},
 	}
 }
+
+// RouterGroupApp is the community router group, registered by core/init/router.
+var RouterGroupApp = commonGroups()

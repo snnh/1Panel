@@ -23,7 +23,6 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/utils/copier"
 	"github.com/1Panel-dev/1Panel/agent/utils/email"
 	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
-	"github.com/1Panel-dev/1Panel/agent/utils/xpack/providers"
 	"github.com/shirou/gopsutil/v4/disk"
 )
 
@@ -874,14 +873,7 @@ func (a AlertService) TestCustomAlertConfig(req dto.AlertConfigTest) (dto.AlertC
 	if err != nil {
 		return dto.AlertConfigTestResult{}, err
 	}
-	tester, ok := xpack.AlertProvider.(providers.CustomWebhookTester)
-	if !ok {
-		return dto.AlertConfigTestResult{
-			Success: false,
-			Message: providers.ErrCustomWebhookUnsupported.Error(),
-		}, nil
-	}
-	return tester.TestCustomWebhook(resolved)
+	return xpack.TestCustomWebhook(resolved)
 }
 
 func (a AlertService) ExternalUpdateAlert(updateAlert dto.AlertCreate, operator string) error {

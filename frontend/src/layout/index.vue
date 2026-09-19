@@ -44,7 +44,7 @@ import useResize from './hooks/useResize';
 import { MenuStore, TabsStore } from '@/store';
 import { getSystemAvailable } from '@/api/modules/setting';
 import { useRoute, useRouter } from 'vue-router';
-import { loadBaseDataFromDB } from '@/utils/xpack';
+import { loadBaseDataFromDB } from '@/panel-setting';
 import { useTheme } from '@/global/use-theme';
 import TaskList from '@/components/task-list/index.vue';
 import i18n from '@/lang';

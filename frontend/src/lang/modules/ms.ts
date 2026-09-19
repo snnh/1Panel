@@ -4146,8 +4146,6 @@ const message = {
         customAcme: 'Perkhidmatan ACME Tersuai',
         customAcmeURL: 'URL Perkhidmatan ACME',
         baiduCloud: 'Baidu Cloud',
-        pushNode: 'Segerakan ke Nod Lain',
-        pushNodeHelper: 'Tolak ke nod terpilih selepas permohonan/pembaharuan',
         fromMaster: 'Tolak dari Nod Utama',
         hostedZoneID: 'Hosted Zone ID',
         isIP: 'Sijil IP',

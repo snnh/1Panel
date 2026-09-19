@@ -604,7 +604,7 @@ func isIPInWhitelist(ip string, whitelist []string) bool {
 
 func loadNodeException(alert dto.AlertDTO) {
 	// only master alert
-	failCount, err := xpack.AlertProvider.GetNodeErrorAlert()
+	failCount, err := xpack.GetNodeErrorAlert()
 	if err != nil {
 		global.LOG.Errorf("error getting node, err: %s", err)
 		return

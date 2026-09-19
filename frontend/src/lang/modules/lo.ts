@@ -3968,8 +3968,6 @@ const message = {
         customAcme: 'ບໍລິການ ACME ທີ່ກຳນົດເອງ',
         customAcmeURL: 'URL ຂອງບໍລິການ ACME',
         baiduCloud: 'Baidu Cloud',
-        pushNode: 'ຊິງຄ໌ໄປຫາ Node ອື່ນ',
-        pushNodeHelper: 'ສົ່ງໄປຫາ Node ທີ່ເລືອກຫຼັງຈາກຂໍ/ຕໍ່ອາຍຸສຳເລັດ',
         fromMaster: 'ສົ່ງຈາກ Node ຫຼັກ',
         hostedZoneID: 'Hosted Zone ID',
         isIP: 'ໃບຢັ້ງຢືນ IP',

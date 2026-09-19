@@ -4046,8 +4046,6 @@ const message = {
         customAcme: 'سرویس ACME سفارشی',
         customAcmeURL: 'URL سرویس ACME',
         baiduCloud: 'بایدو کلود',
-        pushNode: 'همگام‌سازی با سایر گره‌ها',
-        pushNodeHelper: 'پس از درخواست/تمدید به گره‌های انتخاب شده ارسال کنید',
         fromMaster: 'ارسال از گره اصلی',
         hostedZoneID: 'شناسه منطقه میزبان',
         isIP: 'گواهی IP',

@@ -22,30 +22,30 @@
                     </el-form-item>
 
                     <template v-if="form.type === 'email'">
-                        <el-form-item :label="$t('xpack.alert.displayName')" prop="config.displayName">
+                        <el-form-item :label="$t('alert.displayName')" prop="config.displayName">
                             <el-input v-model="form.config.displayName" />
-                            <span class="input-help">{{ $t('xpack.alert.displayNameHelper') }}</span>
+                            <span class="input-help">{{ $t('alert.displayNameHelper') }}</span>
                         </el-form-item>
-                        <el-form-item :label="$t('xpack.alert.sender')" prop="config.sender">
+                        <el-form-item :label="$t('alert.sender')" prop="config.sender">
                             <el-input v-model.trim="form.config.sender" />
-                            <span class="input-help">{{ $t('xpack.alert.senderHelper') }}</span>
+                            <span class="input-help">{{ $t('alert.senderHelper') }}</span>
                         </el-form-item>
                         <el-form-item :label="$t('commons.login.username')" prop="config.userName">
                             <el-input v-model.trim="form.config.userName" />
-                            <span class="input-help">{{ $t('xpack.alert.userNameHelper') }}</span>
+                            <span class="input-help">{{ $t('alert.userNameHelper') }}</span>
                         </el-form-item>
-                        <el-form-item :label="$t('xpack.alert.password')" prop="emailPassword">
+                        <el-form-item :label="$t('alert.password')" prop="emailPassword">
                             <el-input v-model="form.emailPassword" type="password" show-password />
-                            <span class="input-help">{{ $t('xpack.alert.passwordHelper') }}</span>
+                            <span class="input-help">{{ $t('alert.passwordHelper') }}</span>
                         </el-form-item>
-                        <el-form-item :label="$t('xpack.alert.host')" prop="config.host">
+                        <el-form-item :label="$t('alert.host')" prop="config.host">
                             <el-input v-model.trim="form.config.host" placeholder="smtp.qq.com" />
-                            <span class="input-help">{{ $t('xpack.alert.hostHelper') }}</span>
+                            <span class="input-help">{{ $t('alert.hostHelper') }}</span>
                         </el-form-item>
-                        <el-form-item :label="$t('xpack.alert.port')" prop="config.port">
+                        <el-form-item :label="$t('alert.port')" prop="config.port">
                             <el-input v-model.number="form.config.port" :min="1" :max="65535" />
                         </el-form-item>
-                        <el-form-item :label="$t('xpack.alert.encryption')" prop="config.encryption">
+                        <el-form-item :label="$t('alert.encryption')" prop="config.encryption">
                             <div class="flex items-center gap-2">
                                 <span class="el-form-item__label">SSL</span>
                                 <el-switch
@@ -55,7 +55,7 @@
                                     :inactive-value="form.config.encryption === 'SSL' ? 'NONE' : form.config.encryption"
                                 />
                             </div>
-                            <span class="input-help">{{ $t('xpack.alert.sslHelper') }}</span>
+                            <span class="input-help">{{ $t('alert.sslHelper') }}</span>
                             <div class="flex items-center gap-2">
                                 <span class="el-form-item__label">TLS</span>
                                 <el-switch
@@ -65,13 +65,10 @@
                                     :inactive-value="form.config.encryption === 'TLS' ? 'NONE' : form.config.encryption"
                                 />
                             </div>
-                            <span class="input-help">{{ $t('xpack.alert.tlsHelper') }}</span>
+                            <span class="input-help">{{ $t('alert.tlsHelper') }}</span>
                         </el-form-item>
-                        <el-form-item :label="$t('xpack.alert.recipient')" prop="recipient">
-                            <el-input
-                                v-model.trim="form.recipient"
-                                :placeholder="$t('xpack.alert.recipientPlaceholder')"
-                            />
+                        <el-form-item :label="$t('alert.recipient')" prop="recipient">
+                            <el-input v-model.trim="form.recipient" :placeholder="$t('alert.recipientPlaceholder')" />
                         </el-form-item>
                     </template>
 
@@ -83,10 +80,10 @@
                     />
 
                     <template v-else>
-                        <el-form-item :label="$t('xpack.alert.webhookName')" prop="webhookName">
+                        <el-form-item :label="$t('alert.webhookName')" prop="webhookName">
                             <el-input v-model="form.webhookName" />
                         </el-form-item>
-                        <el-form-item :label="$t('xpack.alert.webhookUrl')" prop="webhookUrl">
+                        <el-form-item :label="$t('alert.webhookUrl')" prop="webhookUrl">
                             <el-input v-model.trim="form.webhookUrl" :rows="2" type="password" show-password />
                         </el-form-item>
                     </template>
@@ -96,7 +93,7 @@
         <template #footer>
             <div v-if="form.type === 'email'" class="flex items-center justify-between">
                 <el-button v-permission :disabled="loading" @click="onTest(formRef)" plain type="primary">
-                    {{ $t('xpack.alert.test') }}
+                    {{ $t('alert.test') }}
                 </el-button>
                 <div>
                     <el-button @click="drawerVisible = false">{{ $t('commons.button.cancel') }}</el-button>
@@ -112,7 +109,7 @@
             </div>
             <div v-else-if="form.type === 'custom'" class="custom-webhook-footer">
                 <el-button v-permission plain type="primary" :loading="testLoading" @click="onTest(formRef)">
-                    {{ $t('xpack.alert.test') }}
+                    {{ $t('alert.test') }}
                 </el-button>
                 <div class="custom-webhook-footer__actions">
                     <el-button @click="drawerVisible = false">{{ $t('commons.button.cancel') }}</el-button>
@@ -183,9 +180,9 @@ const currentRules = computed(() => {
 });
 
 const typeOptions = computed(() => {
-    const options: { value: string; label: string }[] = [{ value: 'email', label: i18n.global.t('xpack.alert.mail') }];
-    options.push({ value: 'bark', label: i18n.global.t('xpack.alert.bark') });
-    options.push({ value: 'custom', label: i18n.global.t('xpack.alert.custom') });
+    const options: { value: string; label: string }[] = [{ value: 'email', label: i18n.global.t('alert.mail') }];
+    options.push({ value: 'bark', label: i18n.global.t('alert.bark') });
+    options.push({ value: 'custom', label: i18n.global.t('alert.custom') });
     return options;
 });
 
@@ -249,7 +246,7 @@ const customWebhookSaveAllowed = computed(
 
 const drawerHeader = computed(() => {
     if (isEdit.value) {
-        return i18n.global.t('xpack.alert.' + form.type);
+        return i18n.global.t('alert.' + form.type);
     }
     return i18n.global.t('commons.button.create');
 });
@@ -287,9 +284,9 @@ function checkDisplayNameDuplicate(_rule: unknown, value: string, callback: (err
 }
 
 const titleMap: Record<string, string> = {
-    email: 'xpack.alert.emailConfig',
-    bark: 'xpack.alert.bark',
-    custom: 'xpack.alert.custom',
+    email: 'alert.emailConfig',
+    bark: 'alert.bark',
+    custom: 'alert.custom',
 };
 
 interface DrawerProps {
@@ -423,7 +420,7 @@ const validateCustomWebhook = async (formEl: FormInstance, allowClearedUrl = fal
     customWebhookValidationIssues.value = validateCustomWebhookDraft(form.customWebhook, { allowClearedUrl });
     if (customWebhookValidationIssues.value.length > 0) {
         const issue = customWebhookValidationIssues.value[0];
-        MsgError(i18n.global.t(`xpack.alert.customWebhookValidation.${issue.code}`));
+        MsgError(i18n.global.t(`alert.customWebhookValidation.${issue.code}`));
         return false;
     }
     try {
@@ -450,7 +447,7 @@ const saveAlertConfig = async () => {
 const onSave = async (formEl: FormInstance | undefined) => {
     if (!formEl) return;
     if (isEdit.value && !form.revision) {
-        MsgError(i18n.global.t('xpack.alert.alertConfigChanged'));
+        MsgError(i18n.global.t('alert.alertConfigChanged'));
         return;
     }
     if (form.type === 'custom') {
@@ -491,11 +488,10 @@ const onTest = async (formEl: FormInstance | undefined) => {
             const raw = res.data as Alert.AlertConfigCustomTestResult | boolean;
             const result = typeof raw === 'boolean' ? undefined : raw;
             const success = typeof raw === 'boolean' ? raw : Boolean(result?.success);
-            const message =
-                result?.message || i18n.global.t(success ? 'xpack.alert.alertTestOk' : 'xpack.alert.alertTestFailed');
+            const message = result?.message || i18n.global.t(success ? 'alert.alertTestOk' : 'alert.alertTestFailed');
             if (success) {
                 if (testedRevision !== customWebhookRevision.value) {
-                    MsgWarning(i18n.global.t('xpack.alert.testResultStale'));
+                    MsgWarning(i18n.global.t('alert.testResultStale'));
                     return;
                 }
                 testedCustomWebhookRevision.value = testedRevision;
@@ -529,13 +525,13 @@ const onTest = async (formEl: FormInstance | undefined) => {
             loading.value = false;
             if (res.data) {
                 if (testedEmailRevision !== emailRevision.value) {
-                    MsgWarning(i18n.global.t('xpack.alert.testResultStale'));
+                    MsgWarning(i18n.global.t('alert.testResultStale'));
                     return;
                 }
                 isOK.value = true;
-                MsgSuccess(i18n.global.t('xpack.alert.alertTestOk'));
+                MsgSuccess(i18n.global.t('alert.alertTestOk'));
             } else {
-                MsgError(i18n.global.t('xpack.alert.alertTestFailed'));
+                MsgError(i18n.global.t('alert.alertTestFailed'));
             }
         } catch {
             loading.value = false;

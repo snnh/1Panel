@@ -27,3 +27,6 @@ func commonGroups() []CommonRouter {
 		&RuntimeDiagnosticsRouter{},
 	}
 }
+
+// RouterGroupApp is the community router group, registered by agent/init/router.
+var RouterGroupApp = commonGroups()

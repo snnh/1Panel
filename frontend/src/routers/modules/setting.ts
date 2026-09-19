@@ -57,7 +57,7 @@ const settingRouter = {
                     hidden: true,
                     meta: {
                         parent: 'menu.settings',
-                        title: 'xpack.alert.alertNotice',
+                        title: 'alert.alertNotice',
                         activeMenu: '/settings',
                         permission: 'alert_view',
                     },

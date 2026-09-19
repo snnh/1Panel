@@ -1,11 +1,12 @@
 <template>
     <div v-if="showOption" class="w-full">
+        <div>{{ $t('commons.proxySyncDockerRestart') }}</div>
         <el-radio-group v-model="restart" @change="changeRestart">
             <el-radio :value="true">{{ $t('setting.restartNow') }}</el-radio>
             <el-radio :value="false">{{ $t('setting.restartLater') }}</el-radio>
         </el-radio-group>
-        <span class="input-help" v-if="restart">{{ $t('xpack.node.syncProxyHelper3') }}</span>
-        <span class="input-help" v-else>{{ $t('xpack.node.syncProxyHelper4') }}</span>
+        <span class="input-help" v-if="restart">{{ $t('commons.restartDockerNowHelper') }}</span>
+        <span class="input-help" v-else>{{ $t('commons.restartDockerLaterHelper') }}</span>
     </div>
 </template>
 

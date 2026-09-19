@@ -4165,8 +4165,6 @@ const message = {
         customAcme: 'Serviço ACME Personalizado',
         customAcmeURL: 'URL do Serviço ACME',
         baiduCloud: 'Baidu Cloud',
-        pushNode: 'Sincronizar com Outros Nós',
-        pushNodeHelper: 'Enviar para os nós selecionados após a aplicação/renovação',
         fromMaster: 'Envio do Nó Mestre',
         hostedZoneID: 'Hosted Zone ID',
         isIP: 'Certificado de IP',

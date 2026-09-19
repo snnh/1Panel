@@ -30,7 +30,7 @@ const buttons = computed<RouterButton[]>(() => {
         ...(globalStore.hasPermission('alert_view')
             ? [
                   {
-                      label: i18n.global.t('xpack.alert.alertNotice'),
+                      label: i18n.global.t('alert.alertNotice'),
                       path: '/settings/alert',
                       permission: 'alert_view',
                   },

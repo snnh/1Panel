@@ -111,7 +111,6 @@ const rules = ref({
     type: [Rules.requiredSelect],
     certificateFile: [Rules.requiredInput],
     privateKeyFile: [Rules.requiredInput],
-    pushNodes: [Rules.requiredSelect],
 });
 const initData = () => ({
     privateKey: '',
@@ -121,9 +120,6 @@ const initData = () => ({
     type: 'paste',
     sslID: 0,
     description: '',
-    pushNode: false,
-    pushNodes: [] as string[],
-    nodes: '',
     privateKeyFile: null as File | null,
     certificateFile: null as File | null,
 });
@@ -159,13 +155,6 @@ const acceptParams = (websiteSSL?: Website.SSLDTO) => {
         ssl.value.description = websiteSSL.description;
         ssl.value.privateKeyPath = websiteSSL.privateKeyPath;
         ssl.value.certificatePath = websiteSSL.certPath;
-        ssl.value.pushNode = websiteSSL.pushNode;
-        ssl.value.pushNodes = websiteSSL.nodes
-            ? websiteSSL.nodes
-                  .split(',')
-                  .map((item) => item.trim())
-                  .filter((item) => item !== '')
-            : [];
         if (ssl.value.certificatePath != '' && ssl.value.privateKeyPath != '') {
             ssl.value.type = 'local';
         }
@@ -185,14 +174,11 @@ const submit = async () => {
     try {
         await sslForm.value?.validate();
         loading.value = true;
-        ssl.value.nodes = ssl.value.pushNode ? ssl.value.pushNodes.join(',') : '';
         if (ssl.value.type === 'upload') {
             const formData = new FormData();
             formData.append('type', ssl.value.type);
             formData.append('description', ssl.value.description);
             formData.append('sslID', ssl.value.sslID.toString());
-            formData.append('pushNode', String(ssl.value.pushNode));
-            formData.append('nodes', ssl.value.nodes);
 
             if (ssl.value.privateKeyFile) {
                 formData.append('privateKeyFile', ssl.value.privateKeyFile);

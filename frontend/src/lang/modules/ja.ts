@@ -4071,8 +4071,6 @@ const message = {
         customAcme: 'カスタム ACME サービス',
         customAcmeURL: 'ACME サービス URL',
         baiduCloud: '百度クラウド',
-        pushNode: '他のノードに同期',
-        pushNodeHelper: '申請/更新後に選択したノードにプッシュ',
         fromMaster: 'マスターノードからのプッシュ',
         hostedZoneID: 'Hosted Zone ID',
         isIP: 'IP証明書',

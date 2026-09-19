@@ -1,9 +1,5 @@
 import { getSettingBaseInfo } from '@/api/modules/setting';
 import { useTheme } from '@/global/use-theme';
-import {
-    searchXpackSetting,
-    updateXpackSettingByKey as updateXpackSettingByKeyFromExtension,
-} from '@/extensions/xpack';
 import { GlobalStore } from '@/store';
 
 let switchThemeFn: (() => void) | undefined;
@@ -14,15 +10,6 @@ const switchTheme = () => {
     }
     switchThemeFn();
 };
-
-export function resetXSetting() {
-    const globalStore = GlobalStore();
-    globalStore.themeConfig.title = '';
-    globalStore.themeConfig.logo = '';
-    globalStore.themeConfig.logoWithText = '';
-    globalStore.themeConfig.favicon = '';
-    return;
-}
 
 export async function initFavicon() {
     const globalStore = GlobalStore();
@@ -51,17 +38,6 @@ export async function initFavicon() {
     }
 }
 
-export async function getXpackSetting() {
-    const res = await searchXpackSetting();
-    if (!res) {
-        initFavicon();
-        resetXSetting();
-        return;
-    }
-    initFavicon();
-    return res;
-}
-
 export async function loadBaseDataFromDB() {
     const globalStore = GlobalStore();
     const res = await getSettingBaseInfo();
@@ -76,30 +52,7 @@ export async function loadBaseDataFromDB() {
     initFavicon();
 }
 
-export async function getXpackSettingForTheme() {
-    const globalStore = GlobalStore();
-    const res2 = await searchXpackSetting();
-    if (res2) {
-        globalStore.themeConfig.title = res2.data?.title;
-        globalStore.themeConfig.logo = res2.data?.logo;
-        globalStore.themeConfig.logoWithText = res2.data?.logoWithText;
-        globalStore.themeConfig.favicon = res2.data?.favicon;
-        globalStore.themeConfig.loginImage = res2.data?.loginImage;
-        globalStore.themeConfig.loginBgType = res2.data?.loginBgType;
-        globalStore.themeConfig.loginBackground = res2.data?.loginBackground;
-        globalStore.themeConfig.loginBtnLinkColor = res2.data?.loginBtnLinkColor;
-        globalStore.themeConfig.themeColor = res2.data?.themeColor;
-
-        if (res2.data?.theme) {
-            globalStore.themeConfig.theme = res2.data.theme;
-        }
-    } else {
-        resetXSetting();
-    }
+export function applyLocalThemeSettings() {
     switchTheme();
     initFavicon();
-}
-
-export async function updateXpackSettingByKey(key: string, value: string) {
-    return updateXpackSettingByKeyFromExtension(key, value);
 }

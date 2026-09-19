@@ -47,9 +47,7 @@ func Start() {
 	gob.Register(psession.SessionUser{})
 	cron.Init()
 	session.Init()
-	InitOthersBeforeHook()
 	hook.Init()
-	InitOthersAfterHook()
 	service.SyncScriptLibraryOnStartup()
 
 	proxy.Init()

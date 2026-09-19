@@ -4151,8 +4151,6 @@ const message = {
         customAcme: 'Özel ACME Servisi',
         customAcmeURL: 'ACME Servis URL’si',
         baiduCloud: 'Baidu Cloud',
-        pushNode: 'Diğer Düğümlere Senkronize Et',
-        pushNodeHelper: 'Başvuru/yenilemeden sonra seçilen düğümlere gönder',
         fromMaster: 'Ana Düğümden Gönder',
         hostedZoneID: 'Hosted Zone ID',
         isIP: 'IP Sertifikası',

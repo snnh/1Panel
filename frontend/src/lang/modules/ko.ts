@@ -3995,8 +3995,6 @@ const message = {
         customAcme: '사용자 정의 ACME 서비스',
         customAcmeURL: 'ACME 서비스 URL',
         baiduCloud: '바이두 클라우드',
-        pushNode: '다른 노드에 동기화',
-        pushNodeHelper: '신청/갱신 후 선택한 노드로 푸시',
         fromMaster: '마스터 노드에서 푸시',
         hostedZoneID: 'Hosted Zone ID',
         isIP: 'IP 인증서',

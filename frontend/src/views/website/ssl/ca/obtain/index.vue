@@ -100,7 +100,6 @@ const rules = ref({
     time: [Rules.integerNumber, checkNumberRange(1, 10000)],
     shell: [Rules.requiredInput],
     description: [checkMaxLength(128)],
-    pushNodes: [Rules.requiredSelect],
 });
 
 const initData = () => ({
@@ -115,9 +114,6 @@ const initData = () => ({
     description: '',
     execShell: false,
     shell: '',
-    pushNode: false,
-    pushNodes: [] as string[],
-    nodes: '',
 });
 const obtain = ref(initData());
 
@@ -148,7 +144,6 @@ const submit = async (formEl: FormInstance | undefined) => {
             return;
         }
         loading.value = true;
-        obtain.value.nodes = obtain.value.pushNode ? obtain.value.pushNodes.join(',') : '';
 
         obtainSSLByCA(obtain.value)
             .then(() => {

@@ -140,7 +140,3 @@ export function getAppIconUrl(appKey: string): string {
     const params = '';
     return `${baseURL}/apps/icon/${appKey}${params}`;
 }
-
-export const installAppToNodes = (param: App.InstallAppToNodes) => {
-    return http.post(`/core/xpack/sync/app/install`, param);
-};

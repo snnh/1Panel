@@ -1,12 +1,12 @@
 <template>
-    <DrawerPro v-model="drawerVisible" :header="$t('xpack.alert.sendTimeRange')" @close="handleClose" size="736">
+    <DrawerPro v-model="drawerVisible" :header="$t('alert.sendTimeRange')" @close="handleClose" size="736">
         <el-form ref="formRef" label-position="top" @submit.prevent v-loading="loading">
-            <el-form-item :label="$t('xpack.alert.sendTimeRange')" prop="sendTimeRange">
+            <el-form-item :label="$t('alert.sendTimeRange')" prop="sendTimeRange">
                 <div class="text-center">
                     <el-transfer
                         v-model="resourceValue"
                         class="text-left inline-block"
-                        :titles="[$t('xpack.alert.noticeAlert'), $t('xpack.alert.resourceAlert')]"
+                        :titles="[$t('alert.noticeAlert'), $t('alert.resourceAlert')]"
                         :format="{
                             noChecked: '${total}',
                             hasChecked: '${checked}/${total}',
@@ -23,11 +23,7 @@
                                     :end-placeholder="$t('commons.search.timeEnd')"
                                 />
                                 <span class="input-help ml-2">
-                                    {{
-                                        $t('xpack.alert.sendTimeRangeHelper', [
-                                            $t('xpack.alert.noticeAlert').toLowerCase(),
-                                        ])
-                                    }}
+                                    {{ $t('alert.sendTimeRangeHelper', [$t('alert.noticeAlert').toLowerCase()]) }}
                                 </span>
                             </el-form-item>
                         </template>
@@ -41,11 +37,7 @@
                                     :end-placeholder="$t('commons.search.timeEnd')"
                                 />
                                 <span class="input-help ml-2">
-                                    {{
-                                        $t('xpack.alert.sendTimeRangeHelper', [
-                                            $t('xpack.alert.resourceAlert').toLowerCase(),
-                                        ])
-                                    }}
+                                    {{ $t('alert.sendTimeRangeHelper', [$t('alert.resourceAlert').toLowerCase()]) }}
                                 </span>
                             </el-form-item>
                         </template>
@@ -131,16 +123,16 @@ const noticeTimeRange = ref(noticeDefaultTime);
 const resourceTimeRange = ref(resourceDefaultTime);
 const generateData = (): Option[] => {
     const data: Option[] = [];
-    data.push({ key: 'panelLogin', label: i18n.global.t('xpack.alert.panelLogin'), disabled: false });
-    data.push({ key: 'sshLogin', label: i18n.global.t('xpack.alert.sshLogin'), disabled: false });
-    data.push({ key: 'ssl', label: i18n.global.t('xpack.alert.ssl'), disabled: false });
-    data.push({ key: 'siteEndTime', label: i18n.global.t('xpack.alert.siteEndTime'), disabled: false });
-    data.push({ key: 'cpu', label: i18n.global.t('xpack.alert.cpu'), disabled: false });
-    data.push({ key: 'memory', label: i18n.global.t('xpack.alert.memory'), disabled: false });
-    data.push({ key: 'disk', label: i18n.global.t('xpack.alert.disk'), disabled: false });
-    data.push({ key: 'load', label: i18n.global.t('xpack.alert.load'), disabled: false });
-    data.push({ key: 'clams', label: i18n.global.t('xpack.alert.clams'), disabled: false });
-    data.push({ key: 'cronJob', label: i18n.global.t('xpack.alert.cronjob'), disabled: false });
+    data.push({ key: 'panelLogin', label: i18n.global.t('alert.panelLogin'), disabled: false });
+    data.push({ key: 'sshLogin', label: i18n.global.t('alert.sshLogin'), disabled: false });
+    data.push({ key: 'ssl', label: i18n.global.t('alert.ssl'), disabled: false });
+    data.push({ key: 'siteEndTime', label: i18n.global.t('alert.siteEndTime'), disabled: false });
+    data.push({ key: 'cpu', label: i18n.global.t('alert.cpu'), disabled: false });
+    data.push({ key: 'memory', label: i18n.global.t('alert.memory'), disabled: false });
+    data.push({ key: 'disk', label: i18n.global.t('alert.disk'), disabled: false });
+    data.push({ key: 'load', label: i18n.global.t('alert.load'), disabled: false });
+    data.push({ key: 'clams', label: i18n.global.t('alert.clams'), disabled: false });
+    data.push({ key: 'cronJob', label: i18n.global.t('alert.cronjob'), disabled: false });
     return data;
 };
 
@@ -182,10 +174,10 @@ const onSave = async () => {
         try {
             config.value.id = id.value;
             config.value.type = 'common';
-            config.value.title = 'xpack.alert.commonConfig';
+            config.value.title = 'alert.commonConfig';
             config.value.status = 'Enable';
             config.value.config = JSON.stringify(configInfo.value);
-            config.value.displayName = i18n.global.t('xpack.alert.commonConfig');
+            config.value.displayName = i18n.global.t('alert.commonConfig');
             await UpdateAlertConfig(config.value);
 
             loading.value = false;
@@ -196,7 +188,7 @@ const onSave = async () => {
             loading.value = false;
         }
     } else {
-        MsgError(i18n.global.t('commons.msg.confirmNoNull', [i18n.global.t('xpack.alert.timeRange').toLowerCase()]));
+        MsgError(i18n.global.t('commons.msg.confirmNoNull', [i18n.global.t('alert.timeRange').toLowerCase()]));
     }
 };
 

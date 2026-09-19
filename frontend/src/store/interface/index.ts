@@ -48,16 +48,11 @@ export interface GlobalState {
     isAdmin: boolean;
     permissions: string[];
     masterOnlyPermissions: string[];
-    nodeRoles: Array<{ nodeId: number; nodeName: string; roleId: number; roleName: string }>;
     isEnterprise: boolean;
     isIntl: boolean;
     docWithRegion: boolean;
     isFxplay: boolean;
     isOffline: boolean;
-    // multi-node
-    masterAlias: string;
-    currentNode: string;
-    currentNodeAddr: string;
 }
 
 export interface MenuState {

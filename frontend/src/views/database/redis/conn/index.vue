@@ -126,8 +126,6 @@ import { MsgSuccess } from '@/utils/message';
 import { getRandomStr } from '@/utils/id';
 import { copyText } from '@/utils/clipboard';
 import { getAgentSettingInfo } from '@/api/modules/setting';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-const { currentNodeAddr } = useGlobalStore();
 
 const loading = ref(false);
 
@@ -194,7 +192,7 @@ const loadPassword = async () => {
 
 const loadSystemIP = async () => {
     const res = await getAgentSettingInfo();
-    form.systemIP = res.data.systemIP || currentNodeAddr.value || i18n.global.t('database.localIP');
+    form.systemIP = res.data.systemIP || i18n.global.t('database.localIP');
 };
 
 function loadRedisInfo(isContainer: boolean) {

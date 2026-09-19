@@ -42,16 +42,6 @@
                     <el-option :label="$t('commons.status.success')" value="Success" />
                     <el-option :label="$t('commons.status.failed')" value="Failed" />
                 </el-select>
-                <el-select v-if="isAdmin" v-model="searchNode" @change="search()" clearable class="p-w-200">
-                    <template #prefix>{{ $t('xpack.node.node') }}</template>
-                    <el-option :label="$t('commons.table.all')" value="" />
-                    <el-option
-                        v-for="(node, index) in nodes"
-                        :key="index"
-                        :label="loadNodeName(node.name)"
-                        :value="node.name"
-                    />
-                </el-select>
                 <TableSearch @search="search()" v-model:searchName="searchName" />
                 <TableRefresh @search="search()" />
                 <TableSetting title="operation-log-refresh" @search="search()" />
@@ -103,7 +93,6 @@ import { onMounted, reactive, ref } from 'vue';
 import i18n from '@/lang';
 import { MsgSuccess } from '@/utils/message';
 import { useGlobalStore } from '@/composables/useGlobalStore';
-import { listNodes } from '@/utils/node';
 
 const loading = ref();
 const data = ref();
@@ -117,10 +106,8 @@ const paginationConfig = reactive({
 const searchName = ref<string>('');
 const searchGroup = ref<string>('');
 const searchStatus = ref<string>('');
-const searchNode = ref<string>('');
-const nodes = ref();
 
-const { globalStore, currentNode, isAdmin, language } = useGlobalStore();
+const { language } = useGlobalStore();
 
 const search = async () => {
     let params = {
@@ -129,7 +116,6 @@ const search = async () => {
         pageSize: paginationConfig.pageSize,
         status: searchStatus.value,
         source: searchGroup.value,
-        node: searchNode.value,
     };
     loading.value = true;
     await getOperationLogs(params)
@@ -145,13 +131,6 @@ const search = async () => {
         .catch(() => {
             loading.value = false;
         });
-};
-
-const loadNodeName = (node: string) => {
-    if (node === 'local') {
-        return globalStore.getMasterAlias();
-    }
-    return node;
 };
 
 const onClean = async () => {
@@ -171,16 +150,6 @@ const loadDetail = (log: string) => {
         }
         return '[' + i18n.global.t(transKey) + ']';
     });
-};
-
-const loadNodes = async () => {
-    await listNodes('all')
-        .then((res) => {
-            nodes.value = res || [];
-        })
-        .catch(() => {
-            nodes.value = [];
-        });
 };
 
 const normalizedReplacements: Record<string, string> = {
@@ -292,10 +261,6 @@ const onSubmitClean = async () => {
 };
 
 onMounted(() => {
-    if (isAdmin.value) {
-        loadNodes();
-    }
-    searchNode.value = isAdmin.value ? '' : currentNode.value;
     search();
 });
 </script>

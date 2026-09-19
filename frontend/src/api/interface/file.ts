@@ -41,10 +41,6 @@ export namespace File {
         isDetail?: boolean;
     }
 
-    export interface ReqNodeFile extends ReqFile {
-        node: string;
-    }
-
     export interface PreviewContentReq {
         path: string;
         isDetail?: boolean;
@@ -328,7 +324,6 @@ export namespace File {
     export interface FileShareCheck {
         code: string;
         password?: string;
-        operateNode: string;
     }
 
     export interface FileShareInfo {

@@ -58,7 +58,7 @@ import i18n from '@/lang';
 import { ref } from 'vue';
 import { File } from '@/api/interface/file';
 import { getIcon } from '@/utils/file';
-import { deleteFile, deleteFileByNode, getRecycleStatus, getRecycleStatusByNode } from '@/api/modules/files';
+import { deleteFileByNode, getRecycleStatus } from '@/api/modules/files';
 import { MsgSuccess, MsgWarning } from '@/utils/message';
 import { loadBaseDir } from '@/api/modules/setting';
 
@@ -68,13 +68,8 @@ const loading = ref(false);
 const em = defineEmits(['close']);
 const forceDelete = ref(false);
 const recycleStatus = ref('Enable');
-const reqNode = ref('');
 
-const acceptParams = (props: File.File[], node: string) => {
-    reqNode.value = '';
-    if (node != '') {
-        reqNode.value = node;
-    }
+const acceptParams = (props: File.File[]) => {
     getStatus();
     files.value = props;
     open.value = true;
@@ -85,11 +80,7 @@ const getStatus = async () => {
     loading.value = true;
     try {
         let res;
-        if (reqNode.value != '') {
-            res = await getRecycleStatusByNode(reqNode.value);
-        } else {
-            res = await getRecycleStatus();
-        }
+        res = await getRecycleStatus();
         recycleStatus.value = res.data;
         if (recycleStatus.value === 'Disable') {
             forceDelete.value = true;
@@ -120,16 +111,7 @@ const onConfirm = async () => {
                     return;
                 }
             }
-            if (reqNode.value != '') {
-                pros.push(
-                    deleteFileByNode(
-                        { path: s['path'], isDir: s['isDir'], forceDelete: forceDelete.value },
-                        reqNode.value,
-                    ),
-                );
-            } else {
-                pros.push(deleteFile({ path: s['path'], isDir: s['isDir'], forceDelete: forceDelete.value }));
-            }
+            pros.push(deleteFileByNode({ path: s['path'], isDir: s['isDir'], forceDelete: forceDelete.value }));
         }
         await Promise.all(pros);
         MsgSuccess(i18n.global.t('commons.msg.deleteSuccess'));

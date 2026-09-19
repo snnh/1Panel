@@ -52,8 +52,6 @@ import { Rules } from '@/global/form-rules';
 import { MsgError, MsgSuccess } from '@/utils/message';
 import { checkFile } from '@/api/modules/files';
 import { routerToFileWithPath } from '@/utils/router';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-const { currentNode } = useGlobalStore();
 
 const drawerVisible = ref(false);
 const loading = ref();
@@ -112,7 +110,7 @@ const toFolder = async () => {
 };
 
 const loadBackupDir = async () => {
-    const res = await getLocalBackupDir(currentNode.value);
+    const res = await getLocalBackupDir();
     backupPath.value = `${res.data}${res.data.endsWith('/') ? '' : '/'}system_snapshot`;
 };
 

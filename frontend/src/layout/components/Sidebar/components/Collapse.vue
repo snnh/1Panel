@@ -15,7 +15,7 @@
                     <el-badge is-dot :value="taskCount" :show-zero="false" :offset="[5, 5]">
                         <el-button link>
                             <SvgIcon class="icon" iconName="p-pcm" />
-                            <span class="ellipsis-text">{{ loadCurrentName() }}</span>
+                            <span class="ellipsis-text">{{ panelName }}</span>
                         </el-button>
                     </el-badge>
                 </div>
@@ -25,7 +25,7 @@
                     </el-badge>
                 </div>
             </template>
-            <div class="dropdown-menu" v-loading="loading || switchingNode">
+            <div class="dropdown-menu" v-loading="loading">
                 <div class="dropdown-item" v-if="currentUser" @click="changeUserInfo">
                     <SvgIcon class="icon" iconName="p-gerenzhongxin1" />
                     {{ currentUser.name }}
@@ -37,38 +37,6 @@
                     {{ $t('menu.msgCenter') }}
                     <el-tag class="msg-tag" v-if="taskCount !== 0" size="small" round>{{ taskCount }}</el-tag>
                 </div>
-                <el-divider v-if="showNodes()" class="divider" />
-
-                <div v-if="showNodes()">
-                    <el-scrollbar max-height="288px" :noresize="true">
-                        <div
-                            class="dropdown-item"
-                            @click="changeNode(item.name)"
-                            :disabled="item.status !== 'Healthy'"
-                            v-for="item in visibleNodeOptions"
-                            :key="item.name"
-                        >
-                            <SvgIcon class="icon" iconName="p-zhuji" />
-                            <span class="node-name">{{ displayNodeName(item) }}</span>
-                            <el-tooltip
-                                v-if="item.status !== 'Healthy' || !item.isBound"
-                                :content="item.isBound ? $t('xpack.node.nodeUnhealthy') : $t('xpack.node.nodeUnbind')"
-                                placement="right"
-                            >
-                                <el-icon class="icon-status" type="danger">
-                                    <Warning />
-                                </el-icon>
-                            </el-tooltip>
-                        </div>
-                    </el-scrollbar>
-                    <div v-if="showMoreNodes" class="dropdown-item more-node-button" @click.stop="openNodeDrawer">
-                        <span class="more-node-label">{{ $t('tabs.more') }}</span>
-                        <span class="more-node-count">+{{ nodeOptions.length - defaultNodeLimit }}</span>
-                        <el-icon class="more-node-arrow">
-                            <ArrowRight />
-                        </el-icon>
-                    </div>
-                </div>
                 <el-divider class="divider" />
                 <div class="dropdown-item" @click="logout">
                     <SvgIcon class="icon" iconName="p-tuichudenglu3" />
@@ -76,13 +44,6 @@
                 </div>
             </div>
         </el-popover>
-        <NodeDrawer
-            v-model="nodeDrawerVisible"
-            :nodes="nodeOptions"
-            :master-alias="globalStore.getMasterAlias()"
-            @change="changeNode"
-            @favorite-change="handleFavoriteChange"
-        />
         <UserInfo ref="userInfoRef" :currentUser="currentUser" @search="loadCurrentUser()" />
     </div>
 </template>
@@ -90,7 +51,7 @@
 <script setup lang="ts">
 import { MenuStore } from '@/store';
 import { countExecutingTask } from '@/api/modules/log';
-import { MsgError, MsgSuccess } from '@/utils/message';
+import { MsgSuccess } from '@/utils/message';
 import i18n from '@/lang';
 import { getAgentSettingInfo } from '@/api/modules/setting';
 import { computed, onMounted, ref } from 'vue';
@@ -98,136 +59,36 @@ import bus from '@/global/bus';
 import { logOutApi } from '@/api/modules/auth';
 import { submitSAML2Navigation } from '@/utils/saml2';
 import router from '@/routers';
-import { routerToNameWithQuery } from '@/utils/router';
-import { changeToLocal } from '@/utils/node';
 import { Login } from '@/api/interface/auth';
 import { syncAuthInfo } from '@/utils/rbac';
 import UserInfo from './user-info/index.vue';
-import NodeDrawer from './node-drawer/index.vue';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 
 const currentUser = ref<Login.AuthInfo>();
-const { globalStore, currentNode, currentNodeAddr, defaultNetwork, entrance, isEnterprise } = useGlobalStore();
+const { globalStore, defaultNetwork, entrance } = useGlobalStore();
 const menuStore = MenuStore();
-const nodes = ref([]);
-const nodeOptions = ref([]);
 const loading = ref();
-const switchingNode = ref(false);
 const popoverVisible = ref(false);
-const nodeDrawerVisible = ref(false);
 const userInfoRef = ref();
-const props = defineProps({
-    version: String,
-});
 
-const defaultNodeLimit = 8;
+const panelName = computed(() => {
+    return globalStore.themeConfig.panelName || i18n.global.t('setting.panel');
+});
 
 const emit = defineEmits(['openTask', 'refresh']);
 bus.on('refreshTask', () => {
     checkTask();
 });
 
-const loadCurrentName = () => {
-    if (currentNode.value) {
-        if (currentNode.value === 'local') {
-            return globalStore.getMasterAlias();
-        }
-        return currentNode.value;
-    }
-    return globalStore.getMasterAlias();
-};
-
-const visibleNodeOptions = computed(() => {
-    return nodeOptions.value.slice(0, defaultNodeLimit);
-});
-const showMoreNodes = computed(() => {
-    return nodeOptions.value.length > defaultNodeLimit;
-});
-
 const showPopover = async () => {
-    await loadNodes();
-};
-
-const displayNodeName = (item) => {
-    return item.name === 'local' ? globalStore.getMasterAlias() : item.name;
-};
-
-const openNodeDrawer = () => {
-    nodeDrawerVisible.value = true;
-    popoverVisible.value = false;
-};
-
-const handleFavoriteChange = async () => {
-    await loadNodes();
-};
-
-const loadNodes = async () => {
     loading.value = true;
-    nodes.value = [];
-    changeToLocal();
     loading.value = false;
 };
-const changeNode = async (command: string) => {
-    if (currentNode.value === command || switchingNode.value) {
-        return;
-    }
-    switchingNode.value = true;
-    try {
-        for (const item of nodes.value) {
-            if (item.name == command) {
-                if (command == 'local') {
-                    if (isEnterprise.value) {
-                        await loadCurrentUser('local');
-                    }
-                    await loadGlobalSetting('local');
-                    currentNode.value = 'local';
-                    currentNodeAddr.value = item.addr;
-                    localStorage.removeItem('dashboardCache');
-                    localStorage.removeItem('upgradeChecked');
-                    menuStore.setMenuList([]);
-                    emit('refresh');
-                    routerToNameWithQuery('home', { t: Date.now() });
-                    return;
-                }
-                if (!item.isBound) {
-                    MsgError(i18n.global.t('xpack.node.nodeUnbindHelper'));
-                    return;
-                }
-                if (item.status !== 'Healthy') {
-                    MsgError(i18n.global.t('xpack.node.nodeUnhealthyHelper'));
-                    return;
-                }
-                if (props.version != item.version) {
-                    MsgError(i18n.global.t('setting.versionNotSame'));
-                    return;
-                }
-                await loadGlobalSetting(command);
-                localStorage.removeItem('dashboardCache');
-                localStorage.removeItem('upgradeChecked');
-                currentNode.value = command;
-                currentNodeAddr.value = item.addr;
-                if (isEnterprise.value) {
-                    await loadCurrentUser(command);
-                }
-                menuStore.setMenuList([]);
-                emit('refresh');
-                routerToNameWithQuery('home', { t: Date.now() });
-                return;
-            }
-        }
-    } finally {
-        switchingNode.value = false;
-    }
-};
 
-const loadGlobalSetting = async (currentNode?: string) => {
-    await getAgentSettingInfo(currentNode).then((res) => {
+const loadGlobalSetting = async () => {
+    await getAgentSettingInfo().then((res) => {
         defaultNetwork.value = res.data.defaultNetwork;
     });
-};
-
-const showNodes = () => {
-    return nodes.value.length > 0;
 };
 
 const taskCount = ref(0);
@@ -264,8 +125,8 @@ const logout = () => {
         .catch(() => {});
 };
 
-const loadCurrentUser = async (currentNode?: string) => {
-    const authInfo = await syncAuthInfo(currentNode);
+const loadCurrentUser = async () => {
+    const authInfo = await syncAuthInfo();
     if (authInfo) {
         currentUser.value = authInfo;
     }
@@ -276,9 +137,9 @@ const changeUserInfo = () => {
 };
 
 onMounted(() => {
-    loadNodes();
     checkTask();
     loadCurrentUser();
+    loadGlobalSetting();
 });
 </script>
 

@@ -79,9 +79,7 @@ import { dateFormatForName } from '@/utils/date';
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { ElMessageBox } from 'element-plus';
 import { MsgError, MsgSuccess } from '@/utils/message';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import { checkStreamAuth } from '@/utils/stream-auth';
-const { currentNode: globalCurrentNode } = useGlobalStore();
 
 const em = defineEmits(['update:loading']);
 
@@ -250,17 +248,12 @@ const searchLogs = async () => {
     stopListening();
     clearTerminal();
 
-    let currentNode = globalCurrentNode.value;
-    if (props.node && props.node !== '') {
-        currentNode = props.node;
-    }
-
-    let url = `/api/v2/containers/search/log?container=${logSearch.container}&since=${logSearch.mode}&tail=${logSearch.tail}&follow=${logSearch.isWatch}&timestamp=${logSearch.isShowTimestamp}&operateNode=${currentNode}`;
+    let url = `/api/v2/containers/search/log?container=${logSearch.container}&since=${logSearch.mode}&tail=${logSearch.tail}&follow=${logSearch.isWatch}&timestamp=${logSearch.isShowTimestamp}`;
     if (logSearch.compose !== '') {
-        url = `/api/v2/containers/search/log?compose=${logSearch.compose}&since=${logSearch.mode}&tail=${logSearch.tail}&follow=${logSearch.isWatch}&timestamp=${logSearch.isShowTimestamp}&operateNode=${currentNode}`;
+        url = `/api/v2/containers/search/log?compose=${logSearch.compose}&since=${logSearch.mode}&tail=${logSearch.tail}&follow=${logSearch.isWatch}&timestamp=${logSearch.isShowTimestamp}`;
     }
 
-    const authError = await checkStreamAuth(url, currentNode);
+    const authError = await checkStreamAuth(url);
     if (authError) {
         showEventSourceAuthError(authError);
         return;
@@ -322,13 +315,9 @@ const onClean = async () => {
         cancelButtonText: i18n.global.t('commons.button.cancel'),
         type: 'info',
     }).then(async () => {
-        let currentNode = globalCurrentNode.value;
-        if (props.node && props.node !== '') {
-            currentNode = props.node;
-        }
         if (logSearch.compose !== '') {
             em('update:loading', true);
-            await cleanComposeLog(logSearch.resource, logSearch.compose, currentNode)
+            await cleanComposeLog(logSearch.resource, logSearch.compose)
                 .then(() => {
                     em('update:loading', false);
                     searchLogs();
@@ -339,7 +328,7 @@ const onClean = async () => {
                 });
             return;
         }
-        await cleanContainerLog(logSearch.container, currentNode);
+        await cleanContainerLog(logSearch.container);
         searchLogs();
         MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));
     });

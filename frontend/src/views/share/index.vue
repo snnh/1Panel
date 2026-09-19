@@ -57,7 +57,7 @@ const shareLocale = ref('en');
 const supportedLocales = ['zh', 'zh-Hant', 'en', 'pt-BR', 'ja', 'ru', 'ms', 'ko', 'tr', 'es-ES', 'fa', 'lo'];
 
 const code = computed(() => String(route.params.code || '').trim());
-const currentNode = computed(() => String(route.query.operateNode || 'local'));
+
 const expiresAtText = computed(() => {
     if (!shareInfo.value) {
         return '--';
@@ -77,7 +77,7 @@ const getPasswordRequiredText = () => {
 };
 
 const triggerDownload = (pwd = '') => {
-    window.location.href = buildFileShareDownloadUrl(code.value, currentNode.value, pwd);
+    window.location.href = buildFileShareDownloadUrl(code.value, pwd);
 };
 
 const applySharedPassword = () => {
@@ -127,7 +127,7 @@ const loadShareInfo = async () => {
         errorMessage.value = getFallbackText('invalid');
         return;
     }
-    const res = await getPublicFileShareInfo(code.value, currentNode.value, {
+    const res = await getPublicFileShareInfo(code.value, {
         'Accept-Language': shareLocale.value,
     });
     shareInfo.value = res.data;
@@ -149,7 +149,6 @@ const downloadWithPassword = async () => {
             {
                 code: code.value,
                 password: password.value.trim(),
-                operateNode: currentNode.value,
             },
             {
                 'Accept-Language': shareLocale.value,

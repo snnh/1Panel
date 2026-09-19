@@ -53,10 +53,8 @@ import { nextTick, onMounted, onUnmounted, reactive, ref, computed } from 'vue';
 import { downloadFile } from '@/utils/file';
 import { readByLine } from '@/api/modules/files';
 import { readTaskLogByLine } from '@/api/modules/log';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import bus from '@/global/bus';
 import Highlight from '@/components/log/custom-highlight/index.vue';
-const { currentNode } = useGlobalStore();
 
 interface LogProps {
     id?: number;
@@ -68,8 +66,6 @@ interface LogProps {
     taskType?: string;
     taskOperate?: string;
     resourceID?: number;
-
-    operateNode?: string;
 }
 
 const props = defineProps({
@@ -85,8 +81,6 @@ const props = defineProps({
             taskOperate: '',
             resourceID: 0,
             taskID: '',
-
-            operateNode: '',
         }),
     },
     defaultButton: {
@@ -233,7 +227,7 @@ const changeLoading = () => {
 
 const onDownload = async () => {
     changeLoading();
-    downloadFile(logPath.value, props.config.operateNode || currentNode.value);
+    downloadFile(logPath.value);
     changeLoading();
 };
 
@@ -269,11 +263,10 @@ const getContent = async (pre: boolean) => {
 
     let res;
     try {
-        const operateNode = props.config.operateNode || currentNode.value;
         if (readReq.type === 'task') {
-            res = await readTaskLogByLine(readReq, operateNode);
+            res = await readTaskLogByLine(readReq);
         } else {
-            res = await readByLine(readReq, operateNode);
+            res = await readByLine(readReq);
         }
     } catch (error) {
         isLoading.value = false;

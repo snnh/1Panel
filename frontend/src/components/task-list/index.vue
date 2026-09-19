@@ -2,9 +2,6 @@
     <DrawerPro v-model="open" size="large" :header="$t('menu.msgCenter')" @close="handleClose">
         <template #content>
             <LayoutContent v-loading="loading" :title="$t('logs.task')">
-                <template #leftToolBar>
-                    <NodeSelect v-model="targeNode" @change="search()" />
-                </template>
                 <template #rightToolBar>
                     <el-select v-model="req.status" @change="search()" clearable class="p-w-200">
                         <template #prefix>{{ $t('commons.table.status') }}</template>
@@ -53,15 +50,11 @@
 
 <script setup lang="ts">
 import TaskLog from '@/components/log/task/index.vue';
-import NodeSelect from '@/components/node-select/index.vue';
-
 import { dateFormat } from '@/utils/date';
 import { searchTasks } from '@/api/modules/log';
 import { reactive, ref } from 'vue';
 import { Log } from '@/api/interface/log';
 import bus from '@/global/bus';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-const { currentNode } = useGlobalStore();
 
 const open = ref(false);
 const handleClose = () => {
@@ -83,7 +76,6 @@ const req = reactive({
     page: 1,
     pageSize: 10,
 });
-const targeNode = ref('local');
 
 const search = async () => {
     bus.emit('refreshTask', true);
@@ -91,7 +83,7 @@ const search = async () => {
     req.pageSize = paginationConfig.pageSize;
     loading.value = true;
     try {
-        const res = await searchTasks(req, targeNode.value);
+        const res = await searchTasks(req);
         loading.value = false;
         data.value = res.data.items;
         paginationConfig.total = res.data.total;
@@ -102,11 +94,10 @@ const search = async () => {
 };
 
 const openTaskLog = (row: Log.Task) => {
-    taskLogRef.value.openWithTaskID(row.id, row.status == 'Executing', targeNode.value);
+    taskLogRef.value.openWithTaskID(row.id, row.status == 'Executing');
 };
 
 const acceptParams = () => {
-    targeNode.value = currentNode.value;
     search();
     open.value = true;
 };

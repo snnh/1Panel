@@ -44,7 +44,7 @@ import { useGlobalStore } from '@/composables/useGlobalStore';
 const route = useRoute();
 const router = useRouter();
 const menuStore = MenuStore();
-const { currentNode, isAdmin, menuAccordion, permissions } = useGlobalStore();
+const { isAdmin, menuAccordion, permissions } = useGlobalStore();
 const version = ref();
 
 const activeMenu = computed(() => {
@@ -296,7 +296,7 @@ onBeforeUnmount(() => {
 });
 
 watch(
-    () => [currentNode.value, isAdmin.value, permissions.value.join('|')],
+    () => [isAdmin.value, permissions.value.join('|')],
     () => {
         search();
     },

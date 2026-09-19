@@ -14,11 +14,6 @@ export const getFilesList = (params: File.ReqFile) => {
     return http.post<File.File>('files/search', params, TimeoutEnum.T_5M);
 };
 
-
-export const getFilesListByNode = (params: File.ReqNodeFile) => {
-    return http.post<File.File>('files/search?operateNode=' + params.node, params, TimeoutEnum.T_5M);
-};
-
 export const getUploadList = (params: File.SearchUploadInfo) => {
     return http.post<ResPage<File.UploadInfo>>('files/upload/search', params);
 };
@@ -35,8 +30,8 @@ export const deleteFile = (form: File.FileDelete) => {
     return http.post<File.File>('files/del', form);
 };
 
-export const deleteFileByNode = (form: File.FileDelete, node: string) => {
-    return http.post<File.File>('files/del?operateNode=' + node, form);
+export const deleteFileByNode = (form: File.FileDelete) => {
+    return http.post<File.File>('files/del', form);
 };
 
 export const batchDeleteFile = (form: File.FileBatchDelete) => {
@@ -69,13 +64,8 @@ export const stopDeCompressFile = (taskID: string) => {
     return http.post('files/decompress/stop', { taskID } as File.FileDeCompressStopReq);
 };
 
-export const getFileContent = (params: File.ReqFile, currentNode?: string) => {
-    return http.post<File.File>(
-        `files/content`,
-        params,
-        TimeoutEnum.T_3M,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+export const getFileContent = (params: File.ReqFile) => {
+    return http.post<File.File>(`files/content`, params, TimeoutEnum.T_3M, undefined);
 };
 
 export const getPreviewContent = (params: File.PreviewContentReq) => {
@@ -126,13 +116,8 @@ export const chunkUploadFileData = (params: FormData, config: FileUploadRequestC
     return http.upload<File.File>('files/chunkupload', params, config);
 };
 
-export const stopChunkUpload = (key: string, currentNode?: string) => {
-    return http.post(
-        'files/chunkupload/stop',
-        { key },
-        undefined,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+export const stopChunkUpload = (key: string) => {
+    return http.post('files/chunkupload/stop', { key }, undefined, undefined);
 };
 
 export const renameRile = (params: File.FileRename) => {
@@ -155,25 +140,20 @@ export const updateFileDownloadPreference = (useServerFilename: boolean) => {
     return http.post('core/settings/file/download', { useServerFilename });
 };
 
-export const stopWgetFile = (key: string, currentNode?: string) => {
-    return http.post('files/wget/stop', { key }, undefined, currentNode ? { CurrentNode: currentNode } : undefined);
+export const stopWgetFile = (key: string) => {
+    return http.post('files/wget/stop', { key }, undefined, undefined);
 };
 
-export const removeWgetRecords = (keys: string[], currentNode: string) => {
-    return http.post<File.FileKeys>('files/wget/process/remove', { keys }, undefined, { CurrentNode: currentNode });
+export const removeWgetRecords = (keys: string[]) => {
+    return http.post<File.FileKeys>('files/wget/process/remove', { keys });
 };
 
 export const moveFile = (params: File.FileMove) => {
     return http.post<File.File>('files/move', params);
 };
 
-export const stopMoveFile = (taskID: string, currentNode?: string) => {
-    return http.post(
-        'files/move/stop',
-        { taskID } as File.FileMoveStopReq,
-        undefined,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+export const stopMoveFile = (taskID: string) => {
+    return http.post('files/move/stop', { taskID } as File.FileMoveStopReq, undefined, undefined);
 };
 
 export const downloadFile = (params: File.FileDownload) => {
@@ -196,8 +176,8 @@ export const removeFileShare = (path: string) => {
     return http.post<any>('files/share/del', { path });
 };
 
-export const getPublicFileShareInfo = (code: string, operateNode: string, headers?: AxiosRequestConfig['headers']) => {
-    return http.get<File.FileSharePublicInfo>('files/share/info', { code, operateNode }, { headers });
+export const getPublicFileShareInfo = (code: string, headers?: AxiosRequestConfig['headers']) => {
+    return http.get<File.FileSharePublicInfo>(`files/share/info`, { code }, { headers });
 };
 
 export const checkFileShare = (params: File.FileShareCheck, headers?: AxiosRequestConfig['headers']) => {
@@ -236,8 +216,8 @@ export const addFavorite = (path: string) => {
     return http.post<any>('files/favorite', { path: path });
 };
 
-export const readByLine = (req: File.FileReadByLine, operateNode?: string) => {
-    const params = operateNode ? `?operateNode=${operateNode}` : '';
+export const readByLine = (req: File.FileReadByLine) => {
+    const params = '';
     return http.post<any>(`files/read/${encodeURIComponent(req.type)}${params}`, req, TimeoutEnum.T_40S);
 };
 
@@ -253,8 +233,8 @@ export const getRecycleStatus = () => {
     return http.get<string>('files/recycle/status');
 };
 
-export const getRecycleStatusByNode = (node: string) => {
-    return http.get<string>('files/recycle/status?operateNode=' + node);
+export const getRecycleStatusByNode = () => {
+    return http.get<string>('files/recycle/status');
 };
 
 export const searchHostMount = () => {

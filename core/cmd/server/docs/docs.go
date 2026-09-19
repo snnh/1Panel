@@ -10941,12 +10941,6 @@ const docTemplate = `{
 						"in": "query",
 						"name": "script_id",
 						"type": "integer"
-					},
-					{
-						"description": "operateNode",
-						"in": "query",
-						"name": "operateNode",
-						"type": "string"
 					}
 				],
 				"responses": {
@@ -17517,12 +17511,6 @@ const docTemplate = `{
 						"in": "query",
 						"name": "code",
 						"required": true,
-						"type": "string"
-					},
-					{
-						"description": "operate node",
-						"in": "query",
-						"name": "operateNode",
 						"type": "string"
 					}
 				],
@@ -28868,50 +28856,6 @@ const docTemplate = `{
 				}
 			}
 		},
-		"/websites/ssl/import": {
-			"post": {
-				"consumes": [
-					"application/json"
-				],
-				"parameters": [
-					{
-						"description": "request",
-						"in": "body",
-						"name": "request",
-						"required": true,
-						"schema": {
-							"$ref": "#/definitions/model.WebsiteSSL"
-						}
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "OK"
-					}
-				},
-				"security": [
-					{
-						"ApiKeyAuth": []
-					},
-					{
-						"Timestamp": []
-					}
-				],
-				"summary": "Import master SSL",
-				"tags": [
-					"Website SSL"
-				],
-				"x-panel-log": {
-					"BeforeFunctions": [],
-					"bodyKeys": [
-						"primaryDomain"
-					],
-					"formatEN": "import master SSL [primaryDomain]",
-					"formatZH": "导入主节点证书 [primaryDomain]",
-					"paramKeys": []
-				}
-			}
-		},
 		"/websites/ssl/list": {
 			"post": {
 				"consumes": [
@@ -29002,59 +28946,6 @@ const docTemplate = `{
 					],
 					"formatEN": "apply ssl [domain]",
 					"formatZH": "申请证书  [domain]",
-					"paramKeys": []
-				}
-			}
-		},
-		"/websites/ssl/push": {
-			"post": {
-				"consumes": [
-					"application/json"
-				],
-				"parameters": [
-					{
-						"description": "request",
-						"in": "body",
-						"name": "request",
-						"required": true,
-						"schema": {
-							"$ref": "#/definitions/request.WebsiteSSLPush"
-						}
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "OK"
-					}
-				},
-				"security": [
-					{
-						"ApiKeyAuth": []
-					},
-					{
-						"Timestamp": []
-					}
-				],
-				"summary": "Push ssl to nodes",
-				"tags": [
-					"Website SSL"
-				],
-				"x-panel-log": {
-					"BeforeFunctions": [
-						{
-							"db": "website_ssls",
-							"input_column": "id",
-							"input_value": "id",
-							"isList": false,
-							"output_column": "primary_domain",
-							"output_value": "domain"
-						}
-					],
-					"bodyKeys": [
-						"id"
-					],
-					"formatEN": "Push ssl to nodes [domain]",
-					"formatZH": "推送证书到节点 [domain]",
 					"paramKeys": []
 				}
 			}

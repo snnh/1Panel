@@ -37,7 +37,6 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/utils/nginx/parser"
 	"github.com/1Panel-dev/1Panel/agent/utils/re"
 	"github.com/1Panel-dev/1Panel/agent/utils/req_helper"
-	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
@@ -1072,21 +1071,12 @@ func upApp(task *task.Task, appInstall *model.AppInstall, pullImages, useLifecyc
 			if err != nil {
 				return err
 			}
-			imagePrefix := xpack.MultiNodeProvider.GetImagePrefix()
 			dockerCLi, err := docker.NewClient()
 			if err != nil {
 				return err
 			}
 			defer dockerCLi.Close()
 			for _, image := range images {
-				if imagePrefix != "" {
-					lastSlashIndex := strings.LastIndex(image, "/")
-					if lastSlashIndex != -1 {
-						image = image[lastSlashIndex+1:]
-					}
-					image = imagePrefix + "/" + image
-				}
-
 				task.Log(i18n.GetWithName("PullImageStart", image))
 				if err = dockerCLi.PullImageWithProcess(task, image); err != nil {
 					errOur := err.Error()
@@ -1678,21 +1668,6 @@ func addDockerComposeCommonParam(composeMap map[string]interface{}, serviceName 
 	services, serviceValid := composeMap["services"].(map[string]interface{})
 	if !serviceValid {
 		return buserr.New("ErrFileParse")
-	}
-	imagePreFix := xpack.MultiNodeProvider.GetImagePrefix()
-	if imagePreFix != "" {
-		for _, service := range services {
-			serviceValue := service.(map[string]interface{})
-			if image, ok := serviceValue["image"]; ok {
-				imageStr := image.(string)
-				lastSlashIndex := strings.LastIndex(imageStr, "/")
-				if lastSlashIndex != -1 {
-					imageStr = imageStr[lastSlashIndex+1:]
-				}
-				imageStr = imagePreFix + "/" + imageStr
-				serviceValue["image"] = imageStr
-			}
-		}
 	}
 
 	service, serviceExist := services[serviceName]

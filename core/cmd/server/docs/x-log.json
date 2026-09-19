@@ -3338,15 +3338,6 @@
 		"formatZH": "下载证书文件 [domain]",
 		"formatEN": "download ssl file [domain]"
 	},
-	"/websites/ssl/import": {
-		"bodyKeys": [
-			"primaryDomain"
-		],
-		"paramKeys": [],
-		"beforeFunctions": [],
-		"formatZH": "导入主节点证书 [primaryDomain]",
-		"formatEN": "import master SSL [primaryDomain]"
-	},
 	"/websites/ssl/obtain": {
 		"bodyKeys": [
 			"ID"
@@ -3364,24 +3355,6 @@
 		],
 		"formatZH": "申请证书  [domain]",
 		"formatEN": "apply ssl [domain]"
-	},
-	"/websites/ssl/push": {
-		"bodyKeys": [
-			"id"
-		],
-		"paramKeys": [],
-		"beforeFunctions": [
-			{
-				"input_column": "id",
-				"input_value": "id",
-				"isList": false,
-				"db": "website_ssls",
-				"output_column": "primary_domain",
-				"output_value": "domain"
-			}
-		],
-		"formatZH": "推送证书到节点 [domain]",
-		"formatEN": "Push ssl to nodes [domain]"
 	},
 	"/websites/ssl/update": {
 		"bodyKeys": [

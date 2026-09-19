@@ -18,9 +18,8 @@ var (
 )
 
 var loadCommunityCustomWebhookContext = func() (*http.Transport, *dto.AgentInfo) {
-	multiNode := &multiNodeHelper{}
-	agentInfo, _ := multiNode.GetAgentInfo()
-	return multiNode.LoadRequestTransport(), agentInfo
+	agentInfo, _ := GetAgentInfo()
+	return LoadRequestTransport(), agentInfo
 }
 
 func NewIAlertProvider() providers.AlertProvider {

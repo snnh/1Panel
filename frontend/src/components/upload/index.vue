@@ -180,7 +180,6 @@ const secret = ref();
 const timeoutItem = ref(30);
 const timeoutUnit = ref('m');
 const taskLogRef = ref();
-const node = ref();
 
 const recoverDialog = ref();
 
@@ -189,9 +188,8 @@ const acceptParams = async (params: DialogProps): Promise<void> => {
     name.value = params.name;
     detailName.value = params.detailName;
     remark.value = params.remark;
-    node.value = params.node;
 
-    const pathRes = await loadBaseDir(node.value);
+    const pathRes = await loadBaseDir();
     switch (type.value) {
         case 'mysql':
         case 'mariadb':
@@ -296,7 +294,7 @@ const loadFile = async (path: string) => {
         confirmButtonText: i18n.global.t('commons.button.confirm'),
         cancelButtonText: i18n.global.t('commons.button.cancel'),
     }).then(async () => {
-        uploadByRecover(path, baseDir.value, node.value)
+        uploadByRecover(path, baseDir.value)
             .then(() => {
                 MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));
                 search();
@@ -308,7 +306,7 @@ const loadFile = async (path: string) => {
 };
 
 const openTaskLog = (taskID: string) => {
-    taskLogRef.value.openWithTaskID(taskID, true, node.value);
+    taskLogRef.value.openWithTaskID(taskID, true);
 };
 
 const onHandleRecover = async () => {
@@ -323,7 +321,7 @@ const onHandleRecover = async () => {
         timeout: timeoutItem.value === -1 ? -1 : transferTimeToSecond(timeoutItem.value + timeoutUnit.value),
     };
     loading.value = true;
-    await handleRecoverByUpload(params, node.value)
+    await handleRecoverByUpload(params)
         .then(() => {
             loading.value = false;
             handleUploadClose();

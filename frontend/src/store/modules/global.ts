@@ -56,26 +56,16 @@ const GlobalStore = defineStore('GlobalState', {
         isAdmin: false,
         permissions: [],
         masterOnlyPermissions: [],
-        nodeRoles: [],
         isEnterprise: false,
         isIntl: false,
         docWithRegion: true,
         isFxplay: false,
         isOffline: false,
-        // multi-node
-        masterAlias: '',
-        currentNode: 'local',
-        currentNodeAddr: '',
     }),
     getters: {
         isDarkTheme: (state) =>
             state.themeConfig.theme === 'dark' ||
             (state.themeConfig.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches),
-        isNodeAdmin: (state) =>
-            state.nodeRoles.some((item) => item.nodeName === state.currentNode && item.roleName === 'Node Admin'),
-        isAdminOrNodeAdmin: (state) =>
-            state.isAdmin ||
-            state.nodeRoles.some((item) => item.nodeName === state.currentNode && item.roleName === 'Node Admin'),
         docsUrl: (state) => {
             if (state.docWithRegion) {
                 return state.isIntl ? INTL_DOCS_URL : CN_DOCS_URL;
@@ -84,7 +74,6 @@ const GlobalStore = defineStore('GlobalState', {
             const isChinese = lang === 'zh';
             return isChinese ? CN_DOCS_URL : INTL_DOCS_URL;
         },
-        isMaster: (state) => state.currentNode === 'local',
         isMobile: (state) => state.device === DeviceType.Mobile,
     },
     actions: {
@@ -94,23 +83,16 @@ const GlobalStore = defineStore('GlobalState', {
         setLogStatus(login: boolean) {
             this.isLogin = login;
         },
-        setAuthInfo(payload: {
-            isAdmin: boolean;
-            permissions: string[];
-            masterOnlyPermissions?: string[];
-            nodeRoles?: Array<{ nodeId: number; nodeName: string; roleId: number; roleName: string }>;
-        }) {
+        setAuthInfo(payload: { isAdmin: boolean; permissions: string[]; masterOnlyPermissions?: string[] }) {
             this.isAdmin = !!payload.isAdmin;
             this.permissions = payload.permissions || [];
             this.masterOnlyPermissions = payload.masterOnlyPermissions || [];
-            this.nodeRoles = payload.nodeRoles || [];
             setMasterOnlyPermissionCodes(this.masterOnlyPermissions);
         },
         clearAuthInfo() {
             clearPageStateCache();
             this.permissions = [];
             this.masterOnlyPermissions = [];
-            this.nodeRoles = [];
             this.isAdmin = false;
             setMasterOnlyPermissionCodes([]);
         },
@@ -120,7 +102,7 @@ const GlobalStore = defineStore('GlobalState', {
             if (!normalizedPermission) {
                 return false;
             }
-            if (!this.isMaster && isMasterOnlyPermissionCode(normalizedPermission)) {
+            if (isMasterOnlyPermissionCode(normalizedPermission)) {
                 return false;
             }
             if (this.isAdmin) {
@@ -133,7 +115,7 @@ const GlobalStore = defineStore('GlobalState', {
             if (!managePermission) {
                 return false;
             }
-            if (!this.isMaster && isMasterOnlyPermissionCode(managePermission)) {
+            if (isMasterOnlyPermissionCode(managePermission)) {
                 return false;
             }
             return this.permissions.includes(managePermission);
@@ -145,9 +127,6 @@ const GlobalStore = defineStore('GlobalState', {
         },
         toggleDevice(value: DeviceType) {
             this.device = value;
-        },
-        getMasterAlias() {
-            return this.masterAlias || i18n.global.t('xpack.node.master');
         },
     },
     persist: piniaPersistConfig('GlobalState'),

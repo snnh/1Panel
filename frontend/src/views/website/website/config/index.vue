@@ -49,11 +49,6 @@ import { getWebsite } from '@/api/modules/website';
 import { GetRuntime } from '@/api/modules/runtime';
 import { routerToNameWithParams } from '@/utils/router';
 import MainDiv from '@/components/main-div/index.vue';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-import { useOperateNodeContext } from '@/composables/useOperateNodeContext';
-
-const { currentNode } = useGlobalStore();
-useOperateNodeContext(currentNode);
 
 const props = defineProps({
     id: {

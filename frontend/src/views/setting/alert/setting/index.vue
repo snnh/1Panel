@@ -21,7 +21,7 @@
                             <el-form-item :label="$t('xpack.alert.sendTimeRange')" prop="sendTimeRange">
                                 {{ sendTimeRange }}
                             </el-form-item>
-                            <div v-if="!isMaster">
+                            <div>
                                 <el-form-item :label="$t('xpack.alert.offline')" prop="isOffline">
                                     <el-switch
                                         v-permission
@@ -154,7 +154,7 @@ import { Alert } from '@/api/interface/alert';
 import { formatCustomWebhookDetails, formatCustomWebhookSafeSummary } from './drawer/custom-webhook';
 import { getAlertConfigDisplayName, rawSecretValue } from './drawer/secret-field';
 
-const { docsUrl, isMaster, isMobile } = useGlobalStore();
+const { docsUrl, isMobile } = useGlobalStore();
 
 const loading = ref(false);
 const alertDrawerRef = ref();
@@ -376,7 +376,7 @@ const onChangeCommon = (id: any) => {
 
 const onChangeOffline = async () => {
     if (!isInitialized.value) return;
-    if (!isMaster.value && commonConfig.value.config.isOffline != '') {
+    if (commonConfig.value.config.isOffline != '') {
         const title =
             commonConfig.value.config.isOffline == 'Enable'
                 ? i18n.global.t('xpack.alert.offlineOff')

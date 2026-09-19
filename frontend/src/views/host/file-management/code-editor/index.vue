@@ -1217,7 +1217,6 @@ const initEditor = async () => {
             isEdit.value = true;
         }
     });
-
 };
 
 const quickSave = () => {
@@ -1343,7 +1342,7 @@ const acceptParams = async (props: EditProps) => {
                 monacoApi?.editor.setModelLanguage(model, config.language);
             }
             isEdit.value = false;
-                }
+        }
     });
 };
 

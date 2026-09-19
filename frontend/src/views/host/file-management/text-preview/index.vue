@@ -33,10 +33,7 @@
 import { ref, computed, nextTick } from 'vue';
 import { getPreviewContent } from '@/api/modules/files';
 import { downloadFile } from '@/utils/file';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import i18n from '@/lang';
-
-const { currentNode } = useGlobalStore();
 
 interface PreviewProps {
     path: string;
@@ -91,7 +88,7 @@ const handleClose = () => {
 };
 
 const onDownload = () => {
-    downloadFile(filePath.value, currentNode.value);
+    downloadFile(filePath.value);
 };
 
 const acceptParams = async (props: PreviewProps) => {

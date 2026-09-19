@@ -73,7 +73,6 @@
                                 :installed="installed"
                                 :mode="mode"
                                 :defaultLink="defaultLink"
-                                :currentNode="currentNode"
                                 :sortMode="sortMode"
                                 @open-detail="openDetail(installed.appKey)"
                                 @open-backups="openBackups(installed)"
@@ -167,10 +166,8 @@ import { MsgSuccess } from '@/utils/message';
 import { getAgentSettingInfo } from '@/api/modules/setting';
 import { routerToFileWithPath, routerToNameWithQuery } from '@/utils/router';
 import { useGlobalStore } from '@/composables/useGlobalStore';
-import { useOperateNodeContext } from '@/composables/useOperateNodeContext';
 
-const { currentNode, isMaster, currentNodeAddr, isIntl } = useGlobalStore();
-useOperateNodeContext(currentNode);
+const { isIntl } = useGlobalStore();
 
 const data = ref<any>();
 const loading = ref(false);
@@ -529,9 +526,6 @@ const getConfig = async () => {
         if (res.data?.systemIP) {
             defaultLink.value = res.data.systemIP;
             return;
-        }
-        if (!isMaster.value || currentNodeAddr.value != '127.0.0.1') {
-            defaultLink.value = currentNodeAddr.value;
         }
     } catch (error) {}
 };

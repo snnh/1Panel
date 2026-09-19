@@ -6,9 +6,8 @@ import { TimeoutEnum } from '@/enums/http-enum';
 import { deepCopy } from '@/utils/misc';
 import { encodeBase64Fields } from '@/utils/base64';
 
-export const searchWebsites = (req: Website.WebSiteSearch, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
-    return http.post<ResPage<Website.WebsiteRes>>(`/websites/search${params}`, req);
+export const searchWebsites = (req: Website.WebSiteSearch) => {
+    return http.post<ResPage<Website.WebsiteRes>>(`/websites/search`, req);
 };
 
 export const listWebsites = () => {
@@ -21,8 +20,8 @@ export const createWebsite = (req: Website.WebSiteCreateReq) => {
     return http.post<any>(`/websites`, request, TimeoutEnum.T_10M);
 };
 
-export const opWebsite = (req: Website.WebSiteOp, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const opWebsite = (req: Website.WebSiteOp) => {
+    const query = '';
     return http.post<any>(`/websites/operate${query}`, req);
 };
 
@@ -34,8 +33,8 @@ export const getWebsiteLog = (req: Website.WebSiteLogReq) => {
     return http.post<Website.WebSiteLog>(`/websites/log/search`, req);
 };
 
-export const updateWebsite = (req: Website.WebSiteUpdateReq, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const updateWebsite = (req: Website.WebSiteUpdateReq) => {
+    const query = '';
     return http.post<any>(`/websites/update${query}`, req);
 };
 
@@ -111,13 +110,8 @@ export const updateAcmeAccount = (req: Website.AcmeAccountUpdate) => {
     return http.post<Website.AcmeAccount>(`/websites/acme/update`, req, TimeoutEnum.T_10M);
 };
 
-export const searchSSL = (req: ReqPage, currentNode?: string) => {
-    return http.post<ResPage<Website.SSLDTO>>(
-        `/websites/ssl/search`,
-        req,
-        TimeoutEnum.T_40S,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+export const searchSSL = (req: ReqPage) => {
+    return http.post<ResPage<Website.SSLDTO>>(`/websites/ssl/search`, req, TimeoutEnum.T_40S, undefined);
 };
 
 export const listSSL = (req: Website.SSLReq) => {
@@ -148,8 +142,8 @@ export const updateSSL = (req: Website.SSLUpdate) => {
     return http.post<any>(`/websites/ssl/update`, req);
 };
 
-export const pushSSLToNode = (req: Website.SSLPush, currentNode?: string) => {
-    return http.post<any>(`/websites/ssl/push`, req, undefined, currentNode ? { CurrentNode: currentNode } : undefined);
+export const pushSSLToNode = (req: Website.SSLPush) => {
+    return http.post<any>(`/websites/ssl/push`, req, undefined, undefined);
 };
 
 export const getDnsResolve = (req: Website.DNSResolveReq) => {

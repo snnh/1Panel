@@ -91,13 +91,11 @@ import { getAppUpdateVersions, ignoreUpgrade, installedOp } from '@/api/modules/
 import { getAppStoreConfig } from '@/api/modules/setting';
 import i18n from '@/lang';
 import { ElMessageBox, FormInstance } from 'element-plus';
-import { computed, onBeforeUnmount, reactive, ref } from 'vue';
+import { onBeforeUnmount, reactive, ref } from 'vue';
 import { MsgSuccess } from '@/utils/message';
 import { Rules } from '@/global/form-rules';
 import bus from '@/global/bus';
 import { v4 as uuidv4 } from 'uuid';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-const { currentNode } = useGlobalStore();
 
 const composeDiffRef = ref();
 const updateRef = ref<FormInstance>();
@@ -162,7 +160,7 @@ const getNewCompose = (compose: string) => {
 };
 
 const initData = async () => {
-    const config = await getAppStoreConfig(node.value);
+    const config = await getAppStoreConfig();
     newCompose.value = '';
     useNewCompose.value = false;
     operateReq.backup = config.data.upgradeBackup == 'Enable';
@@ -175,7 +173,6 @@ const acceptParams = (appInstall: App.AppInstallDto, op: string, opNode?: string
     if (opNode) {
         node.value = opNode;
     } else {
-        node.value = currentNode.value;
     }
     initData();
     isEdit.value = appInstall.isEdit;
@@ -201,7 +198,7 @@ const getVersions = async (version: string) => {
         req['updateVersion'] = version;
     }
     try {
-        const res = await getAppUpdateVersions(req, node.value);
+        const res = await getAppUpdateVersions(req);
         versions.value = res.data || [];
         if (res.data != null && res.data.length > 0) {
             let item = res.data[0];
@@ -218,7 +215,7 @@ const getVersions = async (version: string) => {
 };
 
 const openTaskLog = (taskID: string) => {
-    taskLogRef.value.openWithTaskID(taskID, true, node.value);
+    taskLogRef.value.openWithTaskID(taskID, true);
 };
 
 const operate = async () => {
@@ -229,7 +226,7 @@ const operate = async () => {
         }
         const taskID = uuidv4();
         operateReq.taskID = taskID;
-        await installedOp(operateReq, node.value)
+        await installedOp(operateReq)
             .then(() => {
                 bus.emit('upgrade', true);
                 handleClose();

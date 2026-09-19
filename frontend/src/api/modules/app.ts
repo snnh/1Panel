@@ -15,8 +15,8 @@ export const searchApp = (req: App.AppReq) => {
     return http.post<App.AppResPage>('apps/search', req);
 };
 
-export const getAppByKey = (key: string, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
+export const getAppByKey = (key: string) => {
+    const params = '';
     return http.get<App.AppDTO>('apps/' + key + `${params}`);
 };
 
@@ -24,8 +24,8 @@ export const getAppTags = () => {
     return http.get<App.Tag[]>('apps/tags');
 };
 
-export const getAppDetail = (appID: number, version: string, type: string, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
+export const getAppDetail = (appID: number, version: string, type: string) => {
+    const params = '';
     return http.get<App.AppDetail>(`apps/detail/${appID}/${version}/${type}${params}`);
 };
 
@@ -41,8 +41,8 @@ export const changePort = (params: App.ChangePort) => {
     return http.post<any>('apps/installed/port/change', params);
 };
 
-export const searchAppInstalled = (search: App.AppInstallSearch, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
+export const searchAppInstalled = (search: App.AppInstallSearch) => {
+    const params = '';
     return http.post<ResPage<App.AppInstallDto>>(`apps/installed/search${params}`, search);
 };
 
@@ -62,8 +62,8 @@ export const checkAppInstalled = (key: string, name: string) => {
     return http.post<App.CheckInstalled>(`apps/installed/check`, { key: key, name: name });
 };
 
-export const appInstalledDeleteCheck = (appInstallId: number, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
+export const appInstalledDeleteCheck = (appInstallId: number) => {
+    const params = '';
     return http.get<App.AppInstallResource[]>(`apps/installed/delete/check/${appInstallId}${params}`);
 };
 
@@ -71,13 +71,13 @@ export const getAppInstalled = (search: App.AppInstalledSearch) => {
     return http.post<ResPage<App.AppInstalled>>('apps/installed/search', search);
 };
 
-export const getAppInstalledByID = (installID: number, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
+export const getAppInstalledByID = (installID: number) => {
+    const params = '';
     return http.get<App.AppInstalledInfo>(`apps/installed/info/${installID}${params}`);
 };
 
-export const installedOp = (op: App.AppInstalledOp, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
+export const installedOp = (op: App.AppInstalledOp) => {
+    const params = '';
     return http.post<any>(`apps/installed/op${params}`, op, TimeoutEnum.T_40S);
 };
 
@@ -85,13 +85,13 @@ export const syncInstalledApp = () => {
     return http.post<any>('apps/installed/sync', {});
 };
 
-export const getAppService = (key: string | undefined, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
+export const getAppService = (key: string | undefined) => {
+    const params = '';
     return http.get<App.AppService[]>(`apps/services/${key}${params}`);
 };
 
-export const getAppUpdateVersions = (req: App.AppUpdateVersionReq, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
+export const getAppUpdateVersions = (req: App.AppUpdateVersionReq) => {
+    const params = '';
     return http.post<any>(`apps/installed/update/versions${params}`, req);
 };
 
@@ -135,9 +135,9 @@ export const getCurrentNodeCustomAppConfig = () => {
     return http.get<App.CustomAppStoreConfig>(`/custom/app/config`);
 };
 
-export function getAppIconUrl(appKey: string, node?: string): string {
+export function getAppIconUrl(appKey: string): string {
     const baseURL = import.meta.env.VITE_API_URL as string;
-    const params = node ? `?operateNode=${node}` : '';
+    const params = '';
     return `${baseURL}/apps/icon/${appKey}${params}`;
 }
 

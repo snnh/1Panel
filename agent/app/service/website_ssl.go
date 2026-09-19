@@ -23,7 +23,6 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/app/dto/response"
 	"github.com/1Panel-dev/1Panel/agent/app/model"
 	"github.com/1Panel-dev/1Panel/agent/app/repo"
-	"github.com/1Panel-dev/1Panel/agent/app/task"
 	"github.com/1Panel-dev/1Panel/agent/buserr"
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
@@ -33,7 +32,6 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/utils/files"
 	"github.com/1Panel-dev/1Panel/agent/utils/req_helper"
 	"github.com/1Panel-dev/1Panel/agent/utils/ssl"
-	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
 	gormv2 "gorm.io/gorm"
 )
 
@@ -104,12 +102,10 @@ type IWebsiteSSLService interface {
 	Delete(ids []uint) error
 	Update(update request.WebsiteSSLUpdate) error
 	Upload(req request.WebsiteSSLUpload) error
-	PushToNode(req request.WebsiteSSLPush) error
 	ObtainSSL(apply request.WebsiteSSLApply) error
 	AutoRenewSSL(id uint) error
 	SyncForRestart() error
 	DownloadFile(id uint) (*os.File, error)
-	ImportMasterSSL(create model.WebsiteSSL) error
 }
 
 func NewIWebsiteSSLService() IWebsiteSSLService {
@@ -215,7 +211,6 @@ func (w WebsiteSSLService) Create(create request.WebsiteSSLCreate) (request.Webs
 		}
 		websiteSSL.Dir = create.Dir
 	}
-	setSSLPushConfig(&websiteSSL, create.PushNode, create.Nodes)
 
 	var domains []string
 	if create.OtherDomains != "" {
@@ -278,47 +273,6 @@ func printSSLLog(logger *log.Logger, msgKey string, params map[string]interface{
 		return
 	}
 	logger.Println(i18n.GetMsgWithMap(msgKey, params))
-}
-
-func normalizeSSLPushConfig(pushNode bool, nodes string) (bool, string) {
-	nodes = strings.TrimSpace(nodes)
-	if !pushNode || nodes == "" {
-		return false, ""
-	}
-	return true, nodes
-}
-
-func setSSLPushConfig(websiteSSL *model.WebsiteSSL, pushNode bool, nodes string) {
-	pushNode, nodes = normalizeSSLPushConfig(pushNode, nodes)
-	if !global.IsMaster || !xpack.MultiNodeProvider.IsXpack() {
-		pushNode = false
-		nodes = ""
-	}
-	websiteSSL.PushNode = pushNode
-	websiteSSL.Nodes = nodes
-}
-
-func pushSSLToNode(websiteSSL *model.WebsiteSSL, logger *log.Logger) error {
-	printSSLLog(logger, "StartPushSSLToNode", nil)
-	if err := xpack.MultiNodeProvider.PushSSLToNode(websiteSSL); err != nil {
-		printSSLLog(logger, "PushSSLToNodeFailed", map[string]interface{}{"err": err.Error()})
-		return err
-	}
-	printSSLLog(logger, "PushSSLToNodeSuccess", nil)
-	return nil
-}
-
-func pushSSLToNodeWithNewLogger(websiteSSL *model.WebsiteSSL) error {
-	if !websiteSSL.PushNode {
-		return nil
-	}
-	logFile, logger := newWebsiteSSLLogger(websiteSSL, false)
-	if logFile != nil {
-		defer func() {
-			_ = logFile.Close()
-		}()
-	}
-	return pushSSLToNode(websiteSSL, logger)
 }
 
 func newWebsiteSSLLogger(websiteSSL *model.WebsiteSSL, autoRenew bool) (*os.File, *log.Logger) {
@@ -605,11 +559,6 @@ func (w WebsiteSSLService) obtainSSL(id uint, autoRenew bool) error {
 			}
 		}
 		reloadSystemSSL(websiteSSL, logger)
-		if websiteSSL.PushNode {
-			if err = pushSSLToNode(websiteSSL, logger); err != nil {
-				return
-			}
-		}
 	}(logFile, logger)
 
 	return nil
@@ -776,13 +725,6 @@ func (w WebsiteSSLService) Update(update request.WebsiteSSLUpdate) error {
 	} else {
 		updateParams["shell"] = ""
 	}
-	pushNode, nodes := normalizeSSLPushConfig(update.PushNode, update.Nodes)
-	if !global.IsMaster || !xpack.MultiNodeProvider.IsXpack() {
-		pushNode = false
-		nodes = ""
-	}
-	updateParams["push_node"] = pushNode
-	updateParams["nodes"] = nodes
 
 	if websiteSSL.Provider != constant.SelfSigned && websiteSSL.Provider != constant.Manual {
 		acmeAccount, err := websiteAcmeRepo.GetFirst(repo.WithByID(update.AcmeAccountID))
@@ -833,7 +775,6 @@ func (w WebsiteSSLService) Upload(req request.WebsiteSSLUpload) error {
 		Description: req.Description,
 		Status:      constant.SSLReady,
 	}
-	setSSLPushConfig(websiteSSL, req.PushNode, req.Nodes)
 	var err error
 	if req.SSLID > 0 {
 		websiteSSL, err = websiteSSLRepo.GetFirst(repo.WithByID(req.SSLID))
@@ -841,7 +782,6 @@ func (w WebsiteSSLService) Upload(req request.WebsiteSSLUpload) error {
 			return err
 		}
 		websiteSSL.Description = req.Description
-		setSSLPushConfig(websiteSSL, req.PushNode, req.Nodes)
 	}
 	if req.Type == "local" {
 		fileOp := files.NewFileOp()
@@ -932,69 +872,11 @@ func (w WebsiteSSLService) Upload(req request.WebsiteSSLUpload) error {
 		if err := websiteSSLRepo.Save(websiteSSL); err != nil {
 			return err
 		}
-		return pushSSLToNodeWithNewLogger(websiteSSL)
+		return nil
 	}
 	if err := websiteSSLRepo.Create(context.Background(), websiteSSL); err != nil {
 		return err
 	}
-	return pushSSLToNodeWithNewLogger(websiteSSL)
-}
-
-func (w WebsiteSSLService) PushToNode(req request.WebsiteSSLPush) error {
-	if !global.IsMaster {
-		return errors.New("only master node can push SSL to nodes")
-	}
-	if !xpack.MultiNodeProvider.IsXpack() {
-		return errors.New("SSL node push is an XPack feature")
-	}
-	pushNode, nodes := normalizeSSLPushConfig(req.PushNode, req.Nodes)
-	if !pushNode {
-		return errors.New("please select nodes to push SSL")
-	}
-	websiteSSL, err := websiteSSLRepo.GetFirst(repo.WithByID(req.ID))
-	if err != nil {
-		return err
-	}
-	if websiteSSL.Provider == constant.FromMaster {
-		return errors.New("SSL imported from master node can not be pushed")
-	}
-	if websiteSSL.Status != constant.SSLReady {
-		return errors.New("only ready SSL can be pushed")
-	}
-	if task.CheckResourceTaskIsExecuting(task.TaskPush, task.TaskScopeWebsite, websiteSSL.ID) {
-		return buserr.New("TaskIsExecuting")
-	}
-	if err := websiteSSLRepo.SaveByMap(websiteSSL, map[string]interface{}{
-		"push_node": pushNode,
-		"nodes":     nodes,
-	}); err != nil {
-		return err
-	}
-	websiteSSL.PushNode = pushNode
-	websiteSSL.Nodes = nodes
-
-	if req.Sync {
-		return xpack.MultiNodeProvider.PushSSLToNode(websiteSSL)
-	}
-
-	pushTask, err := task.NewTask(task.GetTaskName(websiteSSL.PrimaryDomain, task.TaskPush, "SSL"), task.TaskPush, task.TaskScopeWebsite, req.TaskID, websiteSSL.ID)
-	if err != nil {
-		return err
-	}
-	pushTask.AddSubTask(i18n.GetMsgByKey("StartPushSSLToNode"), func(t *task.Task) error {
-		t.Log(i18n.GetMsgByKey("StartPushSSLToNode"))
-		if err := xpack.MultiNodeProvider.PushSSLToNode(websiteSSL); err != nil {
-			t.Log(i18n.GetMsgWithMap("PushSSLToNodeFailed", map[string]interface{}{"err": err.Error()}))
-			return err
-		}
-		t.Log(i18n.GetMsgByKey("PushSSLToNodeSuccess"))
-		return nil
-	}, nil)
-	go func() {
-		if err := pushTask.Execute(); err != nil {
-			global.LOG.Errorf("push ssl to node failed, sslID: %d, err: %v", websiteSSL.ID, err)
-		}
-	}()
 	return nil
 }
 
@@ -1041,50 +923,3 @@ func (w WebsiteSSLService) SyncForRestart() error {
 	return nil
 }
 
-func (w WebsiteSSLService) ImportMasterSSL(create model.WebsiteSSL) error {
-	websiteSSL, err := websiteSSLRepo.GetFirst(websiteSSLRepo.WithByMasterSSLID(create.ID))
-	if err != nil {
-		if !errors.Is(err, gormv2.ErrRecordNotFound) {
-			return err
-		}
-		websiteSSL = &model.WebsiteSSL{}
-	}
-	websiteSSL.Status = constant.SSLReady
-	websiteSSL.Provider = constant.FromMaster
-	websiteSSL.PrimaryDomain = create.PrimaryDomain
-	websiteSSL.StartDate = create.StartDate
-	websiteSSL.ExpireDate = create.ExpireDate
-	websiteSSL.KeyType = create.KeyType
-	websiteSSL.Description = create.Description
-	websiteSSL.PrivateKey = create.PrivateKey
-	websiteSSL.Pem = create.Pem
-	websiteSSL.Type = create.Type
-	websiteSSL.Organization = create.Organization
-	websiteSSL.MasterSSLID = create.ID
-	websiteSSL.Domains = create.Domains
-	if websiteSSL.ID == 0 {
-		if err := websiteSSLRepo.Create(context.Background(), websiteSSL); err != nil {
-			return err
-		}
-	} else {
-		if err := websiteSSLRepo.Save(websiteSSL); err != nil {
-			return err
-		}
-	}
-	websites, _ := websiteRepo.GetBy(websiteRepo.WithWebsiteSSLID(websiteSSL.ID))
-	if len(websites) == 0 {
-		return nil
-	}
-	for _, website := range websites {
-		if err := createPemFile(website, *websiteSSL); err != nil {
-			continue
-		}
-	}
-	nginxInstall, err := getAppInstallByKey(constant.AppOpenresty)
-	if err == nil {
-		if err := opNginx(nginxInstall.ContainerName, constant.NginxReload); err != nil {
-			return err
-		}
-	}
-	return nil
-}

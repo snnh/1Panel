@@ -104,11 +104,9 @@
 import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { Log } from '@/api/interface/log';
 import { getSystemLogStatus, listRunningServices, readSystemLogs } from '@/api/modules/log';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import i18n from '@/lang';
 import { shortcuts } from '@/utils/shortcuts';
 
-const { currentNode } = useGlobalStore();
 const logs = ref<Log.SystemLogItem[]>([]);
 const loading = ref(false);
 const watching = ref(false);
@@ -148,18 +146,15 @@ const loadLogs = async (cursor = cursorHistory.value[cursorIndex.value]) => {
     const currentRequestID = ++requestID;
     loading.value = true;
     try {
-        const res = await readSystemLogs(
-            {
-                pageSize: paginationConfig.pageSize,
-                cursor,
-                startTime: timeRange.value?.[0],
-                endTime: timeRange.value?.[1],
-                keyword: keyword.value,
-                priority: priority.value,
-                service: service.value,
-            },
-            currentNode.value,
-        );
+        const res = await readSystemLogs({
+            pageSize: paginationConfig.pageSize,
+            cursor,
+            startTime: timeRange.value?.[0],
+            endTime: timeRange.value?.[1],
+            keyword: keyword.value,
+            priority: priority.value,
+            service: service.value,
+        });
         if (currentRequestID !== requestID) return;
         logs.value = res.data.items || [];
         hasMore.value = res.data.hasMore;
@@ -198,7 +193,7 @@ const changePageSize = () => {
 
 const loadServices = async () => {
     try {
-        const res = await listRunningServices(currentNode.value);
+        const res = await listRunningServices();
         services.value = res.data || [];
     } catch {
         services.value = [];
@@ -207,7 +202,7 @@ const loadServices = async () => {
 
 const loadSystemLogStatus = async () => {
     try {
-        const res = await getSystemLogStatus(currentNode.value);
+        const res = await getSystemLogStatus();
         systemLogStatus.value = res.data;
     } catch {
         systemLogStatus.value = undefined;

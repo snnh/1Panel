@@ -17,7 +17,6 @@ import (
 	psessionUtils "github.com/1Panel-dev/1Panel/core/init/session/psession"
 	"github.com/1Panel-dev/1Panel/core/middleware"
 	terminalsession "github.com/1Panel-dev/1Panel/core/utils/terminal_session"
-	"github.com/1Panel-dev/1Panel/core/utils/xpack"
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,18 +28,6 @@ func Proxy() gin.HandlerFunc {
 		reqPath := c.Request.URL.Path
 		if !middleware.ShouldProxyToAgent(reqPath) {
 			c.Next()
-			return
-		}
-		var nodeItem string
-		queryNode := c.Query("operateNode")
-		if queryNode != "" && queryNode != "undefined" {
-			nodeItem = queryNode
-		} else {
-			nodeItem = c.Request.Header.Get("CurrentNode")
-		}
-		currentNode, err := url.QueryUnescape(nodeItem)
-		if err != nil {
-			helper.ErrorWithDetail(c, http.StatusBadRequest, "ErrProxy", err)
 			return
 		}
 
@@ -66,17 +53,11 @@ func Proxy() gin.HandlerFunc {
 			return
 		}
 
-		if reqPath == "/api/v2/hosts/terminal/local" && (currentNode == "local" || len(currentNode) == 0) {
+		if !strings.HasPrefix(reqPath, "/api/v2/core") {
 			proxyLocalAgent(c)
 			return
 		}
-
-		if !strings.HasPrefix(reqPath, "/api/v2/core") && (currentNode == "local" || len(currentNode) == 0) {
-			proxyLocalAgent(c)
-			return
-		}
-		xpack.MultiNodeProvider.Proxy(c, currentNode)
-		c.Abort()
+		c.Next()
 	}
 }
 

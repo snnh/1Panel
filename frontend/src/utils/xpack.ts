@@ -21,7 +21,7 @@ export function resetXSetting() {
     globalStore.themeConfig.logo = '';
     globalStore.themeConfig.logoWithText = '';
     globalStore.themeConfig.favicon = '';
-    globalStore.masterAlias = '';
+    return;
 }
 
 export async function initFavicon() {
@@ -89,7 +89,7 @@ export async function getXpackSettingForTheme() {
         globalStore.themeConfig.loginBackground = res2.data?.loginBackground;
         globalStore.themeConfig.loginBtnLinkColor = res2.data?.loginBtnLinkColor;
         globalStore.themeConfig.themeColor = res2.data?.themeColor;
-        globalStore.masterAlias = res2.data.masterAlias;
+
         if (res2.data?.theme) {
             globalStore.themeConfig.theme = res2.data.theme;
         }

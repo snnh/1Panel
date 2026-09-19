@@ -18,12 +18,7 @@
                         </el-table-column>
                     </el-table>
                     <template #reference>
-                        <el-button
-                            class="h-button-setting"
-                            :disabled="!isAdminOrNodeAdmin"
-                            link
-                            icon="Setting"
-                        ></el-button>
+                        <el-button class="h-button-setting" :disabled="!isAdmin" link icon="Setting"></el-button>
                     </template>
                 </el-popover>
             </template>
@@ -150,7 +145,7 @@ import { jumpToInstall } from '@/utils/app';
 import { routerToName, routerToNameWithQuery } from '@/utils/router';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 
-const { isMobile, isAdminOrNodeAdmin } = useGlobalStore();
+const { isMobile, isAdmin } = useGlobalStore();
 let loading = ref(false);
 let apps = ref([]);
 const options = ref([]);

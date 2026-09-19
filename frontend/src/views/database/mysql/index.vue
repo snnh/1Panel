@@ -53,7 +53,7 @@
                 </el-button>
                 <el-button
                     @click="goTerminal()"
-                    :disabled="currentDB?.from !== 'local' || !isAdminOrNodeAdmin"
+                    :disabled="currentDB?.from !== 'local' || !isAdmin"
                     type="primary"
                     plain
                 >
@@ -255,11 +255,9 @@ import { App } from '@/api/interface/app';
 import { getAppPort } from '@/api/modules/app';
 import { MsgSuccess } from '@/utils/message';
 import { useGlobalStore } from '@/composables/useGlobalStore';
-import { useOperateNodeContext } from '@/composables/useOperateNodeContext';
 import { routerToName, routerToNameWithParams, routerToNameWithQuery } from '@/utils/router';
 
-const { currentNode, currentDB: globalCurrentDB, isAdminOrNodeAdmin, isMobile } = useGlobalStore();
-useOperateNodeContext(currentNode);
+const { currentDB: globalCurrentDB, isAdmin, isMobile } = useGlobalStore();
 
 const loading = ref(false);
 const maskShow = ref(true);

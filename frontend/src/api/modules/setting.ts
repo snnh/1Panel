@@ -6,23 +6,9 @@ import { Setting } from '../interface/setting';
 import { TimeoutEnum } from '@/enums/http-enum';
 import { App } from '../interface/app';
 
-// node
-export const listNodeOptions = (type: string) => {
-    return http.post<Array<Setting.NodeItem>>(`/core/nodes/list`, { type: type });
-};
-export const updateNodeFavorite = (id: number, isFavorite: boolean) => {
-    return http.post(`/core/xpack/nodes/favorite`, { id, isFavorite });
-};
-export const listAllSimpleNodes = () => {
-    return http.get<Array<Setting.SimpleNodeItem>>(`/core/nodes/simple/all`);
-};
-export const listAppNodes = () => {
-    return http.get<Array<Setting.NodeAppItem>>(`/core/xpack/nodes/apps/update`, {}, { timeout: TimeoutEnum.T_60S });
-};
-
 // agent
-export const loadBaseDir = (node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const loadBaseDir = () => {
+    const query = '';
     return http.get<string>(`/settings/basedir${query}`);
 };
 export const loadWebsiteDir = () => {
@@ -34,13 +20,8 @@ export const loadDaemonJsonPath = () => {
 export const updateAgentSetting = (param: Setting.SettingUpdate) => {
     return http.post(`/settings/update`, param);
 };
-export const getAgentSettingInfo = (currentNode?: string) => {
-    return http.post<Setting.AgentSettingInfo>(
-        `/settings/search`,
-        {},
-        undefined,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+export const getAgentSettingInfo = () => {
+    return http.post<Setting.AgentSettingInfo>(`/settings/search`, {}, undefined, undefined);
 };
 export const getAgentFileHistoryInfo = () => {
     return http.post<Setting.FileHistoryInfo>(`/settings/file-history/search`);
@@ -101,9 +82,8 @@ export const loadSSLInfo = () => {
 export const downloadSSL = () => {
     return http.download<any>(`/core/settings/ssl/download`);
 };
-export const getAppStoreConfig = (node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
-    return http.get<App.AppStoreConfig>(`/core/settings/apps/store/config${params}`);
+export const getAppStoreConfig = () => {
+    return http.get<App.AppStoreConfig>(`/core/settings/apps/store/config`);
 };
 export const updateAppStoreConfig = (req: App.AppStoreConfigUpdate) => {
     return http.post(`/core/settings/apps/store/update`, req);

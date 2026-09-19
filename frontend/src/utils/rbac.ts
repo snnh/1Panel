@@ -1,5 +1,4 @@
 import { getUserInfo } from '@/api/modules/auth';
-import { getEnterpriseUserInfo } from '@/extensions/xpack';
 import type { RouteMeta } from 'vue-router';
 import { GlobalStore } from '@/store';
 
@@ -17,25 +16,13 @@ type RouteAccessTarget = {
     }>;
 };
 
-export const syncAuthInfo = async (currentNode?: string) => {
+export const syncAuthInfo = async () => {
     const globalStore = GlobalStore();
-    const storeCurrentNode = globalStore.currentNode;
-    if (!globalStore.isEnterprise) {
-        const res = await getUserInfo();
-        globalStore.setAuthInfo({
-            isAdmin: res.data.role === 'ADMIN',
-            permissions: res.data.permissions || [],
-            masterOnlyPermissions: res.data.masterOnlyPermissions || [],
-            nodeRoles: res.data.nodeRoles || [],
-        });
-        return res.data;
-    }
-    const res = await getEnterpriseUserInfo(currentNode ?? storeCurrentNode);
+    const res = await getUserInfo();
     globalStore.setAuthInfo({
         isAdmin: res.data.role === 'ADMIN',
         permissions: res.data.permissions || [],
         masterOnlyPermissions: res.data.masterOnlyPermissions || [],
-        nodeRoles: res.data.nodeRoles || [],
     });
     return res.data;
 };
@@ -68,7 +55,7 @@ export const hasRouteRoleAccess = (meta?: RouteMeta & RouteAccessMeta) => {
         return false;
     }
     if (meta.protectedRoleOnly) {
-        return globalStore.isNodeAdmin;
+        return globalStore.isAdmin;
     }
     return true;
 };

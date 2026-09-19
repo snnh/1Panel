@@ -170,7 +170,6 @@
 import { Firewall } from '@/api/interface/firewall';
 import { previewFirewallRuleSync, syncFirewallRules } from '@/api/modules/firewall';
 import TaskLog from '@/components/log/task/index.vue';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import i18n from '@/lang';
 import { newUUID } from '@/utils/id';
 import { MsgSuccess, MsgWarning } from '@/utils/message';
@@ -180,7 +179,7 @@ import { ElMessageBox } from 'element-plus';
 import { computed, ref } from 'vue';
 
 const emit = defineEmits<{ (event: 'search'): void }>();
-const { currentNode } = useGlobalStore();
+
 const visible = ref(false);
 const loading = ref(false);
 const subsystem = ref<Firewall.BackendSubsystem>('system');
@@ -256,7 +255,7 @@ const onSync = async () => {
             .data;
         if (result.queued && result.taskID) {
             visible.value = false;
-            taskLogRef.value?.openWithTaskID(result.taskID, true, currentNode.value);
+            taskLogRef.value?.openWithTaskID(result.taskID, true);
             return;
         }
         if (result.failed > 0) {
@@ -278,7 +277,7 @@ const handleTaskClose = () => {
 
 const openTask = (taskID: string) => {
     visible.value = false;
-    taskLogRef.value?.openWithTaskID(taskID, true, currentNode.value);
+    taskLogRef.value?.openWithTaskID(taskID, true);
 };
 
 const statusType = (status: Firewall.RuleSyncStatus) => {

@@ -80,7 +80,7 @@ import { ElMessageBox } from 'element-plus';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import { getAlertConfigDisplayName } from '@/views/setting/alert/setting/drawer/secret-field';
 
-const { isMaster } = useGlobalStore();
+const {} = useGlobalStore();
 const { t } = i18n.global;
 const loading = ref(false);
 const data = ref();
@@ -267,16 +267,14 @@ const onClean = async () => {
 };
 
 const searchAlertInfo = async () => {
-    if (!isMaster.value) {
-        loading.value = true;
-        try {
-            const res = await ListAlertConfigs();
-            const commonFound = res.data.find((s: any) => s.type === 'common');
-            const config: Alert.CommonConfig = JSON.parse(commonFound.config);
-            isOffline.value = config.isOffline;
-        } finally {
-            loading.value = false;
-        }
+    loading.value = true;
+    try {
+        const res = await ListAlertConfigs();
+        const commonFound = res.data.find((s: any) => s.type === 'common');
+        const config: Alert.CommonConfig = JSON.parse(commonFound.config);
+        isOffline.value = config.isOffline;
+    } finally {
+        loading.value = false;
     }
 };
 

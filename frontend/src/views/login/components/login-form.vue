@@ -383,7 +383,6 @@ import { takeExternalTicketsFromURL } from '@/utils/external-login';
 import { getXpackSettingForTheme } from '@/utils/xpack';
 import { routerToName } from '@/utils/router';
 import { Key } from '@element-plus/icons-vue';
-import { changeToLocal } from '@/utils/node';
 import { syncAuthInfo } from '@/utils/rbac';
 import { adjustColorToRGBA } from '@/utils/color';
 import { useGlobalStore } from '@/composables/useGlobalStore';
@@ -396,7 +395,6 @@ const i18n = useI18n();
 const {
     globalStore,
     agreeLicense,
-    currentNode,
     ignoreCaptcha,
     isAdmin,
     isEnterprise,
@@ -599,8 +597,7 @@ const completeLogin = async (result: LoginModel.ResLogin) => {
     menuStore.setMenuList([]);
     tabsStore.removeAllTabs();
     isAdmin.value = result.role === 'ADMIN';
-    await changeToLocal();
-    await syncAuthInfo(currentNode.value);
+    await syncAuthInfo();
     MsgSuccess(i18n.t('commons.msg.loginSuccess'));
     localStorage.removeItem('dashboardCache');
     localStorage.removeItem('upgradeChecked');

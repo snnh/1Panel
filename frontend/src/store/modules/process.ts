@@ -133,7 +133,7 @@ export const ProcessStore = defineStore('ProcessStore', () => {
         websocket = null;
     };
 
-    const initWebSocket = async (currentNode: string) => {
+    const initWebSocket = async () => {
         if (websocket || isConnecting.value) {
             return;
         }
@@ -145,8 +145,8 @@ export const ProcessStore = defineStore('ProcessStore', () => {
         const protocol = href.split('//')[0] === 'http:' ? 'ws' : 'wss';
         const ipLocal = href.split('//')[1].split('/')[0];
 
-        const url = `${protocol}://${ipLocal}/api/v2/process/ws?operateNode=${currentNode}`;
-        const authError = await checkStreamAuth(url, currentNode);
+        const url = `${protocol}://${ipLocal}/api/v2/process/ws`;
+        const authError = await checkStreamAuth(url);
         if (token !== initWebSocketToken || connectionRefCount === 0) {
             if (token === initWebSocketToken) {
                 isConnecting.value = false;
@@ -178,7 +178,7 @@ export const ProcessStore = defineStore('ProcessStore', () => {
         isConnecting.value = false;
     };
 
-    const connect = (currentNode: string) => {
+    const connect = () => {
         if (disconnectTimer) {
             clearTimeout(disconnectTimer);
             disconnectTimer = null;
@@ -187,7 +187,7 @@ export const ProcessStore = defineStore('ProcessStore', () => {
         connectionRefCount++;
 
         if (!websocket && !isConnecting.value) {
-            initWebSocket(currentNode);
+            initWebSocket();
         }
     };
 

@@ -3,8 +3,8 @@ import { ResPage, SearchWithPage } from '../interface';
 import { Cronjob } from '../interface/cronjob';
 import { TimeoutEnum } from '@/enums/http-enum';
 
-export const searchCronjobPage = (params: Cronjob.Search, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const searchCronjobPage = (params: Cronjob.Search) => {
+    const query = '';
     return http.post<ResPage<Cronjob.CronjobInfo>>(`/cronjobs/search${query}`, params);
 };
 
@@ -47,13 +47,8 @@ export const deleteCronjob = (params: Cronjob.CronjobDelete) => {
     return http.post(`/cronjobs/del`, params);
 };
 
-export const searchRecords = (params: Cronjob.SearchRecord, timeout?: TimeoutEnum, currentNode?: string) => {
-    return http.post<ResPage<Cronjob.Record>>(
-        `cronjobs/search/records`,
-        params,
-        timeout,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+export const searchRecords = (params: Cronjob.SearchRecord, timeout?: TimeoutEnum) => {
+    return http.post<ResPage<Cronjob.Record>>(`cronjobs/search/records`, params, timeout, undefined);
 };
 
 export const stopCronjob = (id: number) => {
@@ -64,13 +59,13 @@ export const cleanRecords = (id: number, cleanData: boolean, cleanRemoteData: bo
     return http.post(`cronjobs/records/clean`, { cronjobID: id, cleanData: cleanData, cleanRemoteData });
 };
 
-export const updateStatus = (params: Cronjob.UpdateStatus, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const updateStatus = (params: Cronjob.UpdateStatus) => {
+    const query = '';
     return http.post(`cronjobs/status${query}`, params);
 };
 
-export const handleOnce = (id: number, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const handleOnce = (id: number) => {
+    const query = '';
     return http.post(`cronjobs/handle${query}`, { id: id });
 };
 

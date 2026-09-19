@@ -108,6 +108,7 @@ let timer: ReturnType<typeof setInterval> | null = null;
 const openConnection = async (options: TerminalConnectionOptions) => {
     if (!isAdmin.value) return;
     active.value = await store.open(options);
+    store.sync();
 };
 
 const show = async () => {

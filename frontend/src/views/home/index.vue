@@ -1,3 +1,4 @@
+)
 <template>
     <div :key="$route.fullPath" id="dashboard">
         <RouterButton
@@ -38,7 +39,7 @@
                     <template #header-r>
                         <el-button
                             class="h-button-setting"
-                            :disabled="!isAdminOrNodeAdmin"
+                            :disabled="!isAdmin"
                             @click="quickJumpRef.acceptParams()"
                             link
                             icon="Setting"
@@ -175,7 +176,7 @@
                 <el-carousel
                     class="my-carousel"
                     :class="{ 'no-indicator': carouselItemCount <= 1 }"
-                    :key="simpleNodes.length + carouselItemCount"
+                    :key="carouselItemCount"
                     height="368px"
                     indicator-position=""
                     arrow="never"
@@ -207,29 +208,9 @@
                                                 "
                                             />
                                         </div>
-                                        <div class="setting-item">
-                                            <span>{{ $t('setting.panel') }}</span>
-                                            <el-switch
-                                                v-model="simpleNodeCarouselSetting"
-                                                active-value="Enable"
-                                                inactive-value="Disable"
-                                                @change="
-                                                    (val) =>
-                                                        updateDashboardCarouselSetting(
-                                                            'DashboardSimpleNodeVisible',
-                                                            val,
-                                                        )
-                                                "
-                                            />
-                                        </div>
                                     </div>
                                     <template #reference>
-                                        <el-button
-                                            class="h-button-setting"
-                                            :disabled="!isAdminOrNodeAdmin"
-                                            link
-                                            icon="Setting"
-                                        />
+                                        <el-button class="h-button-setting" :disabled="!isAdmin" link icon="Setting" />
                                     </template>
                                 </el-popover>
                                 <el-tooltip :content="$t('commons.button.refresh')" placement="top">
@@ -340,7 +321,7 @@
                                 <el-tooltip v-if="!memoEditing" :content="$t('commons.button.edit')" placement="top">
                                     <el-button
                                         class="h-button-setting"
-                                        :disabled="!isAdminOrNodeAdmin"
+                                        :disabled="!isAdmin"
                                         @click="startMemoEdit"
                                         link
                                         icon="Edit"
@@ -384,52 +365,6 @@
                             </template>
                         </CardWithHeader>
                     </el-carousel-item>
-                    <el-carousel-item key="simpleNode" v-if="showSimpleNode()">
-                        <CardWithHeader :header="$t('setting.panel')">
-                            <template #header-r>
-                                <el-tooltip :content="$t('xpack.node.panelItem')" placement="top">
-                                    <el-button
-                                        class="h-button-setting"
-                                        @click="routerToNameWithQuery('SimpleNode', { uncached: 'true' })"
-                                        link
-                                        icon="Setting"
-                                    />
-                                </el-tooltip>
-                            </template>
-                            <template #body>
-                                <el-scrollbar height="286px">
-                                    <div class="simple-node cursor-pointer" v-for="row in simpleNodes" :key="row.id">
-                                        <el-row :gutter="5">
-                                            <el-col :span="21">
-                                                <div class="name">
-                                                    {{ row.name }}
-                                                    <Status :status="row.status" :msg="row.message" />
-                                                </div>
-                                                <div class="detail">
-                                                    {{ loadSource(row) }}
-                                                </div>
-                                            </el-col>
-
-                                            <el-col :span="1">
-                                                <el-button
-                                                    @click="jumpPanel(row)"
-                                                    size="small"
-                                                    :disabled="row.status !== 'Healthy'"
-                                                    class="visit"
-                                                    round
-                                                    plain
-                                                    type="primary"
-                                                >
-                                                    {{ $t('commons.button.visit') }}
-                                                </el-button>
-                                            </el-col>
-                                        </el-row>
-                                        <div class="h-app-divider" />
-                                    </div>
-                                </el-scrollbar>
-                            </template>
-                        </CardWithHeader>
-                    </el-carousel-item>
                 </el-carousel>
 
                 <AppLauncher ref="appRef" class="card-interval dashboard-app" />
@@ -464,13 +399,12 @@ import { getIOOptions, getNetworkOptions } from '@/api/modules/host';
 import {
     getSettingBaseInfo,
     getAgentSettingInfo,
-    listAllSimpleNodes,
     loadUpgradeInfo,
     getMemo,
     updateMemo,
     updateSetting,
 } from '@/api/modules/setting';
-import { routerToFileWithPath, routerToNameWithQuery, routerToPath } from '@/utils/router';
+import { routerToFileWithPath, routerToPath } from '@/utils/router';
 import { getWelcomePage } from '@/api/modules/auth';
 import {
     clearDashboardCache,
@@ -482,8 +416,7 @@ import { MsgSuccess } from '@/utils/message';
 import { useCan } from '@/composables/useMenuManagePermission';
 const router = useRouter();
 import { useGlobalStore } from '@/composables/useGlobalStore';
-const { showEntranceWarn, defaultNetwork, defaultIO, isAdmin, isOnRestart, hasNewVersion, isAdminOrNodeAdmin } =
-    useGlobalStore();
+const { showEntranceWarn, defaultNetwork, defaultIO, isAdmin, isOnRestart, hasNewVersion } = useGlobalStore();
 
 const DASHBOARD_CACHE_TTL = {
     safeStatus: 10 * 60 * 1000,
@@ -558,7 +491,6 @@ const netBytesRecvs = ref<Array<number>>([]);
 const timeIODatas = ref<Array<string>>([]);
 const timeNetDatas = ref<Array<string>>([]);
 
-const simpleNodes = ref([]);
 const ioOptions = ref();
 const netOptions = ref();
 const netOptionsFromCache = ref(false);
@@ -591,14 +523,12 @@ const memoEditContent = ref('');
 const memoEditing = ref(false);
 const memoSaving = ref(false);
 const memoCarouselSetting = ref();
-const simpleNodeCarouselSetting = ref();
 const carouselSettingReady = ref(false);
 
 const showMemoCarousel = computed(() => memoCarouselSetting.value === 'Enable');
 const carouselItemCount = computed(() => {
     let count = 1;
     if (showMemoCarousel.value) count += 1;
-    if (showSimpleNode()) count += 1;
     return count;
 });
 
@@ -732,15 +662,6 @@ const onLoadNetworkOptions = async (force?: boolean) => {
     applyDefaultNetOption();
 };
 
-const onLoadSimpleNode = async () => {
-    if (!isAdmin.value) {
-        simpleNodes.value = [];
-        return;
-    }
-    const res = await listAllSimpleNodes();
-    simpleNodes.value = res.data || [];
-};
-
 const applyDefaultIOOption = async () => {
     if (!ioOptions.value || ioOptions.value.length === 0) return;
     const defaultIOOption = defaultIO.value || ioOptions.value[0];
@@ -798,7 +719,6 @@ const onLoadBaseInfo = async (isInit: boolean, range: string) => {
                 }
                 if (isActive.value && !isOnRestart.value) {
                     await onLoadCurrentInfo();
-                    await onLoadSimpleNode();
                 }
             } catch {
                 clearTimer();
@@ -814,10 +734,6 @@ const quickJump = (item: any) => {
     return routerToPath(item.router);
 };
 
-const showSimpleNode = () => {
-    return simpleNodeCarouselSetting.value === 'Enable' && simpleNodes.value?.length !== 0;
-};
-
 const toggleSensitiveInfo = () => {
     showSensitiveInfo.value = !showSensitiveInfo.value;
 };
@@ -828,13 +744,6 @@ const refreshDashboard = async () => {
     hasRefreshedOptionsOnHover.value = false;
     await Promise.allSettled([onLoadNetworkOptions(true), onLoadIOOptions(true), loadSettingInfo()]);
     MsgSuccess(i18n.global.t('commons.msg.refreshSuccess'));
-};
-
-const jumpPanel = (row: any) => {
-    let entrance = row.securityEntrance.startsWith('/') ? row.securityEntrance.slice(1) : row.securityEntrance;
-    entrance = entrance ? '/' + entrance : '';
-    let addr = row.addr.endsWith('/') ? row.addr.slice(0, -1) : row.addr;
-    window.open(addr + entrance, '_blank', 'noopener,noreferrer');
 };
 
 const onLoadCurrentInfo = async () => {
@@ -961,13 +870,8 @@ const updateDashboardCarouselSetting = async (key: string, value: 'Enable' | 'Di
         return;
     }
     let target;
-    if (key === 'DashboardMemoVisible') {
-        target = memoCarouselSetting.value;
-        clearDashboardCacheByPrefix(['memoCarouselSetting']);
-    } else {
-        target = simpleNodeCarouselSetting.value;
-        clearDashboardCacheByPrefix(['simpleNodeCarouselSetting']);
-    }
+    target = memoCarouselSetting.value;
+    clearDashboardCacheByPrefix(['memoCarouselSetting']);
     const previous = value === 'Enable' ? 'Disable' : 'Enable';
     try {
         await updateSetting({ key, value });
@@ -1026,15 +930,12 @@ const loadUpgradeStatus = async () => {
 const loadSettingInfo = async () => {
     const safeCache = getDashboardCache('safeStatus');
     const memoCache = getDashboardCache('memoCarouselSetting');
-    const simpleNodeCache = getDashboardCache('simpleNodeCarouselSetting');
-    if (safeCache === null || memoCache === null || simpleNodeCache === null) {
+    if (safeCache === null || memoCache === null) {
         const res = await getSettingBaseInfo();
         isSafety.value = res.data.securityEntrance;
         memoCarouselSetting.value = res.data.dashboardMemoVisible;
-        simpleNodeCarouselSetting.value = res.data.dashboardSimpleNodeVisible;
         setDashboardCache('safeStatus', isSafety.value, DASHBOARD_CACHE_TTL.safeStatus);
         setDashboardCache('memoCarouselSetting', memoCarouselSetting.value, DASHBOARD_CACHE_TTL.safeStatus);
-        setDashboardCache('simpleNodeCarouselSetting', simpleNodeCarouselSetting.value, DASHBOARD_CACHE_TTL.safeStatus);
         if (!carouselSettingReady.value) {
             await nextTick();
             carouselSettingReady.value = true;
@@ -1043,29 +944,10 @@ const loadSettingInfo = async () => {
     }
     isSafety.value = safeCache;
     memoCarouselSetting.value = memoCache;
-    simpleNodeCarouselSetting.value = simpleNodeCache;
     if (!carouselSettingReady.value) {
         await nextTick();
         carouselSettingReady.value = true;
     }
-};
-
-const loadSource = (row: any) => {
-    if (row.status !== 'Healthy') {
-        return `- ${i18n.global.t('commons.units.core')} (-%) / - GB (-%)`;
-    }
-    return (
-        row.cpuTotal +
-        ' ' +
-        i18n.global.t('commons.units.core') +
-        ' (' +
-        row.cpuUsedPercent?.toFixed(2) +
-        '%) / ' +
-        computeSize(row.memoryTotal) +
-        ' (' +
-        row.memoryUsedPercent?.toFixed(2) +
-        '%)'
-    );
 };
 
 const onFocus = () => {
@@ -1090,7 +972,6 @@ const refreshOptionsOnHover = async () => {
 
 const scheduleDeferredFetch = () => {
     setTimeout(() => {
-        onLoadSimpleNode();
         onLoadNetworkOptions();
         onLoadIOOptions();
     }, 600);

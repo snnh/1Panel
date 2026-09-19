@@ -3,7 +3,7 @@
         <el-card>
             <div class="app-wrapper" @click="openDetail(app.key)">
                 <div class="app-image">
-                    <el-avatar shape="square" :size="60" :src="getAppIconUrl(app.key, currentNode)" />
+                    <el-avatar shape="square" :size="60" :src="getAppIconUrl(app.key)" />
                 </div>
                 <div class="app-content">
                     <div class="content-top">
@@ -50,8 +50,6 @@
 
 <script lang="ts" setup>
 import { getAppIconUrl } from '@/api/modules/app';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-const { currentNode } = useGlobalStore();
 
 defineProps({
     app: {

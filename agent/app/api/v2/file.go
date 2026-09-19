@@ -1688,7 +1688,7 @@ func (b *BaseApi) GetPublicFileShareInfo(c *gin.Context) {
 	helper.SuccessWithData(c, info)
 }
 
-func buildSharePublicURL(c *gin.Context, code, operateNode string) string {
+func buildSharePublicURL(c *gin.Context, code string) string {
 	scheme := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
 	if scheme == "" {
 		if c.Request.TLS != nil {
@@ -1706,11 +1706,6 @@ func buildSharePublicURL(c *gin.Context, code, operateNode string) string {
 		Host:   host,
 		Path:   "/s/" + url.PathEscape(code),
 	}
-	query := shareURL.Query()
-	if strings.TrimSpace(operateNode) != "" {
-		query.Set("operateNode", operateNode)
-	}
-	shareURL.RawQuery = query.Encode()
 	return shareURL.String()
 }
 
@@ -1718,7 +1713,6 @@ func buildSharePublicURL(c *gin.Context, code, operateNode string) string {
 // @Summary Get file share QR code image
 // @Produce png
 // @Param code query string true "share code"
-// @Param operateNode query string false "operate node"
 // @Success 200 {file} file
 // @Security ApiKeyAuth
 // @Security Timestamp
@@ -1738,7 +1732,7 @@ func (b *BaseApi) GetFileShareQRCode(c *gin.Context) {
 		return
 	}
 
-	png, err := qrcode.Encode(buildSharePublicURL(c, code, c.Query("operateNode")), qrcode.Medium, 256)
+	png, err := qrcode.Encode(buildSharePublicURL(c, code), qrcode.Medium, 256)
 	if err != nil {
 		helper.InternalServer(c, err)
 		return

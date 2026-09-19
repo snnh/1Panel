@@ -55,7 +55,7 @@ export namespace Setting {
         passkeyTrustedProxies: string;
         securityEntrance: string;
         dashboardMemoVisible: string;
-        dashboardSimpleNodeVisible: string;
+
         complexityVerification: string;
 
         messageType: string;
@@ -98,7 +98,6 @@ export namespace Setting {
 
         scriptSync: string;
         dashboardMemoVisible: string;
-        dashboardSimpleNodeVisible: string;
     }
     export interface TerminalInfo {
         showTerminalButton?: string;
@@ -251,30 +250,6 @@ export namespace Setting {
         releaseNote: string;
     }
 
-    export interface NodeItem {
-        id: number;
-        groupID?: number;
-        groupBelong?: string;
-        addr: string;
-        status: string;
-        version: string;
-        isXpack: boolean;
-        isBound: boolean;
-        isFavorite?: boolean;
-        name: string;
-    }
-    export interface SimpleNodeItem {
-        id: number;
-        name: string;
-        addr: string;
-        description: string;
-        systemVersion: string;
-        securityEntrance: string;
-        cpuUsedPercent: number;
-        cpuTotal: number;
-        memoryTotal: number;
-        memoryUsedPercent: number;
-    }
     export interface ReleasesNotes {
         Version: string;
         CreatedAt: string;
@@ -282,10 +257,5 @@ export namespace Setting {
         NewCount: number;
         OptimizationCount: number;
         FixCount: number;
-    }
-
-    export interface NodeAppItem {
-        name: string;
-        updateCount: number;
     }
 }

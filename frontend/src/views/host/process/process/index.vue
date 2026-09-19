@@ -76,11 +76,9 @@ import i18n from '@/lang';
 import { stopProcess } from '@/api/modules/process';
 import { ProcessStore } from '@/store';
 import { SortBy, TableV2SortOrder, ElButton } from 'element-plus';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import RuntimeDiagnostics from './diagnostics/index.vue';
 import { useMediaQuery } from '@vueuse/core';
 
-const { currentNode } = useGlobalStore();
 const isCompactTable = useMediaQuery('(max-width: 1024px)');
 const processStore = ProcessStore();
 const permissionDirective = resolveDirective('permission');
@@ -303,7 +301,7 @@ const stop = async (row: any) => {
 };
 
 onMounted(() => {
-    processStore.connect(currentNode.value);
+    processStore.connect();
     const initialDelay = processStore.psData.length > 0 ? 500 : 0;
     processStore.startPolling('ps', 3000, initialDelay);
 });

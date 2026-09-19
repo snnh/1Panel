@@ -7,32 +7,26 @@ export const getOperationLogs = (info: Log.SearchOpLog) => {
     return http.post<ResPage<Log.OperationLog>>(`/core/logs/operation`, info);
 };
 
-export const getLoginLogs = (info: Log.SearchLgLog, currentNode?: string) => {
-    return http.post<ResPage<Log.LoginLogs>>(
-        `/core/logs/login`,
-        info,
-        undefined,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+export const getLoginLogs = (info: Log.SearchLgLog) => {
+    return http.post<ResPage<Log.LoginLogs>>(`/core/logs/login`, info, undefined, undefined);
 };
 
-export const getSystemFiles = (node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
-    return http.get<Array<string>>(`/logs/system/files${params}`);
+export const getSystemFiles = () => {
+    return http.get<Array<string>>(`/logs/system/files`);
 };
 
-export const getSystemLogStatus = (node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const getSystemLogStatus = () => {
+    const query = '';
     return http.get<Log.SystemLogStatus>(`/logs/system/status${query}`);
 };
 
-export const readSystemLogs = (params: Log.SystemLogSearch, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const readSystemLogs = (params: Log.SystemLogSearch) => {
+    const query = '';
     return http.post<Log.SystemLog>(`/logs/system/read${query}`, params);
 };
 
-export const listRunningServices = (node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const listRunningServices = () => {
+    const query = '';
     return http.get<string[]>(`/logs/system/services${query}`);
 };
 
@@ -40,14 +34,12 @@ export const cleanLogs = (param: Log.CleanLog) => {
     return http.post(`/core/logs/clean`, param);
 };
 
-export const searchTasks = (req: Log.SearchTaskReq, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
-    return http.post<ResPage<Log.Task>>(`/logs/tasks/search${params}`, req);
+export const searchTasks = (req: Log.SearchTaskReq) => {
+    return http.post<ResPage<Log.Task>>(`/logs/tasks/search`, req);
 };
 
-export const readTaskLogByLine = (req: Log.TaskLogReadReq, node?: string) => {
-    const params = node ? `?operateNode=${node}` : '';
-    return http.post<any>(`/logs/tasks/read${params}`, req, TimeoutEnum.T_40S);
+export const readTaskLogByLine = (req: Log.TaskLogReadReq) => {
+    return http.post<any>(`/logs/tasks/read`, req, TimeoutEnum.T_40S);
 };
 
 export const countExecutingTask = () => {

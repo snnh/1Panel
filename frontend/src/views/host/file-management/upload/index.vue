@@ -128,7 +128,6 @@ import { Close, Document, UploadFilled } from '@element-plus/icons-vue';
 import ExistFileDialog from '@/components/exist-file/index.vue';
 import { newUUID } from '@/utils/id';
 import { getErrorMessage } from '@/utils/misc';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 
 interface UploadFileProps {
     path: string;
@@ -154,8 +153,7 @@ const path = ref();
 let uploadHelper = ref('');
 const dialogExistFileRef = ref();
 const abortController = ref<AbortController | null>(null);
-const activeChunkUpload = ref<{ uploadID: string; node: string } | null>(null);
-const { currentNode } = useGlobalStore();
+const activeChunkUpload = ref<{ uploadID: string } | null>(null);
 
 const em = defineEmits(['close']);
 type DrawerCloseDone = () => void;
@@ -409,7 +407,6 @@ const uploadFile = async (files: any[], overwrite: boolean) => {
     upLoading.value = true;
     uploadTotalCount.value = files.length;
     const controller = new AbortController();
-    const uploadNode = currentNode.value;
     abortController.value = controller;
     let successCount = 0;
     try {
@@ -427,8 +424,8 @@ const uploadFile = async (files: any[], overwrite: boolean) => {
             try {
                 isSuccess =
                     Number(file.size) === 0
-                        ? await uploadEmptyFile(file, controller, uploadNode, overwrite)
-                        : await uploadChunkedFile(file, controller, uploadNode, overwrite);
+                        ? await uploadEmptyFile(file, controller, overwrite)
+                        : await uploadChunkedFile(file, controller, overwrite);
             } catch (error) {
                 if (!controller.signal.aborted) {
                     MsgError(getErrorMessage(error));
@@ -461,7 +458,7 @@ const uploadFile = async (files: any[], overwrite: boolean) => {
 const uploadEmptyFile = async (
     file: { raw: string | Blob },
     controller: AbortController,
-    node: string,
+
     overwrite: boolean,
 ) => {
     const formData = new FormData();
@@ -475,7 +472,7 @@ const uploadEmptyFile = async (
                 ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
                 : 0;
         },
-        headers: { CurrentNode: node },
+
         skipErrorMessage: true,
         timeout: 0,
         signal: controller.signal,
@@ -490,7 +487,7 @@ const cleanupActiveChunkUpload = async () => {
     }
     activeChunkUpload.value = null;
     try {
-        await stopChunkUpload(active.uploadID, active.node);
+        await stopChunkUpload(active.uploadID);
     } catch (error) {
         console.error(error);
     }
@@ -547,7 +544,7 @@ const uploadChunkWithRetry = async (formData: FormData, config: FileUploadReques
 const uploadChunkedFile = async (
     file: { size: number; raw: Blob; name: string },
     controller: AbortController,
-    node: string,
+
     overwrite: boolean,
 ) => {
     const fileSize = file.size;
@@ -556,7 +553,7 @@ const uploadChunkedFile = async (
     const uploadPath = getUploadPath(file);
     const filename = getFilenameFromPath(file.name);
     let uploadedChunkCount = 0;
-    activeChunkUpload.value = { uploadID, node };
+    activeChunkUpload.value = { uploadID };
     try {
         for (let c = 0; c < chunkCount; c++) {
             if (controller.signal.aborted) {
@@ -579,7 +576,6 @@ const uploadChunkedFile = async (
             await uploadChunkWithRetry(
                 formData,
                 {
-                    headers: { CurrentNode: node },
                     skipErrorMessage: true,
                     timeout: 0,
                     signal: controller.signal,

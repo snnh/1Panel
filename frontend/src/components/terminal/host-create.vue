@@ -78,10 +78,6 @@ import i18n from '@/lang';
 import { reactive, ref } from 'vue';
 import { MsgError, MsgSuccess } from '@/utils/message';
 import { getAgentGroupList } from '@/api/modules/group';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-
-const { currentNode } = useGlobalStore();
-const targetNode = ref('local');
 
 const dialogVisible = ref();
 const isOK = ref(false);
@@ -118,12 +114,10 @@ const rules = reactive({
 
 interface DialogProps {
     isLocal: boolean;
-    nodeName?: string;
 }
 const acceptParams = (props: DialogProps) => {
     isOK.value = false;
     form.isLocal = props.isLocal;
-    targetNode.value = props.isLocal ? props.nodeName || currentNode.value || 'local' : 'local';
     loadGroups();
     dialogVisible.value = true;
 };
@@ -135,7 +129,7 @@ const handleClose = () => {
 const emit = defineEmits(['on-conn-terminal', 'on-new-local', 'load-host-tree']);
 
 const loadGroups = async () => {
-    const res = await getAgentGroupList('host', targetNode.value);
+    const res = await getAgentGroupList('host');
     groupList.value = res.data;
     for (const item of groupList.value) {
         if (item.isDefault) {
@@ -182,7 +176,7 @@ const submitAddHost = (formEl: FormInstance | undefined, ops: string) => {
         if (!valid) return;
         switch (ops) {
             case 'testConn':
-                await testByInfo(form, targetNode.value).then((res) => {
+                await testByInfo(form).then((res) => {
                     if (res.data) {
                         isOK.value = true;
                         MsgSuccess(i18n.global.t('terminal.connTestOk'));
@@ -195,13 +189,13 @@ const submitAddHost = (formEl: FormInstance | undefined, ops: string) => {
             case 'saveAndConn':
                 let res;
                 if (form.id == 0) {
-                    res = await addHost(form, targetNode.value);
+                    res = await addHost(form);
                 } else {
                     res = await editHost(form);
                 }
                 dialogVisible.value = false;
                 if (form.isLocal) {
-                    emit('on-new-local', targetNode.value);
+                    emit('on-new-local');
                     emit('load-host-tree');
                     return;
                 }

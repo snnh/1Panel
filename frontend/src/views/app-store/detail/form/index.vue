@@ -191,7 +191,6 @@ const oldMemory = ref<number>(0);
 const showParams = ref(false);
 const currentApp = ref<any>({});
 const appVersions = ref<string[]>([]);
-const operateNode = ref();
 const env = ref();
 const masterNodeAddr = ref();
 
@@ -274,7 +273,7 @@ const getVersionDetail = async (version: string) => {
     gpuSupport.value = false;
 
     try {
-        const res = await getAppDetail(currentApp.value.id, version, 'app', operateNode.value);
+        const res = await getAppDetail(currentApp.value.id, version, 'app');
         if (formData.value.version !== version) {
             return;
         }
@@ -295,7 +294,7 @@ const getVersionDetail = async (version: string) => {
 
 const loadInstallDefaultConfig = async () => {
     try {
-        const res = await getAppStoreConfig(operateNode.value);
+        const res = await getAppStoreConfig();
         formData.value.allowPort = res.data.installAllowPort === 'Enable';
     } catch (error) {
         formData.value.allowPort = false;
@@ -303,7 +302,6 @@ const loadInstallDefaultConfig = async () => {
 };
 
 const initForm = async (appKey: string) => {
-    operateNode.value = undefined;
     env.value = undefined;
     masterNodeAddr.value = undefined;
     formData.value.name = appKey.replace(/^local/, '');
@@ -321,9 +319,9 @@ const initForm = async (appKey: string) => {
     }
 };
 
-const getMasterAppInstall = async (appInstallID: number, masterNode: string) => {
+const getMasterAppInstall = async (appInstallID: number) => {
     try {
-        const res = await getAppInstalledByID(appInstallID, masterNode);
+        const res = await getAppInstalledByID(appInstallID);
         env.value = res.data.env;
     } catch (error) {}
 };
@@ -357,12 +355,11 @@ const addMasterParams = (appParams: App.AppParams) => {
 
 const initClusterForm = async (props: ClusterProps) => {
     if (props.appInstallID && props.masterNode) {
-        getMasterAppInstall(props.appInstallID, props.masterNode);
+        getMasterAppInstall(props.appInstallID);
     }
     masterNodeAddr.value = props.masterNodeAddr;
-    operateNode.value = props.node;
     await loadInstallDefaultConfig();
-    const res = await getAppByKey(props.key, props.node);
+    const res = await getAppByKey(props.key);
     currentApp.value = res.data;
     appVersions.value = currentApp.value.versions;
     if (appVersions.value.length > 0) {

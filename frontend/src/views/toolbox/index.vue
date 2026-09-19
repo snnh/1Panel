@@ -31,13 +31,10 @@ import { systemRestart } from '@/api/modules/dashboard';
 
 const restartType = ref();
 const confirmDialogRef = ref();
-const { currentNode, isOnRestart } = useGlobalStore();
+const { isOnRestart } = useGlobalStore();
 
 const onRestart = (type: string) => {
     let header = i18n.global.t('home.restart_' + type);
-    if (currentNode.value != 'local' && type === '1panel') {
-        type = '1panel-agent';
-    }
     restartType.value = type;
     let params = {
         header: header,

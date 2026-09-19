@@ -23,7 +23,6 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/utils/encrypt"
 	"github.com/1Panel-dev/1Panel/agent/utils/firewall"
 	"github.com/1Panel-dev/1Panel/agent/utils/ssh"
-	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
 
 	"github.com/go-gormigrate/gormigrate/v2"
 	"github.com/google/uuid"
@@ -100,28 +99,24 @@ var InitSetting = &gormigrate.Migration{
 	ID: "20240722-init-setting",
 	Migrate: func(tx *gorm.DB) error {
 		global.CONF.Base.EncryptKey = common.RandStr(16)
-		nodeInfo, err := xpack.MultiNodeProvider.LoadNodeInfo(true)
-		if err != nil {
+		if err := tx.Create(&model.Setting{Key: "BaseDir", Value: common.LoadParams("BASE_DIR")}).Error; err != nil {
 			return err
 		}
-		if err := tx.Create(&model.Setting{Key: "BaseDir", Value: nodeInfo.BaseDir}).Error; err != nil {
-			return err
-		}
-		itemKey, _ := encrypt.StringEncrypt(nodeInfo.ServerKey)
+		itemKey, _ := encrypt.StringEncrypt("")
 		if err := tx.Create(&model.Setting{Key: "ServerKey", Value: itemKey}).Error; err != nil {
 			return err
 		}
-		itemCrt, _ := encrypt.StringEncrypt(nodeInfo.ServerCrt)
+		itemCrt, _ := encrypt.StringEncrypt("")
 		if err := tx.Create(&model.Setting{Key: "ServerCrt", Value: itemCrt}).Error; err != nil {
 			return err
 		}
-		if err := tx.Create(&model.Setting{Key: "NodeScope", Value: nodeInfo.Scope}).Error; err != nil {
+		if err := tx.Create(&model.Setting{Key: "NodeScope", Value: "master"}).Error; err != nil {
 			return err
 		}
-		if err := tx.Create(&model.Setting{Key: "NodePort", Value: fmt.Sprintf("%v", nodeInfo.NodePort)}).Error; err != nil {
+		if err := tx.Create(&model.Setting{Key: "NodePort", Value: "0"}).Error; err != nil {
 			return err
 		}
-		if err := tx.Create(&model.Setting{Key: "SystemVersion", Value: nodeInfo.Version}).Error; err != nil {
+		if err := tx.Create(&model.Setting{Key: "SystemVersion", Value: common.LoadParams("ORIGINAL_VERSION")}).Error; err != nil {
 			return err
 		}
 

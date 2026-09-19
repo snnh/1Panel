@@ -5,7 +5,7 @@
                 <div class="detail flex">
                     <div class="w-12 h-12 rounded p-1 shadow-md icon">
                         <img
-                            :src="getAppIconUrl(app.key, currentNode)"
+                            :src="getAppIconUrl(app.key)"
                             alt="App Icon"
                             class="w-full h-full rounded"
                             style="object-fit: contain"
@@ -81,8 +81,6 @@ import { ref } from 'vue';
 import Install from './install/index.vue';
 import { computeSizeFromMB } from '@/utils/size';
 import { jumpToInstall } from '@/utils/app';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-const { currentNode } = useGlobalStore();
 
 const app = ref<any>({});
 const appDetail = ref<any>({});

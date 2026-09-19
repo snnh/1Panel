@@ -10,7 +10,6 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"path"
 	"reflect"
 	"strings"
@@ -43,11 +42,8 @@ func OperationLog() gin.HandlerFunc {
 
 		source := loadLogInfo(c.Request.URL.Path)
 		pathItem := normalizeOperationPath(c.Request.URL.Path)
-		currentNodeItem := c.Request.Header.Get("CurrentNode")
-		currentNode, _ := url.QueryUnescape(currentNodeItem)
 		record := &model.OperationLog{
 			Source:    source,
-			Node:      currentNode,
 			IP:        c.ClientIP(),
 			Method:    strings.ToLower(c.Request.Method),
 			Path:      pathItem,
@@ -93,8 +89,8 @@ func OperationLog() gin.HandlerFunc {
 				}
 			}
 		}
-		needAgentResolve := len(operationDic.BeforeFunctions) != 0 && len(currentNode) != 0 && currentNode != "local" && !strings.HasPrefix(record.Path, "/core")
-		allowCoreFallback := strings.HasPrefix(record.Path, "/core/xpack") || !ShouldProxyToAgent(c.Request.URL.Path) || len(currentNode) == 0 || currentNode == "local"
+		needAgentResolve := false
+		allowCoreFallback := strings.HasPrefix(record.Path, "/core/xpack") || !ShouldProxyToAgent(c.Request.URL.Path)
 		if needAgentResolve {
 			c.Request.Header.Set(headerNeedOperationResolve, "1")
 			defer func() {

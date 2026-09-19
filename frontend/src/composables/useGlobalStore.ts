@@ -3,7 +3,7 @@ import { storeToRefs } from 'pinia';
 import type { GlobalState } from '@/store/interface';
 import type { ComputedRef, ToRefs } from 'vue';
 
-type GlobalGetterKey = 'isDarkTheme' | 'isNodeAdmin' | 'isAdminOrNodeAdmin' | 'docsUrl' | 'isMaster' | 'isMobile';
+type GlobalGetterKey = 'isDarkTheme' | 'docsUrl' | 'isMobile';
 
 type GlobalGetterRefs = Record<GlobalGetterKey, ComputedRef<any>>;
 

@@ -82,8 +82,8 @@ func sendAlert(alertRepo repo.IAlertRepo, alert dto.AlertDTO, pushAlert dto.Push
 			Count:   todayCount + 1,
 			Method:  methodStr,
 		}
-		transport := xpack.MultiNodeProvider.LoadRequestTransport()
-		agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+		transport := xpack.LoadRequestTransport()
+		agentInfo, _ := xpack.GetAgentInfo()
 		err = alertUtil.CreateTaskScanEmailAlertLog(alert, create, pushAlert, constant.Email, transport, agentInfo, config)
 		if err != nil {
 			global.LOG.Errorf("%s alert email push failed: %v", alert.Type, err)
@@ -102,8 +102,8 @@ func sendAlert(alertRepo repo.IAlertRepo, alert dto.AlertDTO, pushAlert dto.Push
 			Count:   todayCount + 1,
 			Method:  methodStr,
 		}
-		transport := xpack.MultiNodeProvider.LoadRequestTransport()
-		agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+		transport := xpack.LoadRequestTransport()
+		agentInfo, _ := xpack.GetAgentInfo()
 		params := alertUtil.CreateAlertParams(alertUtil.GetCronJobTypeName(pushAlert.Param))
 		alertDetail := alertUtil.ProcessAlertDetail(alert, pushAlert.TaskName, params, constant.Bark)
 		alertRule := alertUtil.ProcessAlertRule(alert)
@@ -127,8 +127,8 @@ func sendAlert(alertRepo repo.IAlertRepo, alert dto.AlertDTO, pushAlert dto.Push
 			Count:   todayCount + 1,
 			Method:  methodStr,
 		}
-		transport := xpack.MultiNodeProvider.LoadRequestTransport()
-		agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+		transport := xpack.LoadRequestTransport()
+		agentInfo, _ := xpack.GetAgentInfo()
 		task := dto.AlertTaskMetadata{
 			AlertID:   alert.ID,
 			Type:      alertUtil.GetCronJobType(alert.Type),

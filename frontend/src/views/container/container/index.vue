@@ -507,7 +507,7 @@ import { computeSize2, computeSizeForDocker, computeCPU } from '@/utils/size';
 import { newUUID } from '@/utils/id';
 import { updateCommonDescription } from '@/api/modules/setting';
 
-const { currentNode, isAdminOrNodeAdmin, isMobile } = useGlobalStore();
+const { isAdmin, isMobile } = useGlobalStore();
 
 const isActive = ref(false);
 const isExist = ref(false);
@@ -812,7 +812,6 @@ const onImportCreate = () => {
         name: '',
         detailName: '',
         remark: '.tar.gz',
-        node: currentNode.value,
     });
 };
 
@@ -936,7 +935,7 @@ const buttons = [
     {
         label: i18n.global.t('menu.terminal'),
         disabled: (row: Container.ContainerInfo) => {
-            return row.state !== 'running' || !isAdminOrNodeAdmin.value;
+            return row.state !== 'running' || !isAdmin.value;
         },
         click: (row: Container.ContainerInfo) => {
             onTerminal(row);

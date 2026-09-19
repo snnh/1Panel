@@ -152,10 +152,8 @@ import { MsgSuccess } from '@/utils/message';
 import i18n from '@/lang';
 import { getCommandList } from '@/api/modules/command';
 import { routerToName, routerToNameWithQuery } from '@/utils/router';
-import { useOperateNodeContext } from '@/composables/useOperateNodeContext';
 
-const { currentNode, currentRedisDB, openMenuTabs } = useGlobalStore();
-useOperateNodeContext(currentNode);
+const { currentRedisDB, openMenuTabs } = useGlobalStore();
 
 const loading = ref(false);
 

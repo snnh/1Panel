@@ -12,7 +12,6 @@ import (
 
 	"github.com/1Panel-dev/1Panel/core/buserr"
 	"github.com/1Panel-dev/1Panel/core/global"
-	"github.com/1Panel-dev/1Panel/core/utils/xpack"
 )
 
 func HandleRequest(url, method string, timeout int) (int, []byte, error) {
@@ -30,7 +29,16 @@ func HandleRequest(url, method string, timeout int) (int, []byte, error) {
 }
 
 func HandleRequestWithProxy(url, method string, timeout int) (int, []byte, error) {
-	transport := xpack.MultiNodeProvider.LoadRequestTransport()
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		DialContext: (&net.Dialer{
+			Timeout:   60 * time.Second,
+			KeepAlive: 60 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		IdleConnTimeout:       15 * time.Second,
+	}
 	return handleRequestWithTransport(url, method, transport, timeout)
 }
 
@@ -78,7 +86,16 @@ func HandleGet(url string) (*http.Response, error) {
 }
 
 func HandleGetWithProxy(url string) (*http.Response, error) {
-	transport := xpack.MultiNodeProvider.LoadRequestTransport()
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		DialContext: (&net.Dialer{
+			Timeout:   60 * time.Second,
+			KeepAlive: 60 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		IdleConnTimeout:       15 * time.Second,
+	}
 	return handleGetWithTransport(url, transport)
 }
 

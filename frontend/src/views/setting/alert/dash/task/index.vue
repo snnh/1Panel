@@ -374,10 +374,7 @@ import { Rules } from '@/global/form-rules';
 import i18n from '@/lang';
 import { routerToName } from '@/utils/router';
 import { checkCidr, checkCidrV6, checkIpV4V6 } from '@/utils/validate';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import { getAlertConfigDisplayName } from '@/views/setting/alert/setting/drawer/secret-field';
-
-const { isMaster } = useGlobalStore();
 
 const alertConfigs = ref<Alert.AlertConfigInfo[]>([]);
 const loadAlertConfigs = async () => {
@@ -546,7 +543,7 @@ const rules = reactive({
 
 const allTaskOptions = [
     { value: 'sshLogin', label: 'xpack.alert.sshLogin', show: true },
-    { value: 'panelLogin', label: 'xpack.alert.panelLogin', show: isMaster.value },
+    { value: 'panelLogin', label: 'xpack.alert.panelLogin' },
     { value: 'ssl', label: 'xpack.alert.ssl', show: true },
     { value: 'siteEndTime', label: 'xpack.alert.siteEndTime', show: true },
     { value: 'cpu', label: 'xpack.alert.cpu', show: true },

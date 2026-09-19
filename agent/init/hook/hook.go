@@ -12,7 +12,7 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
 	"github.com/1Panel-dev/1Panel/agent/utils/alert_push"
-	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
+	"github.com/1Panel-dev/1Panel/agent/utils/common"
 )
 
 func Init() {
@@ -55,7 +55,7 @@ func initGlobalData() {
 	if err := settingRepo.Update("SystemStatus", "Free"); err != nil {
 		global.LOG.Fatalf("init service before start failed, err: %v", err)
 	}
-	node, _ := xpack.MultiNodeProvider.LoadNodeInfo(false)
+	node := model.NodeInfo{BaseDir: common.LoadParams("BASE_DIR"), Version: common.LoadParams("ORIGINAL_VERSION"), Scope: "master"}
 	if len(node.Version) != 0 {
 		_ = settingRepo.Update("SystemVersion", node.Version)
 	}

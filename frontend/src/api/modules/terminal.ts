@@ -16,24 +16,19 @@ export const getHostTree = (params: Host.ReqSearch) => {
 export const updateLocalConn = (param: { withReset: boolean; defaultConn: string }) => {
     return http.post(`/settings/ssh/default`, param);
 };
-export const addHost = (params: Host.HostOperate, nodeName?: string) => {
+export const addHost = (params: Host.HostOperate) => {
     let request = deepCopy(params) as Host.HostOperate;
     encodeBase64Fields(request, ['password', 'privateKey']);
     if (params.isLocal) {
-        return http.post(`/settings/ssh`, request, undefined, nodeName ? { CurrentNode: nodeName } : undefined);
+        return http.post(`/settings/ssh`, request);
     }
     return http.postLocalNode<Host.HostOperate>(`/hosts`, request);
 };
-export const testByInfo = (params: Host.HostConnTest | Host.HostOperate, nodeName?: string) => {
+export const testByInfo = (params: Host.HostConnTest | Host.HostOperate) => {
     let request = deepCopy(params) as Host.HostOperate;
     encodeBase64Fields(request, ['password', 'privateKey']);
     if (params.isLocal) {
-        return http.post<boolean>(
-            `/settings/ssh/check/info`,
-            request,
-            undefined,
-            nodeName ? { CurrentNode: nodeName } : undefined,
-        );
+        return http.post<boolean>(`/settings/ssh/check/info`, request, undefined, undefined);
     }
     return http.postLocalNode<boolean>(`/hosts/test/byinfo`, request);
 };
@@ -55,13 +50,8 @@ export const deleteHost = (params: { ids: number[] }) => {
 export const loadLocalConn = () => {
     return http.get<Host.HostConnTest>(`/settings/ssh/conn`);
 };
-export const testLocalConn = (nodeName?: string) => {
-    return http.post<boolean>(
-        `/settings/ssh/check`,
-        undefined,
-        undefined,
-        nodeName ? { CurrentNode: nodeName } : undefined,
-    );
+export const testLocalConn = () => {
+    return http.post<boolean>(`/settings/ssh/check`);
 };
 
 export const searchTerminalSessions = (localNode: boolean) => {

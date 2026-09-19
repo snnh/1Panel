@@ -275,9 +275,6 @@ func (u *SettingService) Update(c *gin.Context, key, value string) error {
 		}
 	case "Language":
 		i18n.SetCachedDBLanguage(value)
-		if err := xpack.MultiNodeProvider.Sync(constant.SyncLanguage); err != nil {
-			global.LOG.Errorf("sync language to node failed, err: %v", err)
-		}
 	case "UpgradeBackupCopies":
 		dropBackupCopies()
 	case "ScriptSync":
@@ -288,9 +285,6 @@ func (u *SettingService) Update(c *gin.Context, key, value string) error {
 		}
 	case "Edition":
 		global.CONF.Base.Edition = value
-		if err := xpack.MultiNodeProvider.Sync(constant.SyncEdition); err != nil {
-			global.LOG.Errorf("sync edition to node failed, err: %v", err)
-		}
 	}
 
 	return nil
@@ -354,16 +348,6 @@ func (u *SettingService) UpdateProxy(req dto.ProxyUpdate) error {
 	}
 	if err := settingRepo.Update("ProxyPasswdKeep", req.ProxyPasswdKeep); err != nil {
 		return err
-	}
-	if err := xpack.MultiNodeProvider.ProxyDocker(loadDockerProxy(req)); err != nil {
-		return err
-	}
-	syncScope := constant.SyncSystemProxy
-	if req.WithDockerRestart {
-		syncScope = constant.SyncSystemProxyWithRestartDocker
-	}
-	if err := xpack.MultiNodeProvider.Sync(syncScope); err != nil {
-		global.LOG.Errorf("sync proxy to node failed, err: %v", err)
 	}
 	return nil
 }
@@ -769,22 +753,6 @@ func (u *SettingService) GetAppstoreConfig() (*dto.AppstoreConfig, error) {
 		res.InstallAllowPort = constant.StatusDisable
 	}
 	return res, nil
-}
-
-func loadDockerProxy(req dto.ProxyUpdate) string {
-	if req.ProxyType == "" || req.ProxyType == "close" || !req.ProxyDocker {
-		return ""
-	}
-	var account string
-	if req.ProxyUser != "" {
-		account = req.ProxyUser
-		if req.ProxyPasswd != "" {
-			account += ":" + req.ProxyPasswd
-		}
-		account += "@"
-	}
-
-	return fmt.Sprintf("%s://%s%s:%s", req.ProxyType, account, strings.ReplaceAll(req.ProxyUrl, req.ProxyType+"://", ""), req.ProxyPort)
 }
 
 func checkProxy(req dto.ProxyUpdate) error {

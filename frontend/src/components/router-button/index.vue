@@ -21,9 +21,6 @@
                 </div>
             </div>
         </el-card>
-        <div v-if="currentNodeVersionMismatch" class="mt-3">
-            <el-alert type="warning" :closable="false" show-icon :title="$t('setting.currentNodeVersionNotSame')" />
-        </div>
     </div>
 </template>
 
@@ -32,9 +29,6 @@ import { routerToNameWithQuery, routerToPathWithQuery } from '@/utils/router';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { hasPermissionMetaAccess, hasRouteAccess } from '@/utils/rbac';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-import { getSettingBaseInfo } from '@/api/modules/setting';
-import { listNodes } from '@/utils/node';
 
 defineOptions({ name: 'RouterButton' });
 
@@ -50,7 +44,6 @@ const props = defineProps({
 });
 
 const router = useRouter();
-const { currentNode } = useGlobalStore();
 const buttonArray = computed(() => {
     return props.buttons.filter((button) => {
         if (!hasPermissionMetaAccess(button.permission)) {
@@ -65,7 +58,6 @@ const buttonArray = computed(() => {
 });
 
 const activeName = ref('');
-const currentNodeVersionMismatch = ref(false);
 
 const handleChange = (label: string) => {
     const btn = buttonArray.value.find((btn) => btn.label === label);
@@ -85,33 +77,6 @@ watch(
         syncActiveName();
     },
 );
-
-watch(currentNode, checkCurrentNodeVersion, { immediate: true });
-
-async function checkCurrentNodeVersion() {
-    const checkedNode = currentNode.value;
-    if (checkedNode === 'local') {
-        currentNodeVersionMismatch.value = false;
-        return;
-    }
-
-    try {
-        const [settingRes, nodes] = await Promise.all([getSettingBaseInfo(), listNodes('all')]);
-        if (currentNode.value !== checkedNode) {
-            return;
-        }
-        const currentNodeInfo = nodes.find((item) => item.name === checkedNode);
-        currentNodeVersionMismatch.value = Boolean(
-            currentNodeInfo?.version &&
-            settingRes.data.systemVersion &&
-            currentNodeInfo.version !== settingRes.data.systemVersion,
-        );
-    } catch {
-        if (currentNode.value === checkedNode) {
-            currentNodeVersionMismatch.value = false;
-        }
-    }
-}
 
 function syncActiveName() {
     if (!buttonArray.value.length) {

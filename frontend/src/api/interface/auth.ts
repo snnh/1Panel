@@ -93,7 +93,7 @@ export namespace Login {
         role: string;
         permissions: string[];
         masterOnlyPermissions?: string[];
-        nodeRoles: Array<{ nodeId: number; nodeName: string; roleId: number; roleName: string }>;
+
         authSource: string;
         authSourceStatus: string;
 

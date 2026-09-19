@@ -198,9 +198,7 @@ import { Backup } from '@/api/interface/backup';
 import { MsgSuccess } from '@/utils/message';
 import TaskLog from '@/components/log/task/index.vue';
 import { routerToFileWithPath } from '@/utils/router';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import { loadMysqlArgs } from '@/views/cronjob/cronjob/helper';
-const { currentNode } = useGlobalStore();
 
 const emit = defineEmits(['close']);
 
@@ -227,7 +225,6 @@ const secret = ref();
 const description = ref();
 const timeoutItem = ref(30);
 const timeoutUnit = ref('m');
-const node = ref();
 const stopBefore = ref(false);
 const dropAllCollections = ref(false);
 
@@ -242,11 +239,9 @@ interface DialogProps {
     detailName: string;
     status: string;
     appInstallID?: number;
-    node?: string;
 }
 const acceptParams = (params: DialogProps): void => {
     type.value = params.type;
-    node.value = params.node || currentNode.value;
     if (type.value === 'app') {
         appInstallID.value = params.appInstallID || 0;
         loadBackupDir();
@@ -268,7 +263,7 @@ const handleBackupClose = () => {
 };
 
 const loadBackupDir = async () => {
-    const res = await getLocalBackupDir(node.value);
+    const res = await getLocalBackupDir();
     backupPath.value = res.data;
 };
 
@@ -277,7 +272,7 @@ const goFile = async () => {
 };
 
 const onChange = async (info: any) => {
-    await updateRecordDescription(info.id, info.description, node.value);
+    await updateRecordDescription(info.id, info.description);
     MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));
 };
 
@@ -290,7 +285,7 @@ const search = async () => {
         detailName: detailName.value,
     };
     loading.value = true;
-    await searchBackupRecords(params, node.value)
+    await searchBackupRecords(params)
         .then((res) => {
             loading.value = false;
             loadSize(params);
@@ -303,7 +298,7 @@ const search = async () => {
 };
 
 const loadSize = async (params: any) => {
-    await loadRecordSize(params, node.value)
+    await loadRecordSize(params)
         .then((res) => {
             let stats = res.data || [];
             if (stats.length === 0) {
@@ -325,7 +320,7 @@ const loadSize = async (params: any) => {
 };
 
 const openTaskLog = (taskID: string) => {
-    taskLogRef.value.openWithTaskID(taskID, true, node.value);
+    taskLogRef.value.openWithTaskID(taskID, true);
 };
 
 const supportMysqlBackupArgs = () => {
@@ -349,7 +344,7 @@ const backup = async () => {
         stopBefore: stopBefore.value,
     };
     loading.value = true;
-    await handleBackup(params, node.value)
+    await handleBackup(params)
         .then(() => {
             loading.value = false;
             openTaskLog(taskID);
@@ -375,7 +370,7 @@ const recover = async (row?: any) => {
         dropAllCollections: type.value === 'mongodb' ? dropAllCollections.value : false,
     };
     loading.value = true;
-    await handleRecover(params, node.value)
+    await handleRecover(params)
         .then(() => {
             loading.value = false;
             openTaskLog(taskID);
@@ -417,8 +412,8 @@ const onDownload = async (row: Backup.RecordInfo) => {
         fileDir: row.fileDir,
         fileName: row.fileName,
     };
-    await downloadBackupRecord(params, node.value).then(async (res) => {
-        downloadFile(res.data, node.value);
+    await downloadBackupRecord(params).then(async (res) => {
+        downloadFile(res.data);
     });
 };
 
@@ -442,7 +437,7 @@ const onBatchDelete = async (row: Backup.RecordInfo | null) => {
             i18n.global.t('commons.button.backup'),
             i18n.global.t('commons.button.delete'),
         ]),
-        params: { ids: ids, node: node.value },
+        params: { ids: ids },
     });
 };
 

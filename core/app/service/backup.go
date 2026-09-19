@@ -17,7 +17,6 @@ import (
 	"github.com/1Panel-dev/1Panel/core/utils/cloud_storage"
 	"github.com/1Panel-dev/1Panel/core/utils/encrypt"
 	"github.com/1Panel-dev/1Panel/core/utils/req_helper/proxy_local"
-	"github.com/1Panel-dev/1Panel/core/utils/xpack"
 	"github.com/jinzhu/copier"
 )
 
@@ -98,9 +97,6 @@ func (u *BackupService) Create(req dto.BackupOperate) error {
 	if err := backupRepo.Create(&backup); err != nil {
 		return err
 	}
-	if err := xpack.MultiNodeProvider.Sync(constant.SyncBackupAccounts); err != nil {
-		global.LOG.Errorf("sync backup account to node failed, err: %v", err)
-	}
 	return nil
 }
 
@@ -119,16 +115,8 @@ func (u *BackupService) Delete(name string) error {
 		global.LOG.Errorf("check used of local cronjob failed, err: %v", err)
 		return buserr.New("ErrBackupInUsed")
 	}
-	if err := xpack.MultiNodeProvider.CheckBackupUsed(name); err != nil {
-		global.LOG.Errorf("check used of node cronjob failed, err: %v", err)
-		return buserr.New("ErrBackupInUsed")
-	}
-
 	if err := backupRepo.Delete(repo.WithByName(name)); err != nil {
 		return err
-	}
-	if err := xpack.MultiNodeProvider.Sync(constant.SyncBackupAccounts); err != nil {
-		global.LOG.Errorf("sync backup account to node failed, err: %v", err)
 	}
 	return nil
 }
@@ -176,9 +164,6 @@ func (u *BackupService) Update(req dto.BackupOperate) error {
 	if err := backupRepo.Save(&newBackup); err != nil {
 		return err
 	}
-	if err := xpack.MultiNodeProvider.Sync(constant.SyncBackupAccounts); err != nil {
-		global.LOG.Errorf("sync backup account to node failed, err: %v", err)
-	}
 	return nil
 }
 
@@ -217,9 +202,6 @@ func (u *BackupService) RefreshToken(req dto.OperateByName) error {
 	backup.Vars = string(varsItem)
 	if err := backupRepo.Save(&backup); err != nil {
 		return err
-	}
-	if err := xpack.MultiNodeProvider.Sync(constant.SyncBackupAccounts); err != nil {
-		global.LOG.Errorf("sync backup account to node failed, err: %v", err)
 	}
 	return nil
 }

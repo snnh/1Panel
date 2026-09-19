@@ -6,11 +6,9 @@ import router from '@/routers';
 import { MsgError } from '@/utils/message';
 import { encodeBase64 } from '@/utils/base64';
 import i18n from '@/lang';
-import { changeToLocal } from '@/utils/node';
 import { getCookie } from '@/utils/auth';
 import { handleAuthResponseCode } from '@/utils/auth-response';
 import { GlobalStore } from '@/store';
-import { getOperateNodeOverride } from '@/utils/operate-node';
 
 const config = {
     baseURL: import.meta.env.VITE_API_URL as string,
@@ -38,13 +36,6 @@ class RequestHttp {
                     'Accept-Language': globalStore.language,
                     ...config.headers,
                 };
-                if (config.headers.CurrentNode == undefined) {
-                    config.headers.CurrentNode = encodeURIComponent(
-                        getOperateNodeOverride() || globalStore.currentNode,
-                    );
-                } else {
-                    config.headers.CurrentNode = encodeURIComponent(String(config.headers.CurrentNode));
-                }
                 if (
                     config.url === '/core/auth/login' ||
                     config.url === '/core/auth/mfalogin' ||
@@ -85,11 +76,6 @@ class RequestHttp {
                         return;
                     }
                     return Promise.reject(data);
-                }
-                if (data.code == ResultEnum.NODE_UNBIND) {
-                    changeToLocal();
-                    window.location.reload();
-                    return;
                 }
                 if (data.code == ResultEnum.ERR_GLOBAL_LOADING) {
                     globalStore.isLoading = true;
@@ -174,9 +160,6 @@ class RequestHttp {
             baseURL: import.meta.env.VITE_API_URL as string,
             timeout: timeout ? timeout : (ResultEnum.TIMEOUT as number),
             withCredentials: true,
-            headers: {
-                CurrentNode: 'local',
-            },
         });
     }
     put<T>(url: string, params?: object, _object = {}): Promise<ResultData<T>> {

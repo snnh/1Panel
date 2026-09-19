@@ -50,9 +50,7 @@
                 <el-button
                     type="primary"
                     plain
-                    :disabled="
-                        !currentDB || currentDB.from !== 'local' || mongodbStatus !== 'Running' || !isAdminOrNodeAdmin
-                    "
+                    :disabled="!currentDB || currentDB.from !== 'local' || mongodbStatus !== 'Running' || !isAdmin"
                     @click="goTerminal"
                 >
                     {{ $t('menu.terminal') }}
@@ -355,11 +353,9 @@ import {
 import { MsgSuccess } from '@/utils/message';
 import { routerToName, routerToNameWithQuery } from '@/utils/router';
 import { useGlobalStore } from '@/composables/useGlobalStore';
-import { useOperateNodeContext } from '@/composables/useOperateNodeContext';
 import Tooltip from '@/components/tooltip/index.vue';
 
-const { currentNode, currentMongodbDB, isAdminOrNodeAdmin, isMobile } = useGlobalStore();
-useOperateNodeContext(currentNode);
+const { currentMongodbDB, isAdmin, isMobile } = useGlobalStore();
 
 const loading = ref(false);
 const maskShow = ref(true);

@@ -17,7 +17,7 @@
                 <div class="dropdowns">
                     <el-select filterable clearable v-model="req.type" @change="search()" class="!w-52 dropdown">
                         <template #prefix>{{ $t('commons.table.type') }}</template>
-                        <template v-if="isMaster">
+                        <template>
                             <el-option value="panelLogin" :label="$t('xpack.alert.panelLogin')" />
                         </template>
                         <el-option value="sshLogin" :label="$t('xpack.alert.sshLogin')" />
@@ -141,7 +141,7 @@ import AddTask from '@/views/setting/alert/dash/task/index.vue';
 import { Alert } from '@/api/interface/alert';
 import { UpdateAlertStatus, SearchAlerts, DeleteAlert, PageAlertConfigs } from '@/api/modules/alert';
 
-const { isMobile, isMaster } = useGlobalStore();
+const { isMobile } = useGlobalStore();
 
 const { t } = i18n.global;
 const loading = ref(false);

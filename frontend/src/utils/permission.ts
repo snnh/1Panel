@@ -55,7 +55,7 @@ const hasPermissionAccessByMode = (
     options: PermissionAccessOptions = {},
 ) => {
     const globalStore = GlobalStore();
-    if (options.nodeAdmin && globalStore.isNodeAdmin) {
+    if (options.nodeAdmin && globalStore.isAdmin) {
         return true;
     }
     const permissions = toPermissionList(value);

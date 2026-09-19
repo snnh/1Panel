@@ -98,10 +98,8 @@ import { dateFormat } from '@/utils/date';
 import { downloadFile } from '@/utils/file';
 import { onMounted, reactive, ref } from 'vue';
 import { cleanSSHLogs, exportSSHLogs, loadSSHLogs } from '@/api/modules/host';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import i18n from '@/lang';
 import { MsgSuccess } from '@/utils/message';
-const { currentNode } = useGlobalStore();
 
 const loading = ref();
 const data = ref();
@@ -177,7 +175,7 @@ const onSubmitExport = async () => {
     await exportSSHLogs(params)
         .then((res) => {
             if (res.data) {
-                downloadFile(res.data, currentNode.value);
+                downloadFile(res.data);
             }
             open.value = false;
         })

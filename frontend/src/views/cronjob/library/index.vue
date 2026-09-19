@@ -147,7 +147,7 @@ import CodemirrorDrawer from '@/components/codemirror-pro/drawer.vue';
 import { MsgSuccess } from '@/utils/message';
 import { getSettingBaseInfo, updateSetting } from '@/api/modules/setting';
 
-const { globalStore, currentNode, isAdminOrNodeAdmin, isMobile } = useGlobalStore();
+const { isAdmin, isMobile } = useGlobalStore();
 
 const myDetail = ref();
 
@@ -314,14 +314,11 @@ const buttons = [
     {
         label: i18n.global.t('commons.button.handle'),
         disabled: () => {
-            return !isAdminOrNodeAdmin.value;
+            return !isAdmin.value;
         },
         click: (row: Cronjob.ScriptInfo) => {
             ElMessageBox.confirm(
-                i18n.global.t('cronjob.library.handleHelper', [
-                    currentNode.value === 'local' ? globalStore.getMasterAlias() : currentNode.value,
-                    row.name,
-                ]),
+                i18n.global.t('cronjob.library.handleHelper', [i18n.global.t('setting.panel'), row.name]),
                 i18n.global.t('commons.button.handle'),
                 {
                     confirmButtonText: i18n.global.t('commons.button.confirm'),

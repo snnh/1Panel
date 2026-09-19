@@ -143,12 +143,10 @@ import {
     RuntimeProfileDownloadError,
 } from '@/api/modules/host';
 import { Host } from '@/api/interface/host';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import { computeSize } from '@/utils/size';
 import i18n from '@/lang';
 import { MsgError, MsgSuccess } from '@/utils/message';
 
-const { currentNode } = useGlobalStore();
 const open = ref(false);
 const captureLoading = ref(false);
 const goroutineLoading = ref(false);
@@ -223,14 +221,14 @@ const summaryCards = computed(() => [
 ]);
 
 const loadSummary = async () => {
-    const res = await loadRuntimeDiagnosticsSummary(currentNode.value);
+    const res = await loadRuntimeDiagnosticsSummary();
     Object.assign(summary, res.data);
 };
 
 const loadGoroutines = async () => {
     goroutineLoading.value = true;
     try {
-        const res = await loadRuntimeGoroutines(currentNode.value);
+        const res = await loadRuntimeGoroutines();
         Object.assign(goroutineSnapshot, res.data);
     } finally {
         goroutineLoading.value = false;
@@ -245,7 +243,7 @@ const showGoroutineStack = (row: Host.RuntimeGoroutineGroup) => {
 const captureProfile = async () => {
     captureLoading.value = true;
     try {
-        const data = await createRuntimeProfile(captureForm, currentNode.value);
+        const data = await createRuntimeProfile(captureForm);
         const url = window.URL.createObjectURL(data);
         const link = document.createElement('a');
         link.href = url;

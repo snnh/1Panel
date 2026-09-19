@@ -3,13 +3,8 @@ import { ResPage, SearchWithPage } from '../interface';
 import { Container } from '../interface/container';
 import { TimeoutEnum } from '@/enums/http-enum';
 
-export const searchContainer = (params: Container.ContainerSearch, currentNode?: string) => {
-    return http.post<ResPage<Container.ContainerInfo>>(
-        `/containers/search`,
-        params,
-        TimeoutEnum.T_40S,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+export const searchContainer = (params: Container.ContainerSearch) => {
+    return http.post<ResPage<Container.ContainerInfo>>(`/containers/search`, params, TimeoutEnum.T_40S, undefined);
 };
 export const listContainer = () => {
     return http.post<Array<Container.ContainerOption>>(`/containers/list`, {});
@@ -44,12 +39,8 @@ export const downloadContainerFile = (params: { containerID: string; path: strin
         timeout: TimeoutEnum.T_40S,
     });
 };
-export const loadContainerStatus = (currentNode?: string) => {
-    return http.get<Container.ContainerStatus>(
-        `/containers/status`,
-        {},
-        currentNode ? { headers: { CurrentNode: currentNode } } : {},
-    );
+export const loadContainerStatus = () => {
+    return http.get<Container.ContainerStatus>(`/containers/status`, {}, {});
 };
 export const loadResourceLimit = () => {
     return http.get<Container.ResourceLimit>(`/containers/limit`);
@@ -69,33 +60,24 @@ export const commitContainer = (params: Container.ContainerCommit) => {
 export const loadContainerInfo = (name: string) => {
     return http.post<Container.ContainerHelper>(`/containers/info`, { name: name });
 };
-export const cleanComposeLog = (composeName: string, composePath: string, operateNode?: string) => {
-    const params = operateNode ? `?operateNode=${operateNode}` : '';
+export const cleanComposeLog = (composeName: string, composePath: string) => {
+    const params = '';
     return http.post(
         `/containers/compose/clean/log${params}`,
         { name: composeName, path: composePath },
         TimeoutEnum.T_60S,
     );
 };
-export const cleanContainerLog = (containerName: string, operateNode?: string) => {
-    const params = operateNode ? `?operateNode=${operateNode}` : '';
+export const cleanContainerLog = (containerName: string) => {
+    const params = '';
     return http.post(`/containers/clean/log${params}`, { name: containerName }, TimeoutEnum.T_60S);
 };
-export const containerItemStats = (containerID: string, currentNode?: string) => {
+export const containerItemStats = (containerID: string) => {
     const timeout = containerID === 'system' ? TimeoutEnum.T_5M : TimeoutEnum.T_60S;
-    return http.post<Container.ContainerItemStats>(
-        `/containers/item/stats`,
-        { name: containerID },
-        timeout,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+    return http.post<Container.ContainerItemStats>(`/containers/item/stats`, { name: containerID }, timeout, undefined);
 };
-export const containerListStats = (currentNode?: string) => {
-    return http.get<Array<Container.ContainerListStats>>(
-        `/containers/list/stats`,
-        {},
-        currentNode ? { headers: { CurrentNode: currentNode } } : {},
-    );
+export const containerListStats = () => {
+    return http.get<Array<Container.ContainerListStats>>(`/containers/list/stats`, {}, {});
 };
 export const containerStats = (id: string) => {
     return http.get<Container.ContainerStats>(`/containers/stats/${id}`);
@@ -121,13 +103,8 @@ export const DownloadFile = (params: Container.ContainerLogInfo) => {
 };
 
 // image
-export const searchImage = (params: Container.ImageSearch, currentNode?: string) => {
-    return http.post<ResPage<Container.ImageInfo>>(
-        `/containers/image/search`,
-        params,
-        TimeoutEnum.T_60S,
-        currentNode ? { CurrentNode: currentNode } : undefined,
-    );
+export const searchImage = (params: Container.ImageSearch) => {
+    return http.post<ResPage<Container.ImageInfo>>(`/containers/image/search`, params, TimeoutEnum.T_60S, undefined);
 };
 export const listAllImage = () => {
     return http.get<Array<Container.ImageInfo>>(`/containers/image/all`);

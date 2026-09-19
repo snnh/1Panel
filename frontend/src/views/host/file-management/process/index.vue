@@ -67,13 +67,11 @@
 <script lang="ts" setup>
 import { fileWgetKeys, stopWgetFile, removeWgetRecords } from '@/api/modules/files';
 import { computeSize } from '@/utils/size';
-import { onBeforeUnmount, ref, watch } from 'vue';
-import { useGlobalStore } from '@/composables/useGlobalStore';
+import { onBeforeUnmount, ref } from 'vue';
 import { ElMessageBox } from 'element-plus';
 import { MsgError, MsgSuccess } from '@/utils/message';
 import i18n from '@/lang';
 import { checkStreamAuth } from '@/utils/stream-auth';
-const { currentNode: globalCurrentNode } = useGlobalStore();
 
 let processSocket: WebSocket | null = null;
 let sendTimer: ReturnType<typeof setInterval> | null = null;
@@ -209,16 +207,15 @@ const onRemove = async (requestedKeys: string[]) => {
     const removable = getFinishedKeys();
     const selected = [...new Set(requestedKeys.filter((key) => removable.includes(key)))];
     if (selected.length === 0) return;
-    const node = globalCurrentNode.value;
     const token = initProcessToken;
     removingKeys.value = selected;
     try {
         for (let offset = 0; offset < selected.length; offset += 1000) {
-            if (node !== globalCurrentNode.value || token !== initProcessToken || !open.value) return;
+            if (token !== initProcessToken || !open.value) return;
             const batch = selected.slice(offset, offset + 1000);
             batch.forEach((key) => autoRemoveAttempts.set(key, (autoRemoveAttempts.get(key) || 0) + 1));
-            const response = await removeWgetRecords(batch, node);
-            if (node !== globalCurrentNode.value || token !== initProcessToken || !open.value) return;
+            const response = await removeWgetRecords(batch);
+            if (token !== initProcessToken || !open.value) return;
             const removed = (response.data?.keys || []).filter((key) => batch.includes(key));
             removedKeys.value.push(...removed);
             res.value = res.value.filter((value) => !removed.includes(value.key));
@@ -272,9 +269,8 @@ const initProcess = async () => {
     let href = window.location.href;
     let protocol = href.split('//')[0] === 'http:' ? 'ws' : 'wss';
     let ipLocal = href.split('//')[1].split('/')[0];
-    let currentNode = globalCurrentNode.value;
-    const url = `${protocol}://${ipLocal}/api/v2/files/wget/process?operateNode=${currentNode}`;
-    const authError = await checkStreamAuth(url, currentNode);
+    const url = `${protocol}://${ipLocal}/api/v2/files/wget/process`;
+    const authError = await checkStreamAuth(url);
     if (token !== initProcessToken || !open.value) {
         return;
     }
@@ -331,7 +327,6 @@ const getFileSize = (size: number) => {
 
 const onStop = async (key: string) => {
     if (!keys.value.includes(key) || stoppingKeys.value.includes(key)) return;
-    const node = globalCurrentNode.value;
     const token = initProcessToken;
     try {
         await ElMessageBox.confirm(i18n.global.t('file.stopWgetConfirm'), i18n.global.t('commons.button.tip'), {
@@ -342,11 +337,11 @@ const onStop = async (key: string) => {
     } catch {
         return;
     }
-    if (node !== globalCurrentNode.value || token !== initProcessToken || !open.value) return;
+    if (token !== initProcessToken || !open.value) return;
     stoppingKeys.value.push(key);
     try {
-        await stopWgetFile(key, node);
-        if (token === initProcessToken && open.value && node === globalCurrentNode.value) {
+        await stopWgetFile(key);
+        if (token === initProcessToken && open.value) {
             MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));
         }
     } catch (e) {
@@ -355,7 +350,7 @@ const onStop = async (key: string) => {
     }
 };
 
-watch(globalCurrentNode, () => {
+onBeforeUnmount(() => {
     handleClose();
     keys.value = [];
     res.value = [];
@@ -364,9 +359,6 @@ watch(globalCurrentNode, () => {
     reportedFailures.clear();
     reportedSuccesses.clear();
     autoRemoveAttempts.clear();
-});
-
-onBeforeUnmount(() => {
     initProcessToken++;
     closeSocket();
 });

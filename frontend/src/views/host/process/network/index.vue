@@ -72,7 +72,6 @@ import { ProcessStore } from '@/store';
 import { SortBy, TableV2SortOrder, ElIcon } from 'element-plus';
 import { Filter } from '@element-plus/icons-vue';
 import i18n from '@/lang';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import { useMediaQuery } from '@vueuse/core';
 
 const statusOptions = [
@@ -83,7 +82,6 @@ const statusOptions = [
     { text: 'NONE', value: 'NONE' },
 ];
 
-const { currentNode } = useGlobalStore();
 const isCompactTable = useMediaQuery('(max-width: 1024px)');
 const processStore = ProcessStore();
 
@@ -245,7 +243,7 @@ const search = () => {
 };
 
 onMounted(() => {
-    processStore.connect(currentNode.value);
+    processStore.connect();
     const initialDelay = processStore.netData.length > 0 ? 500 : 0;
     processStore.startPolling('net', 3000, initialDelay);
 });

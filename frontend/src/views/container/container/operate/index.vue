@@ -25,7 +25,7 @@
 
                                 <el-button
                                     v-if="isCreate"
-                                    :disabled="!isAdminOrNodeAdmin"
+                                    :disabled="!isAdmin"
                                     type="primary"
                                     icon="EditPen"
                                     plain
@@ -371,7 +371,7 @@ import TerminalDialog from '@/views/host/file-management/terminal/index.vue';
 import { routerToName, routerToNameWithQuery } from '@/utils/router';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 
-const { isAdminOrNodeAdmin } = useGlobalStore();
+const { isAdmin } = useGlobalStore();
 
 const loading = ref(false);
 const isCreate = ref();

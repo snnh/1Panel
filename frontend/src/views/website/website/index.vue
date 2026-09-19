@@ -372,11 +372,9 @@ import { Group } from '@/api/interface/group';
 import { getWebsiteTypes } from '@/global/mimetype';
 import { routerToFileWithPath, routerToNameWithParams, routerToNameWithQuery } from '@/utils/router';
 import { useGlobalStore } from '@/composables/useGlobalStore';
-import { useOperateNodeContext } from '@/composables/useOperateNodeContext';
 import { usePageState } from '@/composables/usePageState';
 
-const { currentNode, isMobile } = useGlobalStore();
-useOperateNodeContext(currentNode);
+const { isMobile } = useGlobalStore();
 const shortcuts = [
     {
         text: useI18n().t('website.ever'),

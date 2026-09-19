@@ -99,7 +99,6 @@ import { createFileShare, getFileShareDetail, removeFileShare } from '@/api/modu
 import { File } from '@/api/interface/file';
 import { CopyDocument, Download, Picture } from '@element-plus/icons-vue';
 import i18n from '@/lang';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import { buildFileSharePageUrl, buildFileShareQrCodeUrl, withFileSharePassword } from '@/utils/file';
 import { copyText } from '@/utils/clipboard';
 import { dateFormat as formatDateTime } from '@/utils/date';
@@ -110,7 +109,6 @@ interface ShareProps {
     path: string;
 }
 
-const { currentNode } = useGlobalStore();
 const open = ref(false);
 const loading = ref(false);
 const changed = ref(false);
@@ -194,8 +192,8 @@ const applyShareInfo = (info: File.FileShareInfo | null) => {
         syncingPassword.value = false;
         return;
     }
-    shareUrl.value = buildFileSharePageUrl(info.code, currentNode.value);
-    qrCodeUrl.value = buildFileShareQrCodeUrl(info.code, currentNode.value);
+    shareUrl.value = buildFileSharePageUrl(info.code);
+    qrCodeUrl.value = buildFileShareQrCodeUrl(info.code);
     expiresAtText.value = info.permanent
         ? i18n.global.t('website.ever')
         : formatDateTime(null, null, info.expiresAt * 1000);

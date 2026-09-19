@@ -39,7 +39,7 @@ const toManagePermissionValue = (permission: PermissionBindingValue) => {
 
 export const useMenuManagePermission = (permission?: PermissionBindingValue) => {
     const route = useRoute();
-    const { isAdmin, isNodeAdmin } = useGlobalStore();
+    const { isAdmin } = useGlobalStore();
 
     const sourcePermission = computed(() => {
         if (permission) {
@@ -50,7 +50,7 @@ export const useMenuManagePermission = (permission?: PermissionBindingValue) => 
     const managePermission = computed(() => {
         return toManagePermissionValue(sourcePermission.value);
     });
-    const hasAdminManagePermission = computed(() => isAdmin.value || isNodeAdmin.value);
+    const hasAdminManagePermission = computed(() => isAdmin.value || isAdmin.value);
     const hasPermission = computed(() => {
         return hasPermissionAccess(sourcePermission.value || []);
     });

@@ -99,9 +99,6 @@ import TaskLog from '@/components/log/task/index.vue';
 import { MsgError } from '@/utils/message';
 import { getErrorMessage } from '@/utils/misc';
 import { newUUID } from '@/utils/id';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-
-const { currentNode } = useGlobalStore();
 
 interface DecompressProps {
     dst: string;
@@ -175,16 +172,13 @@ const loadTaskInfo = async () => {
         return;
     }
     try {
-        const res = await searchTasks(
-            {
-                taskID: currentTaskID.value,
-                type: '',
-                status: '',
-                page: 1,
-                pageSize: 1,
-            },
-            currentNode.value,
-        );
+        const res = await searchTasks({
+            taskID: currentTaskID.value,
+            type: '',
+            status: '',
+            page: 1,
+            pageSize: 1,
+        });
         const item = res.data.items?.[0];
         if (!item) {
             return;
@@ -275,7 +269,7 @@ const openTaskLog = () => {
     if (!currentTaskID.value) {
         return;
     }
-    taskLogRef.value?.openWithTaskID(currentTaskID.value, true, currentNode.value);
+    taskLogRef.value?.openWithTaskID(currentTaskID.value, true);
 };
 
 const getLinkPath = (path: string) => {

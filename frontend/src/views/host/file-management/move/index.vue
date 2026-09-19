@@ -118,7 +118,6 @@ import { Log } from '@/api/interface/log';
 import { searchTasks } from '@/api/modules/log';
 import TaskLog from '@/components/log/task/index.vue';
 import FileList from '@/components/file-list/index.vue';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import { Rules } from '@/global/form-rules';
 import i18n from '@/lang';
 import { FormInstance, FormRules } from 'element-plus';
@@ -155,7 +154,6 @@ const stopping = ref(false);
 const canceling = ref(false);
 let taskTimer: ReturnType<typeof setInterval> | null = null;
 const moveTaskKey = 'file-management-move-task';
-const { currentNode } = useGlobalStore();
 
 const getMoveTaskKey = (node: string) => `${moveTaskKey}:${node}`;
 
@@ -195,7 +193,7 @@ const showTaskStatus = computed(() => {
 
 const syncTaskStorage = () => {
     const status = taskInfo.value?.status || (currentTaskID.value || loading.value ? 'Executing' : '');
-    const node = currentTaskNode.value || currentNode.value;
+    const node = currentTaskNode.value;
     const storageKey = getMoveTaskKey(node);
     if (currentTaskID.value && status === 'Executing') {
         localStorage.setItem(
@@ -216,7 +214,7 @@ const stopTaskPolling = () => {
 
 const clearCurrentTask = () => {
     stopTaskPolling();
-    localStorage.removeItem(getMoveTaskKey(currentTaskNode.value || currentNode.value));
+    localStorage.removeItem(getMoveTaskKey(currentTaskNode.value));
     currentTaskID.value = '';
     currentTaskNode.value = '';
     taskInfo.value = null;
@@ -268,18 +266,15 @@ const loadTaskInfo = async () => {
         return;
     }
     const taskID = currentTaskID.value;
-    const taskNode = currentTaskNode.value || currentNode.value;
+    const taskNode = currentTaskNode.value;
     try {
-        const res = await searchTasks(
-            {
-                taskID,
-                type: '',
-                status: '',
-                page: 1,
-                pageSize: 1,
-            },
-            taskNode,
-        );
+        const res = await searchTasks({
+            taskID,
+            type: '',
+            status: '',
+            page: 1,
+            pageSize: 1,
+        });
         if (currentTaskID.value !== taskID || currentTaskNode.value !== taskNode) {
             return;
         }
@@ -328,7 +323,7 @@ const openTaskLog = () => {
     if (!currentTaskID.value) {
         return;
     }
-    taskLogRef.value?.openWithTaskID(currentTaskID.value, true, currentTaskNode.value || currentNode.value);
+    taskLogRef.value?.openWithTaskID(currentTaskID.value, true);
 };
 
 const stopCurrentTask = async () => {
@@ -341,7 +336,7 @@ const stopCurrentTask = async () => {
     }
     stopping.value = true;
     try {
-        await stopMoveFile(currentTaskID.value, currentTaskNode.value || currentNode.value);
+        await stopMoveFile(currentTaskID.value);
     } catch (error) {
         MsgError(getErrorMessage(error));
     } finally {
@@ -389,7 +384,7 @@ const changeType = () => {
 const mvFile = () => {
     const taskID = newUUID();
     currentTaskID.value = taskID;
-    currentTaskNode.value = currentNode.value;
+    currentTaskNode.value = 'local';
     taskInfo.value = null;
     open.value = true;
     loading.value = true;
@@ -401,7 +396,7 @@ const mvFile = () => {
             if (canceling.value) {
                 stopping.value = true;
                 try {
-                    await stopMoveFile(taskID, currentTaskNode.value || currentNode.value);
+                    await stopMoveFile(taskID);
                 } catch (error) {
                     MsgError(getErrorMessage(error));
                 } finally {
@@ -523,7 +518,7 @@ const acceptParams = async (props: MoveProps) => {
 };
 
 const restoreTask = () => {
-    const node = currentNode.value;
+    const node = 'local';
     const storageKey = getMoveTaskKey(node);
     const taskText = localStorage.getItem(storageKey);
     if (!taskText) {

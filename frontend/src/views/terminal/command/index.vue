@@ -168,7 +168,7 @@ const onExport = async () => {
         .then((res) => {
             if (res.data) {
                 loading.value = false;
-                downloadFile(res.data, 'local');
+                downloadFile(res.data);
             }
         })
         .catch(() => {

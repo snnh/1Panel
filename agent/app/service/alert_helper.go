@@ -696,8 +696,8 @@ func doSendAlert(alert dto.AlertDTO, alertType, quota, quotaType string, params 
 		alertInfo.Type = alertType
 		create.AlertRule = alertUtil.ProcessAlertRule(alert)
 		create.AlertDetail = alertUtil.ProcessAlertDetail(alertInfo, quotaType, params, constant.Email)
-		transport := xpack.MultiNodeProvider.LoadRequestTransport()
-		agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+		transport := xpack.LoadRequestTransport()
+		agentInfo, _ := xpack.GetAgentInfo()
 		alertErr := alertUtil.CreateEmailAlertLog(create, alertInfo, params, transport, agentInfo, config)
 		if alertErr != nil {
 			global.LOG.Infof("%s alert email push faild, err: %v", alertType, alertErr.Error())
@@ -720,8 +720,8 @@ func doSendAlert(alert dto.AlertDTO, alertType, quota, quotaType string, params 
 		alertInfo.Type = alertType
 		create.AlertRule = alertUtil.ProcessAlertRule(alert)
 		create.AlertDetail = alertUtil.ProcessAlertDetail(alertInfo, quotaType, params, constant.Bark)
-		transport := xpack.MultiNodeProvider.LoadRequestTransport()
-		agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+		transport := xpack.LoadRequestTransport()
+		agentInfo, _ := xpack.GetAgentInfo()
 		alertErr := alertUtil.CreateBarkAlertLog(create, alertInfo, params, transport, agentInfo, config)
 		if alertErr != nil {
 			global.LOG.Infof("%s alert %s push failed, err: %v", alertType, methodStr, alertErr.Error())
@@ -740,8 +740,8 @@ func doSendAlert(alert dto.AlertDTO, alertType, quota, quotaType string, params 
 			Count:   todayCount + 1,
 			Method:  methodStr,
 		}
-		transport := xpack.MultiNodeProvider.LoadRequestTransport()
-		agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+		transport := xpack.LoadRequestTransport()
+		agentInfo, _ := xpack.GetAgentInfo()
 		task := dto.AlertTaskMetadata{
 			AlertID:   alert.ID,
 			Type:      alertType,

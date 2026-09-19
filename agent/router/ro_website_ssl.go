@@ -21,11 +21,9 @@ func (a *WebsiteSSLRouter) InitRouter(Router *gin.RouterGroup) {
 		groupRouter.GET("/website/:websiteId", baseApi.GetWebsiteSSLByWebsiteId)
 		groupRouter.GET("/:id", baseApi.GetWebsiteSSLById)
 		groupRouter.POST("/update", baseApi.UpdateWebsiteSSL)
-		groupRouter.POST("/push", baseApi.PushWebsiteSSLToNode)
 		groupRouter.POST("/upload", baseApi.UploadWebsiteSSL)
 		groupRouter.POST("/obtain", baseApi.ApplyWebsiteSSL)
 		groupRouter.POST("/download", baseApi.DownloadWebsiteSSL)
-		groupRouter.POST("/import", baseApi.ImportMasterSSL)
 		groupRouter.POST("/upload/file", baseApi.UploadSSLFile)
 	}
 }

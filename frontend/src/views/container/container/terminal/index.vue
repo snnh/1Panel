@@ -64,8 +64,6 @@ import { reactive, ref, nextTick } from 'vue';
 import { ElForm, FormInstance } from 'element-plus';
 import { Rules } from '@/global/form-rules';
 import Terminal from '@/components/terminal/index.vue';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-const { currentNode } = useGlobalStore();
 
 const title = ref();
 const terminalVisible = ref(false);
@@ -76,7 +74,6 @@ const form = reactive({
     user: '',
     containerID: '',
     containerIDList: [],
-    node: '',
 });
 const formRef = ref();
 const terminalRef = ref<InstanceType<typeof Terminal> | null>(null);
@@ -84,7 +81,6 @@ const terminalRef = ref<InstanceType<typeof Terminal> | null>(null);
 interface DialogProps {
     containerID: string;
     title: string;
-    node?: string;
 }
 const acceptParams = async (params: DialogProps): Promise<void> => {
     terminalVisible.value = true;
@@ -94,7 +90,7 @@ const acceptParams = async (params: DialogProps): Promise<void> => {
     form.isCustom = false;
     form.user = '';
     form.command = '/bin/sh';
-    form.node = params.node || currentNode.value;
+
     terminalOpen.value = false;
 };
 
@@ -109,9 +105,6 @@ const initTerm = (formEl: FormInstance | undefined) => {
         terminalOpen.value = true;
         await nextTick();
         let args = `source=container&containerid=${form.containerID}&user=${form.user}&command=${form.command}`;
-        if (form.node) {
-            args += `&operateNode=${form.node}`;
-        }
         terminalRef.value!.acceptParams({
             endpoint: '/api/v2/hosts/terminal/container',
             args: args,

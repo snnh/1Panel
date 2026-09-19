@@ -21,8 +21,6 @@ import i18n from '@/lang';
 import { MsgError, MsgWarning } from '@/utils/message';
 import { jumpToPath } from '@/utils/router';
 import { useRouter } from 'vue-router';
-import { useGlobalStore } from '@/composables/useGlobalStore';
-const { currentNodeAddr, isMaster } = useGlobalStore();
 const router = useRouter();
 
 const open = ref();
@@ -44,12 +42,8 @@ const acceptParams = async (params: DialogProps): Promise<void> => {
     let protocol = params.protocol === 'https' ? 'https' : 'http';
     const res = await getAgentSettingInfo();
     if (!res.data.systemIP) {
-        if (!isMaster.value || currentNodeAddr.value != '127.0.0.1') {
-            res.data.systemIP = currentNodeAddr.value;
-        } else {
-            open.value = true;
-            return;
-        }
+        open.value = true;
+        return;
     }
     const buildUrl = (host: string) => {
         let url = `${protocol}://${host}:${params.port}`;

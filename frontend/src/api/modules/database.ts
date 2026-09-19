@@ -28,8 +28,8 @@ export const bindPostgresqlUser = (params: Database.PgBind) => {
 export const changePrivileges = (params: Database.PgChangePrivileges) => {
     return http.post(`/databases/pg/privileges`, params, TimeoutEnum.T_40S);
 };
-export const searchPostgresqlDBs = (params: Database.SearchDBWithPage, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const searchPostgresqlDBs = (params: Database.SearchDBWithPage) => {
+    const query = '';
     return http.post<ResPage<Database.PostgresqlDBInfo>>(`/databases/pg/search${query}`, params);
 };
 export const updatePostgresqlDescription = (params: DescriptionUpdate) => {
@@ -51,8 +51,8 @@ export const deletePostgresqlDB = (params: Database.PostgresqlDBDelete) => {
 };
 
 // mysql
-export const searchMysqlDBs = (params: Database.SearchDBWithPage, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const searchMysqlDBs = (params: Database.SearchDBWithPage) => {
+    const query = '';
     return http.post<ResPage<Database.MysqlDBInfo>>(`/databases/search${query}`, params);
 };
 export const addMysqlDB = (params: Database.MysqlDBCreate) => {
@@ -121,8 +121,8 @@ export const deleteMysqlDB = (params: Database.MysqlDBDelete) => {
 };
 
 // mongodb
-export const searchMongodbDBs = (params: Database.SearchDBWithPage, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const searchMongodbDBs = (params: Database.SearchDBWithPage) => {
+    const query = '';
     return http.post<ResPage<Database.MongodbDBInfo>>(`/databases/mongodb/search${query}`, params);
 };
 export const addMongodbDB = (params: Database.MongodbDBCreate) => {
@@ -219,8 +219,8 @@ export const getDatabase = (name: string) => {
 export const searchDatabases = (params: Database.SearchDatabasePage) => {
     return http.post<ResPage<Database.DatabaseInfo>>(`/databases/db/search`, params);
 };
-export const listDatabases = (type: string, node?: string) => {
-    const query = node ? `?operateNode=${node}` : '';
+export const listDatabases = (type: string) => {
+    const query = '';
     return http.get<Array<Database.DatabaseOption>>(`/databases/db/list/${type}${query}`);
 };
 export const listDbItems = (type: string) => {

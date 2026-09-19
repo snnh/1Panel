@@ -114,8 +114,8 @@ func (s *AlertSender) sendEmailWithConfig(config model.AlertConfig, quota string
 		Method:      strconv.Itoa(int(config.ID)),
 	}
 
-	transport := xpack.MultiNodeProvider.LoadRequestTransport()
-	agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+	transport := xpack.LoadRequestTransport()
+	agentInfo, _ := xpack.GetAgentInfo()
 	err := alertUtil.CreateEmailAlertLog(create, s.alert, params, transport, agentInfo, config)
 	if err != nil {
 		global.LOG.Errorf("%s alert email push failed: %v", s.alert.Type, err)
@@ -143,8 +143,8 @@ func (s *AlertSender) sendResourceEmailWithConfig(config model.AlertConfig, quot
 		Method:      strconv.Itoa(int(config.ID)),
 	}
 
-	transport := xpack.MultiNodeProvider.LoadRequestTransport()
-	agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+	transport := xpack.LoadRequestTransport()
+	agentInfo, _ := xpack.GetAgentInfo()
 	if err := alertUtil.CreateEmailAlertLog(create, s.alert, params, transport, agentInfo, config); err != nil {
 		global.LOG.Errorf("failed to send Email alert: %v", err)
 		return
@@ -189,8 +189,8 @@ func (s *AlertSender) sendBarkWithConfig(config model.AlertConfig, quota string,
 		Method:      strconv.Itoa(int(config.ID)),
 	}
 
-	transport := xpack.MultiNodeProvider.LoadRequestTransport()
-	agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+	transport := xpack.LoadRequestTransport()
+	agentInfo, _ := xpack.GetAgentInfo()
 	err := alertUtil.CreateBarkAlertLog(create, s.alert, params, transport, agentInfo, config)
 	if err != nil {
 		global.LOG.Errorf("%s alert bark push failed: %v", s.alert.Type, err)
@@ -218,8 +218,8 @@ func (s *AlertSender) sendResourceBarkWithConfig(config model.AlertConfig, quota
 		Method:      strconv.Itoa(int(config.ID)),
 	}
 
-	transport := xpack.MultiNodeProvider.LoadRequestTransport()
-	agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+	transport := xpack.LoadRequestTransport()
+	agentInfo, _ := xpack.GetAgentInfo()
 	if err := alertUtil.CreateBarkAlertLog(create, s.alert, params, transport, agentInfo, config); err != nil {
 		global.LOG.Errorf("failed to send Bark alert: %v", err)
 		return
@@ -261,8 +261,8 @@ func (s *AlertSender) sendWebhookWithConfig(config model.AlertConfig, quota stri
 		Type:    s.alert.Type,
 		Method:  strconv.Itoa(int(config.ID)),
 	}
-	transport := xpack.MultiNodeProvider.LoadRequestTransport()
-	agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+	transport := xpack.LoadRequestTransport()
+	agentInfo, _ := xpack.GetAgentInfo()
 	task := dto.AlertTaskMetadata{
 		AlertID:   s.alert.ID,
 		Type:      s.alert.Type,
@@ -300,8 +300,8 @@ func (s *AlertSender) sendResourceWebhookWithConfig(config model.AlertConfig, qu
 		Type:    s.alert.Type,
 		Method:  strconv.Itoa(int(config.ID)),
 	}
-	transport := xpack.MultiNodeProvider.LoadRequestTransport()
-	agentInfo, _ := xpack.MultiNodeProvider.GetAgentInfo()
+	transport := xpack.LoadRequestTransport()
+	agentInfo, _ := xpack.GetAgentInfo()
 	task := dto.AlertTaskMetadata{
 		AlertID:   s.alert.ID,
 		Type:      s.alert.Type,

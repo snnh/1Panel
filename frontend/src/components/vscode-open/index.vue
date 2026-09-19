@@ -153,15 +153,12 @@ import { computed, reactive, ref } from 'vue';
 import type { FormInstance, FormItemRule, FormRules } from 'element-plus';
 import { Base64 } from 'js-base64';
 import i18n from '@/lang';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import { getSSHInfo, searchCert } from '@/api/modules/host';
-import { loadLocalConn } from '@/api/modules/terminal';
 import { Host } from '@/api/interface/host';
 import { Rules } from '@/global/form-rules';
 import { copyText } from '@/utils/clipboard';
 import { MsgError } from '@/utils/message';
 
-const { currentNode, currentNodeAddr } = useGlobalStore();
 const open = ref(false);
 const loading = ref(false);
 const showScriptPreview = ref(false);
@@ -189,7 +186,7 @@ const defaultForm = () => ({
 
 const addForm = reactive(defaultForm());
 
-const getStorageKey = () => `${STORAGE_KEY}:${currentNode.value}:${currentNodeAddr.value || 'local'}`;
+const getStorageKey = () => STORAGE_KEY;
 
 const isKeyMode = computed(() => addForm.authMode === 'key');
 const selectedCert = computed(() => certOptions.value.find((item) => String(item.id) === String(addForm.certID)));
@@ -375,18 +372,6 @@ const restoreDraft = () => {
 };
 
 const loadConnectionInfo = async () => {
-    if (currentNode.value === 'local') {
-        try {
-            const res = await loadLocalConn();
-            if (res.data) {
-                addForm.host = res.data.addr || currentNodeAddr.value || '127.0.0.1';
-                addForm.port = Number(res.data.port) || 22;
-                addForm.username = res.data.user || 'root';
-                return;
-            }
-        } catch {}
-    }
-
     try {
         const res = await getSSHInfo();
         if (res.data) {
@@ -395,7 +380,7 @@ const loadConnectionInfo = async () => {
         }
     } catch {}
 
-    addForm.host = currentNodeAddr.value || addForm.host || '127.0.0.1';
+    addForm.host = addForm.host || '127.0.0.1';
 };
 
 const loadCertOptions = async () => {

@@ -138,10 +138,11 @@ import { TerminalSessionStore } from '@/store';
 import ConnectionMenu from '@/components/terminal/connection-menu/index.vue';
 import type { TerminalConnectionOptions } from '@/components/terminal/connection-menu/types';
 
-const { isFullScreen, isMobile, isNodeAdmin, openMenuTabs } = useGlobalStore();
+const { isFullScreen, isMobile, openMenuTabs } = useGlobalStore();
 const store = TerminalSessionStore();
 
 const connectionMenuRef = ref<InstanceType<typeof ConnectionMenu>>();
+const showConnections = ref(false);
 
 const toggleFullscreen = () => {
     if (screenfull.isEnabled) {
@@ -163,8 +164,14 @@ let quickCmd = ref();
 let batchVal = ref();
 let isBatch = ref<boolean>(false);
 
-const showConnections = ref(false);
 const initCmd = ref('');
+
+const openConnection = async (options: TerminalConnectionOptions) => {
+    const cmd = initCmd.value;
+    initCmd.value = '';
+    terminalValue.value = await store.open({ ...options, initCmd: cmd });
+    store.sync();
+};
 
 const acceptParams = async () => {
     isFullScreen.value = false;
@@ -184,10 +191,6 @@ const acceptParams = async () => {
 
 const openDefaultLocalConn = async () => {
     await nextTick();
-    if (isNodeAdmin.value) {
-        await connectionMenuRef.value?.connectLocal();
-        return;
-    }
     await getAgentSettingInfo().then(async (res) => {
         if (res.data?.localSSHConnShow === 'Enable') {
             await connectionMenuRef.value?.connectLocal();
@@ -298,15 +301,8 @@ function batchInput() {
 
 const connectionError = 'Failed to set up the connection. Please check the host information';
 
-const openConnection = async (options: TerminalConnectionOptions) => {
-    const cmd = initCmd.value;
-    initCmd.value = '';
-    terminalValue.value = await store.open({ ...options, initCmd: cmd });
-};
-
 const onReconnect = async (item: any) => {
-    const nodeName = new URLSearchParams(item.args).get('operateNode') || undefined;
-    const res = item.wsID === 0 ? await testLocalConn(nodeName) : await testByID(item.wsID);
+    const res = item.wsID === 0 ? await testLocalConn() : await testByID(item.wsID);
     const cmd = initCmd.value;
     initCmd.value = '';
     await store.reconnect(item.key, res.data ? '' : connectionError, cmd);

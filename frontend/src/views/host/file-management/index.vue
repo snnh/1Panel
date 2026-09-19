@@ -276,7 +276,7 @@
                                 <el-button class="btn" @click="openRecycleBin">
                                     {{ $t('file.recycleBin') }}
                                 </el-button>
-                                <el-button class="btn" @click="toTerminal" :disabled="!isAdminOrNodeAdmin">
+                                <el-button class="btn" @click="toTerminal" :disabled="!isAdmin">
                                     {{ $t('menu.terminal') }}
                                 </el-button>
                                 <el-popover
@@ -783,7 +783,7 @@ import { routerToNameWithQuery } from '@/utils/router';
 import { loadBaseDir } from '@/api/modules/setting';
 import FileList from '@/components/file-list/index.vue';
 
-const { currentNode, isAdminOrNodeAdmin, isMobile, lastFilePath, openMenuTabs } = useGlobalStore();
+const { isAdmin, isMobile, lastFilePath, openMenuTabs } = useGlobalStore();
 
 interface FilePaths {
     url: string;
@@ -845,7 +845,7 @@ const fileEdit = reactive<{
     language: string;
     extension: string;
 }>({ content: '', path: '', name: '', language: 'plaintext', extension: '' });
-const filePreview = reactive({ path: '', name: '', extension: '', fileType: '', imageFiles: [], currentNode: '' });
+const filePreview = reactive({ path: '', name: '', extension: '', fileType: '', imageFiles: [] });
 const codeReq = reactive({ path: '', expand: false, page: 1, pageSize: 100, isDetail: false });
 const fileUpload = reactive({ path: '' });
 const fileRename = reactive({ path: '', oldName: '', newName: '' });
@@ -1355,11 +1355,11 @@ const handleCreate = (command: string) => {
 };
 
 const delFile = async (row: File.File | null) => {
-    deleteRef.value.acceptParams([row], currentNode.value);
+    deleteRef.value.acceptParams([row]);
 };
 
 const batchDelFiles = () => {
-    deleteRef.value.acceptParams(selects.value, currentNode.value);
+    deleteRef.value.acceptParams(selects.value);
 };
 
 const formatFileSize = (size: number) => {
@@ -1594,7 +1594,6 @@ const openPreview = (item: File.File, fileType: string) => {
     filePreview.extension = item.extension;
     filePreview.fileType = fileType;
     filePreview.imageFiles = imageFiles.value;
-    filePreview.currentNode = currentNode.value;
 
     previewRef.value.acceptParams(filePreview);
 };
@@ -1793,7 +1792,7 @@ function onLoading(isLoading: boolean) {
 }
 
 const openDownload = (file: File.File) => {
-    downloadFile(file.path, currentNode.value);
+    downloadFile(file.path);
 };
 
 const fileShareRef = ref<InstanceType<typeof FileShare> | null>(null);
@@ -2427,7 +2426,7 @@ const removeTab = (targetId: TabPaneName) => {
 };
 
 const checkFFmpeg = () => {
-    getComponentInfo('ffmpeg', currentNode.value).then((res) => {
+    getComponentInfo('ffmpeg').then((res) => {
         ffmpegExist.value = res.data.exists ?? false;
     });
 };

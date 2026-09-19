@@ -3,11 +3,7 @@
         <el-card class="e-card">
             <el-row :gutter="10" class="install-card-row">
                 <el-col class="install-card-icon-col" :xs="3" :sm="3" :md="3" :lg="4" :xl="3">
-                    <AppIcon
-                        @open-detail="$emit('openDetail')"
-                        :appKey="installed.appKey"
-                        :currentNode="currentNode"
-                    ></AppIcon>
+                    <AppIcon @open-detail="$emit('openDetail')" :appKey="installed.appKey"></AppIcon>
                 </el-col>
                 <el-col class="install-card-detail-col" :xs="21" :sm="21" :md="21" :lg="20" :xl="21">
                     <div class="a-detail">
@@ -51,7 +47,6 @@ interface Props {
     installed: App.AppInstalled;
     mode: string;
     defaultLink: string;
-    currentNode: string;
     sortMode?: boolean;
 }
 defineProps<Props>();

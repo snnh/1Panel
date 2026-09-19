@@ -25,9 +25,7 @@ import { decodeBase64, encodeBase64 } from '@/utils/base64';
 import { TerminalStore } from '@/store';
 import { MsgError } from '@/utils/message';
 import { checkStreamAuth } from '@/utils/stream-auth';
-import { useGlobalStore } from '@/composables/useGlobalStore';
 import i18n from '@/lang';
-const { currentNode } = useGlobalStore();
 
 // session: agent side session id known (fresh or reattached)
 // expired: the agent no longer has the session; a reconnect must open a new one
@@ -311,11 +309,7 @@ const initWebSocket = async (endpoint_: string, args: string = '') => {
     const protocol = href.split('//')[0] === 'http:' ? 'ws' : 'wss';
     const host = href.split('//')[1].split('/')[0];
     const endpoint = endpoint_.replace(/^\/+/, '');
-    let node = args.indexOf('id=') !== -1 ? 'local' : currentNode.value;
-    let conn = `${protocol}://${host}/${endpoint}?cols=${term.value.cols}&rows=${term.value.rows}&${args}&operateNode=${node}`;
-    if (args.indexOf('operateNode=') !== -1) {
-        conn = `${protocol}://${host}/${endpoint}?cols=${term.value.cols}&rows=${term.value.rows}&${args}`;
-    }
+    let conn = `${protocol}://${host}/${endpoint}?cols=${term.value.cols}&rows=${term.value.rows}&${args}`;
     if (sessionId.value) {
         conn += `&session=${encodeURIComponent(sessionId.value)}`;
     }

@@ -6,16 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/1Panel-dev/1Panel/core/app/api/v2/helper"
 	"github.com/1Panel-dev/1Panel/core/app/dto"
 	"github.com/1Panel-dev/1Panel/core/app/service"
 	"github.com/1Panel-dev/1Panel/core/global"
-	"github.com/1Panel-dev/1Panel/core/utils/ssh"
 	"github.com/1Panel-dev/1Panel/core/utils/terminal"
-	"github.com/1Panel-dev/1Panel/core/utils/xpack"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
@@ -139,7 +136,6 @@ func (b *BaseApi) UpdateScript(c *gin.Context) {
 // @Param cols query integer false "cols"
 // @Param rows query integer false "rows"
 // @Param script_id query integer false "script_id"
-// @Param operateNode query string false "operateNode"
 // @Success 200
 // @Security ApiKeyAuth
 // @Security Timestamp
@@ -171,7 +167,6 @@ func (b *BaseApi) RunScript(c *gin.Context) {
 		return
 	}
 	scriptID := c.Query("script_id")
-	currentNode := c.Query("operateNode")
 	intNum, _ := strconv.Atoi(scriptID)
 	if intNum == 0 {
 		if wshandleError(wsConn, fmt.Errorf("   no such script %v in library, please check and try again!", scriptID)) {
@@ -184,58 +179,19 @@ func (b *BaseApi) RunScript(c *gin.Context) {
 	}
 
 	quitChan := make(chan bool, 3)
-	if currentNode == "local" {
-		slave, err := terminal.NewCommand(scriptItem.Script)
-		if wshandleError(wsConn, err) {
-			return
-		}
-		defer slave.Close()
-
-		tty, err := terminal.NewLocalWsSession(cols, rows, wsConn, slave, true)
-		if wshandleError(wsConn, err) {
-			return
-		}
-
-		quitChan := make(chan bool, 3)
-		tty.Start(quitChan)
-		go slave.Wait(quitChan)
-	} else {
-		connInfo, _, err := xpack.MultiNodeProvider.LoadNodeInfo(currentNode)
-		if wshandleError(wsConn, errors.WithMessage(err, "invalid param rows in request")) {
-			return
-		}
-
-		fileName := ""
-		var translations = make(map[string]string)
-		_ = json.Unmarshal([]byte(scriptItem.Name), &translations)
-		if name, ok := translations["en"]; ok {
-			fileName = strings.ReplaceAll(name, " ", "_")
-		} else {
-			fileName = strings.ReplaceAll(scriptItem.Name, " ", "_")
-		}
-		client, err := ssh.NewClient(*connInfo)
-		if wshandleError(wsConn, errors.WithMessage(err, "set up the connection failed. Please check the host information")) {
-			return
-		}
-		sudoItem := client.SudoHandleCmd()
-		defer func() {
-			_, _ = client.Runf("%s rm -rf %s", sudoItem, fileName)
-			client.Close()
-		}()
-		std, err := client.Runf("%s touch %s && %s chmod 777 %s && %s cat > %s <<'MYMARKER'\n%s\nMYMARKER\n", sudoItem, fileName, sudoItem, fileName, sudoItem, fileName, scriptItem.Script)
-		if wshandleError(wsConn, errors.WithMessage(err, fmt.Sprintf("touch script file failed, err: %s. Please check and retry", std))) {
-			return
-		}
-		initCmd := fmt.Sprintf("%s bash %s", sudoItem, fileName)
-
-		sws, err := terminal.NewLogicSshWsSession(cols, rows, client.Client, wsConn, initCmd)
-		if wshandleError(wsConn, err) {
-			return
-		}
-		defer sws.Close()
-		sws.Start(quitChan)
-		go sws.Wait(quitChan)
+	slave, err := terminal.NewCommand(scriptItem.Script)
+	if wshandleError(wsConn, err) {
+		return
 	}
+	defer slave.Close()
+
+	tty, err := terminal.NewLocalWsSession(cols, rows, wsConn, slave, true)
+	if wshandleError(wsConn, err) {
+		return
+	}
+
+	tty.Start(quitChan)
+	go slave.Wait(quitChan)
 
 	<-quitChan
 

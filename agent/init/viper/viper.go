@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"path"
-	"strconv"
 
 	"github.com/1Panel-dev/1Panel/agent/cmd/server/conf"
 	"github.com/1Panel-dev/1Panel/agent/global"
+	"github.com/1Panel-dev/1Panel/agent/utils/common"
 	"github.com/1Panel-dev/1Panel/agent/utils/files"
-	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -57,15 +56,6 @@ func Init() {
 }
 
 func initBaseInfo() {
-	nodeInfo, err := xpack.MultiNodeProvider.LoadNodeInfo(true)
-	if err != nil {
-		panic(err)
-	}
-	global.CONF.Base.InstallDir = nodeInfo.BaseDir
-	if !global.IsMaster {
-		global.CONF.Base.Port = strconv.FormatUint(uint64(nodeInfo.NodePort), 10)
-		if nodeInfo.NodePort == 0 {
-			global.CONF.Base.Port = "9999"
-		}
-	}
+	global.IsMaster = true
+	global.CONF.Base.InstallDir = common.LoadParams("BASE_DIR")
 }

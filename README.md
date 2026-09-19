@@ -17,32 +17,17 @@
 <p align="center">
   <a href="/README.md"><img alt="English" src="https://img.shields.io/badge/English-d9d9d9"></a>
   <a href="/docs/README.zh-Hans.md"><img alt="中文(简体)" src="https://img.shields.io/badge/中文(简体)-d9d9d9"></a>
-  <a href="/docs/README.ja.md"><img alt="日本語" src="https://img.shields.io/badge/日本語-d9d9d9"></a>
-  <a href="/docs/README.pt-br.md"><img alt="Português (Brasil)" src="https://img.shields.io/badge/Português (Brasil)-d9d9d9"></a>
-  <a href="/docs/README.ar.md"><img alt="العربية" src="https://img.shields.io/badge/العربية-d9d9d9"></a>
-  <a href="/docs/README.de.md"><img alt="Deutsch" src="https://img.shields.io/badge/Deutsch-d9d9d9"></a>
-  <a href="/docs/README.es-es.md"><img alt="Español" src="https://img.shields.io/badge/Español-d9d9d9"></a>
-  <a href="/docs/README.fr.md"><img alt="français" src="https://img.shields.io/badge/français-d9d9d9"></a>
-  <a href="/docs/README.ko.md"><img alt="한국어" src="https://img.shields.io/badge/한국어-d9d9d9"></a>
-  <a href="/docs/README.id.md"><img alt="Bahasa Indonesia" src="https://img.shields.io/badge/Bahasa Indonesia-d9d9d9"></a>
-  <a href="/docs/README.zh-Hant.md"><img alt="中文(繁體)" src="https://img.shields.io/badge/中文(繁體)-d9d9d9"></a>
-  <a href="/docs/README.tr.md"><img alt="Türkçe" src="https://img.shields.io/badge/Türkçe-d9d9d9"></a>
-  <a href="/docs/README.ru.md"><img alt="Русский" src="https://img.shields.io/badge/Русский-d9d9d9"></a>
-  <a href="/docs/README.ms.md"><img alt="Bahasa Melayu" src="https://img.shields.io/badge/Bahasa Melayu-d9d9d9"></a>
-  <a href="/docs/README.fa.md"><img alt="Persian" src="https://img.shields.io/badge/%D9%81%D8%A7%D8%B1%D8%B3%DB%8C-d9d9d9"></a>
-  <a href="/docs/README.lo.md"><img alt="ພາສາລາວ" src="https://img.shields.io/badge/%E0%BA%9E%E0%BA%B2%E0%BA%AA%E0%BA%B2%E0%BA%A5%E0%BA%B2%E0%BA%A7-d9d9d9"></a>
 </p>
 
 ---
 
 ## What is 1Panel?
 
-1Panel is a modern, open-source Linux server management panel and a lightweight AI management platform. Through an intuitive web interface, it provides users with comprehensive, one-stop server management capabilities:
-- **AI Management**: Offers a unified management platform from bare metal to agents (Metal-to-Agent). It integrates an AI gateway, and Skills Hub, while supporting centralized management of agents and models.
+1Panel is a modern, open-source Linux server management panel. Through an intuitive web interface, it provides users with comprehensive, one-stop server management capabilities:
 - **Efficient Visual Operations**: Easily manage Linux servers through a web-based GUI, streamlining tasks such as host monitoring, file management, database management, and container management.
 - **Rapid Website Deployment**: Deeply integrates with popular website builders like WordPress and Halo. It enables one-click domain binding and SSL certificate configuration, significantly lowering the barrier to website creation.
 - **Curated App Store**: Features a built-in store of high-quality open-source applications, providing one-click installation and upgrade services to effortlessly extend server capabilities.
-- **Enterprise-Grade Security**: Deploys applications based on container technology to effectively minimize vulnerability exposure. It also provides security features such as WAF and log auditing to ensure comprehensive server protection.
+- **Enterprise-Grade Security**: Deploys applications based on container technology to effectively minimize vulnerability exposure. It also provides security features such as log auditing to ensure comprehensive server protection.
 - **One-Click Data Backup**: Supports one-click backup and restoration, and integrates with various cloud storage solutions to ensure data security and prevent loss.
 
 ## Why 1Panel?
@@ -50,7 +35,6 @@
 | | 1Panel | cPanel / Plesk | aaPanel | Webmin |
 |--|--------|----------------|---------|--------|
 | Free & open source | ✅ | ❌ | Partial | ✅ |
-| AI management | ✅ | ❌ | ❌ | ❌ |
 | One-click app marketplace | ✅ 165+ apps | ❌ | ✅ | ❌ |
 | Modern UI (post-2020) | ✅ | ❌ | Partial | ❌ |
 | Docker / container management | ✅ | ❌ | ❌ | ❌ |
@@ -70,23 +54,6 @@ Run `1pctl user-info` via SSH if you need to retrieve your access credentials.
 ## Screenshot
 
 ![1Panel UI](https://resource.1panel.pro/img/overview_en_v2.png)
-
-## Pro Edition
-
-1Panel OSS is free forever. 1Panel Pro and Ent adds features built for teams and production workloads:
-
-| Feature | OSS | Pro | Ent |
-|---------|:---:|:---:|:---:|
-| One-click app installs | ✅ | ✅ | ✅ |
-| AI agents (OpenClaw) | 5 agent | Unlimited | ✅ |
-| WAF & advanced security | Basic | ✅ | ✅ |
-| Website tamper protection | ❌ | ✅ | ✅ |
-| Website uptime monitoring | ❌ | ✅ | ✅ |
-| Multi-node management | ❌ | ✅ | ✅ |
-| Custom logo & theme | ❌ | ✅ | ✅ |
-| KVM Web UI | ❌ | ❌ | ✅ |
-| AI Gateway | ❌ | ❌ | ✅ |
-| Priority support | ❌ | ❌ | ✅ |
 
 ## Community & Support
 

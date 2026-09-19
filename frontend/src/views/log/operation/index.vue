@@ -59,9 +59,7 @@
                     <el-table-column :label="$t('commons.table.user')" prop="user" show-overflow-tooltip />
                     <el-table-column :label="$t('commons.table.operate')" min-width="150px" prop="detailZH">
                         <template #default="{ row }">
-                            <span v-if="language === 'zh' || language === 'zh-Hant'">
-                                {{ row.detailZH }}
-                            </span>
+                            <span v-if="language === 'zh'">{{ row.detailZH }}</span>
                             <span v-if="language === 'en'">{{ row.detailEN }}</span>
                         </template>
                     </el-table-column>

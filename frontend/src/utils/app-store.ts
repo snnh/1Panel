@@ -6,12 +6,10 @@ export function getLanguage() {
 
 function normalizeAppLocaleKey(language: string) {
     const localeMap: Record<string, string> = {
-        tw: 'zh-hant',
-        'zh-Hant': 'zh-hant',
-        'pt-BR': 'pt-br',
-        'es-ES': 'es-es',
+        zh: 'zh',
+        en: 'en',
     };
-    return localeMap[language] || language.toLowerCase();
+    return localeMap[language] || 'en';
 }
 
 export function getLabel(row: any) {

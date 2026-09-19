@@ -220,17 +220,7 @@ const unset = ref(i18n.global.t('setting.unSetting'));
 
 const languageOptions = ref([
     { value: 'zh', label: '中文(简体)' },
-    { value: 'zh-Hant', label: '中文(繁體)' },
     ...(!isIntl.value ? [{ value: 'en', label: 'English' }] : []),
-    { value: 'ja', label: '日本語' },
-    { value: 'pt-BR', label: 'Português (Brasil)' },
-    { value: 'ko', label: '한국어' },
-    { value: 'ru', label: 'Русский' },
-    { value: 'ms', label: 'Bahasa Melayu' },
-    { value: 'tr', label: 'Turkish' },
-    { value: 'es-ES', label: 'España - Español' },
-    { value: 'fa', label: 'فارسی' },
-    { value: 'lo', label: 'ພາສາລາວ' },
 ]);
 
 if (isIntl.value) {

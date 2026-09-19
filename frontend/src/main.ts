@@ -23,9 +23,9 @@ import Components from '@/components';
 import directives from '@/directives/index';
 
 const bootstrap = async () => {
-    const currentLocale = i18n.global.locale.value;
-
-    await Promise.all([loadLocaleMessages(currentLocale), ensureFallbackLocale()]);
+    const activeLocale = await loadLocaleMessages(i18n.global.locale.value);
+    i18n.global.locale.value = activeLocale;
+    await ensureFallbackLocale();
 
     const app = createApp(App);
     app.component('SvgIcon', SvgIcon);

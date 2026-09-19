@@ -20,7 +20,6 @@ const { docsUrl, isFxplay, isIntl } = useGlobalStore();
 
 const links = computed(() => createDefaultFooterNavigationLinks(isIntl.value, docsUrl.value));
 const labels: Record<FooterNavigationKey, string> = {
-    learnMore: 'license.knowMorePro',
     forum: 'setting.forum',
     documentation: 'setting.doc2',
     project: 'setting.project',

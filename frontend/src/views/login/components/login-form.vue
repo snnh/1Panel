@@ -54,16 +54,7 @@
                                 <el-dropdown-menu>
                                     <el-dropdown-item v-if="isIntl" command="en">English</el-dropdown-item>
                                     <el-dropdown-item command="zh">中文(简体)</el-dropdown-item>
-                                    <el-dropdown-item command="zh-Hant">中文(繁體)</el-dropdown-item>
                                     <el-dropdown-item v-if="!isIntl" command="en">English</el-dropdown-item>
-                                    <el-dropdown-item command="ja">日本語</el-dropdown-item>
-                                    <el-dropdown-item command="pt-BR">Português (Brasil)</el-dropdown-item>
-                                    <el-dropdown-item command="ko">한국어</el-dropdown-item>
-                                    <el-dropdown-item command="ru">Русский</el-dropdown-item>
-                                    <el-dropdown-item command="ms">Bahasa Melayu</el-dropdown-item>
-                                    <el-dropdown-item command="tr">Turkish</el-dropdown-item>
-                                    <el-dropdown-item command="fa">فارسی</el-dropdown-item>
-                                    <el-dropdown-item command="lo">ພາສາລາວ</el-dropdown-item>
                                 </el-dropdown-menu>
                             </template>
                         </el-dropdown>
@@ -176,16 +167,7 @@
                                 <el-dropdown-menu>
                                     <el-dropdown-item v-if="isIntl" command="en">English</el-dropdown-item>
                                     <el-dropdown-item command="zh">中文(简体)</el-dropdown-item>
-                                    <el-dropdown-item command="zh-Hant">中文(繁體)</el-dropdown-item>
                                     <el-dropdown-item v-if="!isIntl" command="en">English</el-dropdown-item>
-                                    <el-dropdown-item command="ja">日本語</el-dropdown-item>
-                                    <el-dropdown-item command="pt-BR">Português (Brasil)</el-dropdown-item>
-                                    <el-dropdown-item command="ko">한국어</el-dropdown-item>
-                                    <el-dropdown-item command="ru">Русский</el-dropdown-item>
-                                    <el-dropdown-item command="ms">Bahasa Melayu</el-dropdown-item>
-                                    <el-dropdown-item command="tr">Turkish</el-dropdown-item>
-                                    <el-dropdown-item command="fa">فارسی</el-dropdown-item>
-                                    <el-dropdown-item command="lo">ພາສາລາວ</el-dropdown-item>
                                 </el-dropdown-menu>
                             </template>
                         </el-dropdown>
@@ -516,16 +498,6 @@ const disableAutoPasskey = () => {
 const languageLabelMap: Record<string, string> = {
     zh: '中文(简体)',
     en: 'English',
-    'pt-BR': 'Português (Brasil)',
-    'zh-Hant': '中文(繁體)',
-    ko: '한국어',
-    ja: '日本語',
-    ru: 'Русский',
-    ms: 'Bahasa Melayu',
-    tr: 'Turkish',
-    'es-ES': 'España - Español',
-    fa: 'فارسی',
-    lo: 'ພາສາລາວ',
 };
 
 const handleCommand = async (command: string) => {

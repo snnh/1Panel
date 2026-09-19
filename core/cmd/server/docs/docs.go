@@ -37324,17 +37324,7 @@ const docTemplate = `{
 				"language": {
 					"enum": [
 						"zh",
-						"en",
-						"zh-Hant",
-						"ko",
-						"ja",
-						"ru",
-						"ms",
-						"pt-BR",
-						"tr",
-						"es-ES",
-						"fa",
-						"lo"
+						"en"
 					],
 					"type": "string"
 				},

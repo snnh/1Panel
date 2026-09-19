@@ -23,16 +23,6 @@ export namespace App {
     interface Locale {
         zh: string;
         en: string;
-        'zh-Hant': string;
-        ja: string;
-        ms: string;
-        'pt-br': string;
-        ru: string;
-        ko: string;
-        tr: string;
-        'es-es': string;
-        fa: string;
-        lo: string;
     }
 
     export interface AppDTO extends App {

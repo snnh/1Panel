@@ -18,18 +18,8 @@ import (
 const defaultLang = "en"
 
 var langFiles = map[string]string{
-	"zh":      "lang/zh.yaml",
-	"en":      "lang/en.yaml",
-	"zh-Hant": "lang/zh-Hant.yaml",
-	"pt-BR":   "lang/pt-BR.yaml",
-	"ja":      "lang/ja.yaml",
-	"ru":      "lang/ru.yaml",
-	"ms":      "lang/ms.yaml",
-	"ko":      "lang/ko.yaml",
-	"tr":      "lang/tr.yaml",
-	"es-ES":   "lang/es-ES.yaml",
-	"fa":      "lang/fa.yaml",
-	"lo":      "lang/lo.yaml",
+	"zh": "lang/zh.yaml",
+	"en": "lang/en.yaml",
 }
 
 func GetMsgWithMap(key string, maps map[string]interface{}) string {

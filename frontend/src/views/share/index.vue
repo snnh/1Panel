@@ -54,7 +54,7 @@ const initializing = ref(true);
 const errorMessage = ref('');
 const shareInfo = ref<File.FileSharePublicInfo | null>(null);
 const shareLocale = ref('en');
-const supportedLocales = ['zh', 'zh-Hant', 'en', 'pt-BR', 'ja', 'ru', 'ms', 'ko', 'tr', 'es-ES', 'fa', 'lo'];
+const supportedLocales = ['zh', 'en'];
 
 const code = computed(() => String(route.params.code || '').trim());
 
@@ -100,9 +100,6 @@ const resolveBrowserLocale = () => {
     }
     const browserLocale = String(navigator.language || '').trim();
     const normalized = browserLocale.toLowerCase();
-    if (normalized.startsWith('zh-hant') || normalized.startsWith('zh-tw') || normalized.startsWith('zh-hk')) {
-        return 'zh-Hant';
-    }
     if (normalized.startsWith('zh')) {
         return 'zh';
     }

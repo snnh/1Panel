@@ -2,12 +2,6 @@
     <div>
         <div class="flex flex-wrap items-center">
             <div class="flex flex-wrap items-center">
-                <el-link v-if="isOffline" underline="never" type="primary" @click="to1Panel">
-                    {{ $t('license.offLine') }}
-                </el-link>
-                <el-link v-else underline="never" type="primary" @click="toEdition">
-                    {{ $t('license.community') }}
-                </el-link>
                 <el-link underline="never" class="version" type="primary" @click="getVersionLog()">
                     {{ version }}
                 </el-link>
@@ -39,7 +33,7 @@ import { MsgSuccess } from '@/utils/message';
 import { onMounted, ref } from 'vue';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 
-const { isOffline, isIntl, isAdmin, hasNewVersion } = useGlobalStore();
+const { isOffline, isAdmin, hasNewVersion } = useGlobalStore();
 const upgradeRef = ref();
 const releasesRef = ref();
 
@@ -58,19 +52,6 @@ const getVersionLog = () => {
         return;
     }
     releasesRef.value.acceptParams();
-};
-
-const to1Panel = () => {
-    let url = isIntl.value ? 'https://1panel.pro' : 'https://1panel.cn';
-    window.open(url, '_blank', 'noopener,noreferrer');
-};
-
-const toEdition = () => {
-    if (!isIntl.value) {
-        window.open('https://1panel.cn/versions.html' + '', '_blank', 'noopener,noreferrer');
-    } else {
-        window.open('https://1panel.pro/pricing' + '', '_blank', 'noopener,noreferrer');
-    }
 };
 
 const onLoadUpgradeInfo = async () => {

@@ -148,4 +148,10 @@
             overflow-x: auto;
         }
     }
+
+    // 下拉、提示、气泡等浮层统一限制在视口内，避免超出屏幕
+    .el-popper {
+        max-width: calc(100vw - 24px) !important;
+        overflow-wrap: anywhere;
+    }
 }

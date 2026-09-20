@@ -108,20 +108,31 @@ port_in_use() {
     return 1
 }
 
+# 读取已有 1pctl 中的值，兼容 KEY=value 与历史版本的 KEY="value" 两种写法
+read_1pctl_value() {
+    local key="$1"
+    sed -n "s/^${key}=//p" "${BIN_DIR}/1pctl" 2>/dev/null |
+        head -n 1 |
+        sed -e 's/^"//' -e 's/"$//'
+}
+
 write_1pctl() {
     local username="$1" password="$2" entrance="$3"
+    # 注意：core/agent 会逐行读取这些值，必须写成 KEY=value（值两边不能加引号），
+    # 加引号会让面板读到的端口、安装目录带上引号而无法启动。
     cat >"${BIN_DIR}/1pctl" <<EOF
 #!/bin/bash
 # 1Panel 命令行工具（社区版），由 scripts/1pctl 安装生成
-# 注意：BASE_DIR 与 ORIGINAL_* 会被 1Panel 读取，请保持 KEY="value" 的格式
+# 注意：BASE_DIR、LANGUAGE、ORIGINAL_* 会被 core/agent 逐行解析，
+# 必须写成 KEY=value（值两边不能加引号），也不要调整行结构。
 
-BASE_DIR="${PANEL_BASE_DIR}"
-LANGUAGE="${PANEL_LANGUAGE}"
-ORIGINAL_PORT="${PANEL_PORT}"
-ORIGINAL_VERSION="${VERSION}"
-ORIGINAL_USERNAME="${username}"
-ORIGINAL_PASSWORD="${password}"
-ORIGINAL_ENTRANCE="${entrance}"
+BASE_DIR=${PANEL_BASE_DIR}
+LANGUAGE=${PANEL_LANGUAGE}
+ORIGINAL_PORT=${PANEL_PORT}
+ORIGINAL_VERSION=${VERSION}
+ORIGINAL_USERNAME=${username}
+ORIGINAL_PASSWORD=${password}
+ORIGINAL_ENTRANCE=${entrance}
 EOF
     sed -n '/^CORE_BIN=/,$p' "${PKG_DIR}/1pctl" >>"${BIN_DIR}/1pctl"
     chmod 755 "${BIN_DIR}/1pctl"
@@ -172,9 +183,9 @@ install -m 755 "${PKG_DIR}/1panel-agent" "${BIN_DIR}/1panel-agent"
 # 已安装过时沿用原有账号信息，保证升级后仍能登录；
 # 面板首次启动后会把 1pctl 中的密码改写为 **********，此时需要重新生成
 if [[ -f "${BIN_DIR}/1pctl" ]]; then
-    old_username=$(grep -m1 '^ORIGINAL_USERNAME=' "${BIN_DIR}/1pctl" | cut -d '"' -f 2)
-    old_password=$(grep -m1 '^ORIGINAL_PASSWORD=' "${BIN_DIR}/1pctl" | cut -d '"' -f 2)
-    old_entrance=$(grep -m1 '^ORIGINAL_ENTRANCE=' "${BIN_DIR}/1pctl" | cut -d '"' -f 2)
+    old_username=$(read_1pctl_value ORIGINAL_USERNAME)
+    old_password=$(read_1pctl_value ORIGINAL_PASSWORD)
+    old_entrance=$(read_1pctl_value ORIGINAL_ENTRANCE)
 fi
 [[ -n "$old_password" && "$old_password" != *"*"* ]] || old_password=""
 [[ -n "$old_username" && "$old_username" != *"*"* ]] || old_username=""

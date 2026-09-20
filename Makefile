@@ -57,12 +57,16 @@ VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo v2.0.0)
 PKG_NAME = 1panel-$(VERSION)-linux-$(GOARCH)
 PKG_PATH = $(BUILD_PATH)/$(PKG_NAME)
 
+# 面板内升级会把包内 1pctl 覆盖到 /usr/local/bin/1pctl，且只改写其中的 BASE_DIR 与 LANGUAGE，
+# 因此包内 1pctl 的 ORIGINAL_VERSION 必须预先写入本次发布的版本号，
+# 否则升级后 SystemVersion 会被回退成模板默认值。
 package_linux: build_core_on_linux build_agent_on_linux
 	rm -rf $(PKG_PATH)
 	mkdir -p $(PKG_PATH)/initscript $(PKG_PATH)/lang
 	cp $(BUILD_PATH)/$(CORE_NAME) $(PKG_PATH)/
 	cp $(BUILD_PATH)/$(AGENT_NAME) $(PKG_PATH)/
 	cp scripts/1pctl $(PKG_PATH)/
+	sed -i "s#^ORIGINAL_VERSION=.*#ORIGINAL_VERSION=$(VERSION)#" $(PKG_PATH)/1pctl
 	cp scripts/install.sh $(PKG_PATH)/
 	cp scripts/lang/zh.sh $(PKG_PATH)/lang/
 	cp scripts/lang/en.sh $(PKG_PATH)/lang/

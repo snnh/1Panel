@@ -27,6 +27,9 @@ func LoadWithoutPanic(key string) string {
 	return info
 }
 
+// LoadFromFile 逐行读取 KEY=value 形式的配置文件（如 1pctl）。
+// 为兼容历史脚本写入的 `KEY="value"`，会去掉一层成对的外层双引号；
+// 值为空字符串（`KEY=""`）时保持原样返回，沿用 Load 中的空值判断。
 func LoadFromFile(filePath, key string) (string, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -35,7 +38,11 @@ func LoadFromFile(filePath, key string) (string, error) {
 	prefix := key + "="
 	for _, line := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(line, prefix) {
-			return strings.TrimSpace(strings.TrimPrefix(line, prefix)), nil
+			value := strings.TrimSpace(strings.TrimPrefix(line, prefix))
+			if len(value) > 2 && value[0] == '"' && value[len(value)-1] == '"' {
+				value = value[1 : len(value)-1]
+			}
+			return value, nil
 		}
 	}
 	return "", fmt.Errorf("error `%s` find in %s", key, filePath)

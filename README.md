@@ -45,11 +45,16 @@
 Prepare your Linux server and run the following script:
 
 ```bash
-bash -c "$(curl -sSL https://resource.1panel.pro/v2/quick_start.sh)"
+bash -c "$(curl -sSL https://raw.githubusercontent.com/snnh/1Panel/community-dev/quick_start.sh)"
 ```
+
+The installation package and update logs are published on the [community GitHub Releases](https://github.com/snnh/1Panel/releases) page.
 
 After installation, open `http://<your-server-ip>:<port>/<security-path>` in your browser.  
 Run `1pctl user-info` via SSH if you need to retrieve your access credentials.
+
+For the offline installation, all of the available options and the `1pctl` commands,
+please check the [installation guide](docs/installation.en.md).
 
 ## Screenshot
 

@@ -3,7 +3,9 @@ package viper
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path"
+	"strings"
 
 	"github.com/1Panel-dev/1Panel/agent/cmd/server/conf"
 	"github.com/1Panel-dev/1Panel/agent/global"
@@ -24,7 +26,9 @@ func Init() {
 	if err := yaml.Unmarshal(conf.AppYaml, &config); err != nil {
 		panic(err)
 	}
-	if config.Base.Mode != "" {
+	if envMode := strings.TrimSpace(os.Getenv("PANEL_MODE")); envMode != "" {
+		mode = envMode
+	} else if config.Base.Mode != "" {
 		mode = config.Base.Mode
 	}
 	if mode == "dev" && fileOp.Stat("/opt/1panel/conf/app.yaml") {
@@ -50,6 +54,7 @@ func Init() {
 	}
 
 	global.CONF = serverConfig
+	global.CONF.Base.Mode = mode
 
 	initBaseInfo()
 	global.Viper = v

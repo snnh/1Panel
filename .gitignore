@@ -42,10 +42,11 @@ frontend/components.d.ts
 
 .history/
 dist/
-1pctl
-1panel.service
-install.sh
-quick_start.sh
+# 上游把 1pctl / install.sh 放在发布包内，不在仓库跟踪；
+# 社区版的安装脚本位于 scripts/ 与仓库根目录的 quick_start.sh，需要入库。
+/1pctl
+/1panel.service
+/install.sh
 cmd/server/fileList.txt
 .fileList.txt
 1Panel.code-workspace

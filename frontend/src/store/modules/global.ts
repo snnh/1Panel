@@ -7,8 +7,8 @@ import i18n, { setActiveLocale } from '@/lang';
 import { isMasterOnlyPermissionCode, setMasterOnlyPermissionCodes, toManageCode } from '@/utils/permission-codes';
 import { clearPageStateCache } from '@/utils/page-state-cache';
 
-const CN_DOCS_URL = 'https://1panel.cn/docs/v2';
-const INTL_DOCS_URL = 'https://1panel.pro/docs/v2';
+const CN_DOCS_URL = 'https://github.com/snnh/1Panel/tree/community-dev/docs';
+const INTL_DOCS_URL = 'https://github.com/snnh/1Panel/tree/community-dev/docs';
 
 const GlobalStore = defineStore('GlobalState', {
     state: (): GlobalState => ({

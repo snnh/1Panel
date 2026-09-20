@@ -796,9 +796,10 @@ func checkProxy(req dto.ProxyUpdate) error {
 	}()
 
 	client := http.Client{Timeout: 3 * time.Second, Transport: &transport}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://1panel.cn/", nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, global.ReleaseAPIBase(), nil)
 	if err != nil {
 		return buserr.WithErr("ErrProxySetting", err)
 	}

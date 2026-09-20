@@ -1,7 +1,6 @@
 package lang
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"sort"
@@ -109,7 +108,7 @@ func loadRestorePath(upgradeDir string) (string, error) {
 }
 
 func downloadLangFromRemote(fileOp files.FileOp) {
-	path := fmt.Sprintf("%s/language/lang.tar.gz", global.ResourceURL())
+	path := global.LatestReleaseAssetURL("lang.tar.gz")
 	if err := fileOp.DownloadFile(path, "/usr/local/bin/lang.tar.gz"); err != nil {
 		global.LOG.Errorf("download lang.tar.gz failed, err: %v", err)
 		return
@@ -127,7 +126,7 @@ func downloadLangFromRemote(fileOp files.FileOp) {
 }
 func downloadGeoFromRemote(fileOp files.FileOp, targetPath string) {
 	_ = os.MkdirAll(path.Dir(targetPath), os.ModePerm)
-	pathItem := fmt.Sprintf("%s/geo/GeoIP.mmdb", global.ResourceURL())
+	pathItem := global.LatestReleaseAssetURL("GeoIP.mmdb")
 	if err := fileOp.DownloadFile(pathItem, targetPath); err != nil {
 		global.LOG.Errorf("download geo ip failed, err: %v", err)
 		return

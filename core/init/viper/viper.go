@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/1Panel-dev/1Panel/core/cmd/server/conf"
 	"github.com/1Panel-dev/1Panel/core/global"
@@ -27,7 +28,11 @@ func Init() {
 	if err := yaml.Unmarshal(conf.AppYaml, &config); err != nil {
 		panic(err)
 	}
-	if config.Base.Mode != "" {
+	if envMode := strings.TrimSpace(os.Getenv("PANEL_MODE")); envMode != "" {
+		// 生产环境由 systemd 单元注入 PANEL_MODE=stable，
+		// 本地开发仍可由 /opt/1panel/conf/app.yaml 或环境变量覆盖。
+		mode = envMode
+	} else if config.Base.Mode != "" {
 		mode = config.Base.Mode
 	}
 	_, err := os.Stat("/opt/1panel/conf/app.yaml")
@@ -84,6 +89,7 @@ func Init() {
 	}
 
 	global.CONF = serverConfig
+	global.CONF.Base.Mode = mode
 	global.CONF.Base.InstallDir = baseDir
 	global.CONF.Base.IsDemo = v.GetBool("base.is_demo")
 	global.CONF.Base.IsFxplay = v.GetBool("base.is_fxplay")

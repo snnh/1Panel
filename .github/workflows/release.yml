@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（不带 v 前缀），例如 2.0.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            goarch: amd64
+          - arch: arm64
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "VERSION=v${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=${{ github.ref_name }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: core/go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        run: npm ci && npm run build:pro
+        working-directory: frontend
+
+      - name: Build package
+        run: |
+          mkdir -p assets
+          if curl -fsSL --max-time 180 -o assets/GeoIP.mmdb "${GEOIP_URL}"; then
+            echo "GeoIP.mmdb downloaded."
+          else
+            echo "GeoIP.mmdb download failed, the package will be shipped without it."
+          fi
+          make package_linux VERSION="${VERSION}" GOARCH=${{ matrix.goarch }}
+        env:
+          GEOIP_URL: https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.arch }}
+          path: |
+            build/1panel-${{ env.VERSION }}-linux-${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "VERSION=v${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=${{ github.ref_name }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Generate release notes
+        run: |
+          last_tag=$(git describe --tags --abbrev=0 "${VERSION}^" 2>/dev/null || echo "")
+          notes_file="1panel-${VERSION}-release-notes"
+          {
+            echo "## 1Panel 社区版 ${VERSION}"
+            echo
+            if [ -n "$last_tag" ]; then
+              git log --no-merges --pretty=format:'- %s (%h)' "${last_tag}..${VERSION}"
+            else
+              git log --no-merges --pretty=format:'- %s (%h)' -n 20
+            fi
+            echo
+            echo
+            echo "## 安装"
+            echo '```bash'
+            echo "bash -c \"\$(curl -sSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_REF_NAME}/quick_start.sh)\""
+            echo '```'
+          } > "${notes_file}"
+          echo "notes file: ${notes_file}"
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum *.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: 1Panel 社区版 ${{ env.VERSION }}
+          body_path: 1panel-${{ env.VERSION }}-release-notes
+          draft: false
+          prerelease: ${{ contains(env.VERSION, 'beta') || contains(env.VERSION, 'dev') }}
+          files: |
+            artifacts/*.tar.gz
+            artifacts/checksums.txt
+            1panel-${{ env.VERSION }}-release-notes

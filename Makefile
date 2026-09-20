@@ -47,3 +47,41 @@ build_agent_on_darwin:
 build_all: build_frontend build_core_on_linux build_agent_on_linux
 
 build_on_local: clean_assets build_frontend build_core_on_darwin build_agent_on_darwin
+
+# 发布相关
+# VERSION   版本号，默认取 git tag，如 v2.0.0
+# GOARCH    目标架构，默认取 go env GOARCH
+# package_linux 生成 build/1panel-$(VERSION)-linux-$(GOARCH).tar.gz，
+#               目录结构与 GitHub Releases 上的安装包一致。
+VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo v2.0.0)
+PKG_NAME = 1panel-$(VERSION)-linux-$(GOARCH)
+PKG_PATH = $(BUILD_PATH)/$(PKG_NAME)
+
+package_linux: build_core_on_linux build_agent_on_linux
+	rm -rf $(PKG_PATH)
+	mkdir -p $(PKG_PATH)/initscript $(PKG_PATH)/lang
+	cp $(BUILD_PATH)/$(CORE_NAME) $(PKG_PATH)/
+	cp $(BUILD_PATH)/$(AGENT_NAME) $(PKG_PATH)/
+	cp scripts/1pctl $(PKG_PATH)/
+	cp scripts/install.sh $(PKG_PATH)/
+	cp scripts/lang/zh.sh $(PKG_PATH)/lang/
+	cp scripts/lang/en.sh $(PKG_PATH)/lang/
+	cp scripts/initscript/1panel-core.service $(PKG_PATH)/initscript/
+	cp scripts/initscript/1panel-agent.service $(PKG_PATH)/initscript/
+ifneq ($(wildcard assets/GeoIP.mmdb),)
+	cp assets/GeoIP.mmdb $(PKG_PATH)/
+endif
+	chmod 755 $(PKG_PATH)/1pctl $(PKG_PATH)/install.sh
+	cd $(BUILD_PATH) && tar czf $(PKG_NAME).tar.gz $(PKG_NAME)
+	cd $(BUILD_PATH) && sha256sum $(PKG_NAME).tar.gz > checksums.txt
+	@echo "package: $(BUILD_PATH)/$(PKG_NAME).tar.gz"
+
+LAST_TAG := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+release_notes: package_linux
+	@if [ -n "$(LAST_TAG)" ]; then \
+		git log --no-merges --pretty=format:'- %s (%h)' $(LAST_TAG)..HEAD > $(BUILD_PATH)/$(PKG_NAME)-release-notes; \
+	else \
+		git log --no-merges --pretty=format:'- %s (%h)' -n 20 > $(BUILD_PATH)/$(PKG_NAME)-release-notes; \
+	fi
+	@echo "notes: $(BUILD_PATH)/$(PKG_NAME)-release-notes"

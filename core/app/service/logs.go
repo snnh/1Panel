@@ -1,17 +1,9 @@
 package service
 
 import (
-	"bytes"
-	"fmt"
-	"net/http"
-	"os"
-
 	"github.com/1Panel-dev/1Panel/core/buserr"
-	"github.com/1Panel-dev/1Panel/core/constant"
-	"github.com/1Panel-dev/1Panel/core/utils/cmd"
 	"github.com/1Panel-dev/1Panel/core/utils/common"
 	geo2 "github.com/1Panel-dev/1Panel/core/utils/geo"
-	"github.com/1Panel-dev/1Panel/core/utils/req_helper"
 	"github.com/gin-gonic/gin"
 
 	"github.com/1Panel-dev/1Panel/core/app/dto"
@@ -22,8 +14,6 @@ import (
 )
 
 type LogService struct{}
-
-const logs = "https://resource.fit2cloud.com/installation-log.sh"
 
 type ILogService interface {
 	CreateLoginLog(operation model.LoginLog) error
@@ -116,24 +106,4 @@ func (u *LogService) CleanLogs(logtype string) error {
 		return logRepo.CleanOperation()
 	}
 	return logRepo.CleanLogin()
-}
-
-func writeLogs(version string) {
-	_ = runRemoteShellScript(logs, "1p", "upgrade", version)
-}
-
-func runRemoteShellScript(url string, args ...string) error {
-	statusCode, script, err := req_helper.HandleRequestWithProxy(url, http.MethodGet, constant.TimeOut20s)
-	if err != nil {
-		return err
-	}
-	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("download script failed, status code: %d", statusCode)
-	}
-	_, err = cmd.NewCommandMgr().RunPipeToFile(os.DevNull, cmd.PipeCommand{
-		Name:  "sh",
-		Args:  append([]string{"-s"}, args...),
-		Stdin: bytes.NewReader(script),
-	})
-	return err
 }

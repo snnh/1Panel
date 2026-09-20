@@ -34,15 +34,19 @@
 
 **一键安装**
 
-执行如下命令一键安装 1Panel:
+执行如下命令一键安装 1Panel 社区版：
 
-$ bash -c "$(curl -sSL https://resource.fit2cloud.com/1panel/package/v2/quick_start.sh)"
+$ bash -c "$(curl -sSL https://raw.githubusercontent.com/snnh/1Panel/community-dev/quick_start.sh)"
 
-如果是用于离线环境，推荐使用 [安装包方式](https://1panel.cn/docs/v2/installation/enterprise_installation/) 进行安装部署。
+安装包与更新日志均发布在[社区 GitHub Releases](https://github.com/snnh/1Panel/releases)。
+
+**离线安装与命令行**
+
+离线安装、可用环境变量、升级卸载以及 `1pctl` 用法请参考[安装文档](https://github.com/snnh/1Panel/tree/community-dev/docs/installation.zh-Hans.md)。
 
 **学习资料**
 
-- [在线文档](https://1panel.cn/docs/)
+- [在线文档](https://github.com/snnh/1Panel/tree/community-dev/docs)
 - [社区论坛](https://bbs.fit2cloud.com/c/1p/7)
 
 ## 飞致云的其他明星项目

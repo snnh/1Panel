@@ -1,0 +1,80 @@
+#!/bin/bash
+# 1Panel 命令行工具（社区版）
+# 安装时由 scripts/install.sh 复制到 /usr/local/bin/1pctl。
+# 注意：下面的 BASE_DIR 与 LANGUAGE 两行会被 1Panel 读取，
+# 修改时请保持 KEY="value" 的格式，不要调整行结构。
+
+BASE_DIR="/opt"
+LANGUAGE="zh"
+
+# 下面几行是面板首次启动时读取的初始值，安装时会被 scripts/install.sh 覆盖，
+# 请保持 KEY="value" 的格式，不要调整行结构。
+ORIGINAL_PORT="9999"
+ORIGINAL_VERSION="v2.0.0"
+ORIGINAL_USERNAME="admin"
+ORIGINAL_PASSWORD="admin123"
+ORIGINAL_ENTRANCE="entrance"
+
+CORE_BIN="/usr/local/bin/1panel-core"
+LANG_DIR="/usr/local/bin/lang"
+
+USAGE_EN="Usage: 1pctl <command> [options]
+
+Commands:
+  version              Show the current version
+  user-info            Show the panel login information
+  user-list            Show the panel user list
+  update username      Change the panel username
+  update password      Change the panel password
+  update port          Change the panel port
+  listen-ip ipv4|ipv6  Show the panel listen address
+  reset mfa            Disable MFA two-step verification
+  reset https          Disable HTTPS
+  reset entrance       Disable the security entrance
+  reset ips            Disable the authorized IP restriction
+  reset domain         Disable the bound access domain
+  reset passkey        Disable Passkey login
+  restore              Roll back to the version before the last upgrade
+  app init             Initialize the local app repository
+  help                 Show this help"
+
+load_lang() {
+    if [ -f "${LANG_DIR}/${LANGUAGE}.sh" ]; then
+        # shellcheck disable=SC1090
+        . "${LANG_DIR}/${LANGUAGE}.sh"
+    fi
+}
+
+show_usage() {
+    if [ -n "${MSG_1PCTL_USAGE}" ]; then
+        echo "${MSG_1PCTL_USAGE}"
+    else
+        echo "${USAGE_EN}"
+    fi
+}
+
+load_lang
+
+if [ ! -x "${CORE_BIN}" ]; then
+    echo "1Panel is not installed or ${CORE_BIN} is missing."
+    exit 1
+fi
+
+if [ $# -eq 0 ]; then
+    show_usage
+    exit 0
+fi
+
+case "$1" in
+    -h | --help | help)
+        show_usage
+        ;;
+    version | user-info | user-list | listen-ip | restore | update | reset | app)
+        exec "${CORE_BIN}" "$@" -l "${LANGUAGE}"
+        ;;
+    *)
+        echo "Unknown command: $1"
+        show_usage
+        exit 1
+        ;;
+esac

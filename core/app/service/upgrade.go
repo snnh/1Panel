@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path"
@@ -113,14 +112,10 @@ func (u *UpgradeService) SearchUpgrade() (*dto.UpgradeInfo, error) {
 	if len(itemVersion) == 0 {
 		return &upgrade, nil
 	}
-	mode := global.CONF.Base.Mode
-	if strings.Contains(itemVersion, "beta") {
-		mode = "beta"
-	}
 	if strings.HasPrefix(upgrade.TestVersion, upgrade.LatestVersion+"-beta") {
 		upgrade.TestVersion = ""
 	}
-	notes, err := u.loadReleaseNotes(fmt.Sprintf("%s/%s/%s/release/1panel-%s-release-notes", global.RepoURL(), mode, itemVersion, itemVersion))
+	notes, err := u.loadReleaseNotes(global.ReleaseAssetURL(itemVersion, fmt.Sprintf("1panel-%s-release-notes", itemVersion)))
 	if err != nil {
 		return nil, fmt.Errorf("load releases-notes of version %s failed, err: %v", itemVersion, err)
 	}
@@ -129,11 +124,7 @@ func (u *UpgradeService) SearchUpgrade() (*dto.UpgradeInfo, error) {
 }
 
 func (u *UpgradeService) LoadNotes(req dto.Upgrade) (string, error) {
-	mode := global.CONF.Base.Mode
-	if strings.Contains(req.Version, "beta") {
-		mode = "beta"
-	}
-	notes, err := u.loadReleaseNotes(fmt.Sprintf("%s/%s/%s/release/1panel-%s-release-notes", global.RepoURL(), mode, req.Version, req.Version))
+	notes, err := u.loadReleaseNotes(global.ReleaseAssetURL(req.Version, fmt.Sprintf("1panel-%s-release-notes", req.Version)))
 	if err != nil {
 		return "", fmt.Errorf("load releases-notes of version %s failed, err: %v", req.Version, err)
 	}
@@ -169,12 +160,13 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 	if strings.Contains(req.Version, "beta") {
 		mode = "beta"
 	}
-	downloadPath := fmt.Sprintf("%s/%s/%s/release", global.RepoURL(), mode, req.Version)
 	fileName := fmt.Sprintf("1panel-%s-%s-%s.tar.gz", req.Version, "linux", itemArch)
+	packageURL := global.ReleaseAssetURL(req.Version, fileName)
+	global.LOG.Infof("upgrade package: %s (channel: %s)", packageURL, mode)
 	_ = settingRepo.Update("SystemStatus", "Upgrading")
 	go func() {
 		oldLang := ctl_conf.Load("LANGUAGE")
-		if err := files.DownloadFileWithProxyStream(downloadPath+"/"+fileName, downloadDir+"/"+fileName); err != nil {
+		if err := files.DownloadFileWithProxyStream(packageURL, downloadDir+"/"+fileName); err != nil {
 			global.LOG.Errorf("download service file failed, err: %v", err)
 			_ = settingRepo.Update("SystemStatus", "Free")
 			return
@@ -259,7 +251,6 @@ func (u *UpgradeService) Upgrade(req dto.Upgrade) error {
 
 		global.LOG.Info("upgrade successful!")
 		dropBackupCopies()
-			go writeLogs(req.Version)
 		_ = settingRepo.Update("SystemVersion", req.Version)
 		_ = global.AgentDB.Model(&model.Setting{}).Where("key = ?", "SystemVersion").Updates(map[string]interface{}{"value": req.Version}).Error
 		global.CONF.Base.Version = req.Version
@@ -284,76 +275,66 @@ func (u *UpgradeService) Rollback(req dto.OperateByID) error {
 	return nil
 }
 
-type noteHelper struct {
-	Docs []noteDetailHelper `json:"docs"`
-}
-type noteDetailHelper struct {
-	Location string `json:"location"`
-	Text     string `json:"text"`
-	Title    string `json:"title"`
-}
-
 func (u *UpgradeService) LoadRelease() ([]dto.ReleasesNotes, error) {
-	docSource, _ := settingRepo.GetValueByKey("DocSource")
-	lang, _ := settingRepo.GetValueByKey("Language")
 	var notes []dto.ReleasesNotes
-	url := "https://1panel.cn/docs/v2/search/search_index.json"
-	useIntlDocs := false
-	lang = strings.ToLower(strings.TrimSpace(lang))
-	if docSource == "withByRegion" {
-		useIntlDocs = global.CONF.Base.Edition == "intl"
-	} else {
-		useIntlDocs = lang != "zh"
-	}
-	if useIntlDocs {
-		url = "https://docs.1panel.pro/v2/search/search_index.json"
-	}
-	resp, err := req_helper.HandleGet(url)
+	_, body, err := req_helper.HandleRequestWithProxy(global.ReleaseAPIBase()+"/releases?per_page=20", http.MethodGet, constant.TimeOut20s)
 	if err != nil {
 		return notes, err
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return notes, err
+	var releases []githubRelease
+	if err := json.Unmarshal(body, &releases); err != nil {
+		return notes, fmt.Errorf("unmarshal github releases failed, err: %v", err)
 	}
-	var nodeItem noteHelper
-	if err := json.Unmarshal(body, &nodeItem); err != nil {
-		return notes, err
-	}
-	for _, item := range nodeItem.Docs {
-		if !strings.HasPrefix(item.Location, "changelog/#v") {
+	for _, item := range releases {
+		if len(item.TagName) == 0 {
 			continue
 		}
-		itemNote := analyzeDoc(item.Title, item.Text)
-		if len(itemNote.CreatedAt) != 0 {
-			notes = append(notes, analyzeDoc(item.Title, item.Text))
-		}
+		notes = append(notes, analyzeRelease(item.TagName, item.PublishedAt, item.Body))
 	}
-
 	return notes, nil
 }
 
-func analyzeDoc(version, content string) dto.ReleasesNotes {
-	var item dto.ReleasesNotes
-	parts := strings.Split(content, "<p>")
-	if len(parts) < 3 {
-		return item
+// analyzeRelease 解析 GitHub Release 的 markdown 正文，
+// 统计各分类下的条目数量，供面板「更新日志」列表展示。
+func analyzeRelease(version, publishedAt, content string) dto.ReleasesNotes {
+	item := dto.ReleasesNotes{
+		Version:   version,
+		Content:   content,
+		CreatedAt: publishedAt,
 	}
-	item.CreatedAt = strings.ReplaceAll(strings.TrimSpace(parts[1]), "</p>", "")
-	for i := 1; i < len(parts); i++ {
-		if strings.Contains(parts[i], "问题修复") || strings.Contains(parts[i], "Bug Fixes") {
-			item.FixCount = strings.Count(parts[i], "<li>")
+	if len(publishedAt) >= 10 {
+		item.CreatedAt = publishedAt[:10]
+	}
+	section := ""
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			switch {
+			case strings.Contains(trimmed, "问题修复") || strings.Contains(trimmed, "Bug Fixes"):
+				section = "fix"
+			case strings.Contains(trimmed, "新增功能") || strings.Contains(trimmed, "New Features"):
+				section = "new"
+			case strings.Contains(trimmed, "功能优化") || strings.Contains(trimmed, "Improvements"):
+				section = "optimization"
+			default:
+				section = ""
+			}
+			continue
 		}
-		if strings.Contains(parts[i], "新增功能") || strings.Contains(parts[i], "New Features") {
-			item.NewCount = strings.Count(parts[i], "<li>")
+		if section == "" {
+			continue
 		}
-		if strings.Contains(parts[i], "功能优化") || strings.Contains(parts[i], "Improvements") {
-			item.OptimizationCount = strings.Count(parts[i], "<li>")
+		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") {
+			switch section {
+			case "fix":
+				item.FixCount++
+			case "new":
+				item.NewCount++
+			case "optimization":
+				item.OptimizationCount++
+			}
 		}
 	}
-	item.Content = strings.Replace(content, fmt.Sprintf("<p>%s</p>", item.CreatedAt), "", 1)
-	item.Version = version
 	return item
 }
 
@@ -475,47 +456,56 @@ func (u *UpgradeService) loadVersionByMode(developer, currentVersion string) (st
 	return betaVersionLatest, "", latest
 }
 
-func (u *UpgradeService) loadVersion(isLatest bool, currentVersion, mode string) string {
-	path := fmt.Sprintf("%s/%s/latest", global.RepoURL(), mode)
-	if !isLatest {
-		path = fmt.Sprintf("%s/%s/latest.current", global.RepoURL(), mode)
-	}
-	_, latestVersionRes, err := req_helper.HandleRequestWithProxy(path, http.MethodGet, constant.TimeOut20s)
+// loadVersion 从社区仓库的 GitHub Releases 查询最新版本。
+// isLatest 参数已无实际意义（社区版只有 stable/beta/dev 三个发布通道），
+// 保留是为了兼容原有调用方；GitHub Releases 不存在「不同大版本的 LTS 线」，
+// 因此两种查询都返回该通道下的最新版本。
+func (u *UpgradeService) loadVersion(_ bool, currentVersion, mode string) string {
+	version, err := loadLatestVersion(mode)
 	if err != nil {
-		global.LOG.Errorf("load latest version from oss failed, err: %v", err)
+		global.LOG.Errorf("load latest version from github release failed (channel: %s), err: %v", mode, err)
 		return ""
 	}
-	version := string(latestVersionRes)
-	if strings.Contains(version, "<") {
-		global.LOG.Errorf("load latest version from oss failed, err: %v", version)
+	if len(version) == 0 {
 		return ""
 	}
-	if isLatest {
-		return u.checkVersion(version, currentVersion)
-	}
+	return u.checkVersion(version, currentVersion)
+}
 
-	versionMap := make(map[string]string)
-	if err := json.Unmarshal(latestVersionRes, &versionMap); err != nil {
-		global.LOG.Errorf("load latest version from oss failed (error unmarshal), err: %v", err)
-		return ""
+// loadLatestVersion 查询指定通道的最新版本号。
+// stable 取最新正式版，beta 与 dev 取最新预发布版本。
+func loadLatestVersion(mode string) (string, error) {
+	isPrerelease := mode == "beta" || mode == "dev"
+	_, body, err := req_helper.HandleRequestWithProxy(global.LatestReleaseURL(mode), http.MethodGet, constant.TimeOut20s)
+	if err != nil {
+		return "", err
 	}
-
-	versionPart := strings.Split(currentVersion, ".")
-	if len(versionPart) < 3 {
-		global.LOG.Errorf("current version is error format: %s", currentVersion)
-		return ""
-	}
-	num, _ := strconv.Atoi(versionPart[1])
-	if num >= 10 {
-		if version, ok := versionMap[currentVersion[0:5]]; ok {
-			return u.checkVersion(version, currentVersion)
+	if isPrerelease {
+		var releases []githubRelease
+		if err := json.Unmarshal(body, &releases); err != nil {
+			return "", fmt.Errorf("unmarshal github releases failed, err: %v", err)
 		}
-		return ""
+		for _, item := range releases {
+			if item.Prerelease {
+				return item.TagName, nil
+			}
+		}
+		return "", nil
 	}
-	if version, ok := versionMap[currentVersion[0:4]]; ok {
-		return u.checkVersion(version, currentVersion)
+
+	var release githubRelease
+	if err := json.Unmarshal(body, &release); err != nil {
+		return "", fmt.Errorf("unmarshal github release failed, err: %v", err)
 	}
-	return ""
+	return release.TagName, nil
+}
+
+type githubRelease struct {
+	TagName     string `json:"tag_name"`
+	Name        string `json:"name"`
+	Body        string `json:"body"`
+	Prerelease  bool   `json:"prerelease"`
+	PublishedAt string `json:"published_at"`
 }
 
 func (u *UpgradeService) checkVersion(v2, v1 string) string {

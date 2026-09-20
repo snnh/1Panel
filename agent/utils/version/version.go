@@ -47,11 +47,7 @@ func GetUpgradeVersionInfo() (*dto.UpgradeInfo, error) {
 	if len(itemVersion) == 0 {
 		return &upgrade, nil
 	}
-	mode := global.CONF.Base.Mode
-	if strings.Contains(itemVersion, "beta") {
-		mode = "beta"
-	}
-	notes, err := loadReleaseNotes(fmt.Sprintf("%s/%s/%s/release/1panel-%s-release-notes", global.RepoURL(), mode, itemVersion, itemVersion))
+	notes, err := loadReleaseNotes(global.ReleaseAssetURL(itemVersion, fmt.Sprintf("1panel-%s-release-notes", itemVersion)))
 	if err != nil {
 		return nil, fmt.Errorf("load releases-notes of version %s failed, err: %v", itemVersion, err)
 	}
@@ -100,47 +96,53 @@ func loadVersionByMode(developer, currentVersion string) (string, string, string
 	return betaVersionLatest, "", latest
 }
 
-func loadVersion(isLatest bool, currentVersion, mode string) string {
-	path := fmt.Sprintf("%s/%s/latest", global.RepoURL(), mode)
-	if !isLatest {
-		path = fmt.Sprintf("%s/%s/latest.current", global.RepoURL(), mode)
-	}
-	_, latestVersionRes, err := HandleRequest(path, http.MethodGet, constant.TimeOut20s)
+// loadVersion 从社区仓库的 GitHub Releases 查询最新版本。
+// isLatest 参数已无实际意义（社区版只有 stable/beta/dev 三个发布通道），
+// 保留是为了兼容原有调用方；GitHub Releases 不存在「不同大版本的 LTS 线」，
+// 因此两种查询都返回该通道下的最新版本。
+func loadVersion(_ bool, currentVersion, mode string) string {
+	version, err := loadLatestVersion(mode)
 	if err != nil {
-		global.LOG.Errorf("load latest version from oss failed, err: %v", err)
+		global.LOG.Errorf("load latest version from github release failed (channel: %s), err: %v", mode, err)
 		return ""
 	}
-	version := string(latestVersionRes)
-	if strings.Contains(version, "<") {
-		global.LOG.Errorf("load latest version from oss failed, err: %v", version)
+	if len(version) == 0 {
 		return ""
 	}
-	if isLatest {
-		return checkVersion(version, currentVersion)
-	}
+	return checkVersion(version, currentVersion)
+}
 
-	versionMap := make(map[string]string)
-	if err := json.Unmarshal(latestVersionRes, &versionMap); err != nil {
-		global.LOG.Errorf("load latest version from oss failed (error unmarshal), err: %v", err)
-		return ""
+// loadLatestVersion 查询指定通道的最新版本号。
+// stable 取最新正式版，beta 与 dev 取最新预发布版本。
+func loadLatestVersion(mode string) (string, error) {
+	isPrerelease := mode == "beta" || mode == "dev"
+	_, body, err := HandleRequest(global.LatestReleaseURL(mode), http.MethodGet, constant.TimeOut20s)
+	if err != nil {
+		return "", err
 	}
-
-	versionPart := strings.Split(currentVersion, ".")
-	if len(versionPart) < 3 {
-		global.LOG.Errorf("current version is error format: %s", currentVersion)
-		return ""
-	}
-	num, _ := strconv.Atoi(versionPart[1])
-	if num >= 10 {
-		if version, ok := versionMap[currentVersion[0:5]]; ok {
-			return checkVersion(version, currentVersion)
+	if isPrerelease {
+		var releases []githubRelease
+		if err := json.Unmarshal(body, &releases); err != nil {
+			return "", fmt.Errorf("unmarshal github releases failed, err: %v", err)
 		}
-		return ""
+		for _, item := range releases {
+			if item.Prerelease {
+				return item.TagName, nil
+			}
+		}
+		return "", nil
 	}
-	if version, ok := versionMap[currentVersion[0:4]]; ok {
-		return checkVersion(version, currentVersion)
+
+	var release githubRelease
+	if err := json.Unmarshal(body, &release); err != nil {
+		return "", fmt.Errorf("unmarshal github release failed, err: %v", err)
 	}
-	return ""
+	return release.TagName, nil
+}
+
+type githubRelease struct {
+	TagName    string `json:"tag_name"`
+	Prerelease bool   `json:"prerelease"`
 }
 
 func checkVersion(v2, v1 string) string {

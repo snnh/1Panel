@@ -64,7 +64,8 @@ const search = async () => {
     await loadQuickOption()
         .then((res) => {
             loading.value = false;
-            quickOptions.value = res.data || [];
+            // 过滤掉已移除功能残留的快捷入口，避免把原始 i18n key 展示在设置里
+            quickOptions.value = (res.data || []).filter((item: any) => i18n.global.te(item.title));
         })
         .catch(() => {
             loading.value = false;

@@ -1512,3 +1512,35 @@ var RemoveNodeScopeSettings = &gormigrate.Migration{
 		return tx.Where("key IN ?", []string{"NodeScope", "NodePort"}).Delete(&model.Setting{}).Error
 	},
 }
+
+var RemoveAIQuickJump = &gormigrate.Migration{
+	ID: "20260921-remove-ai-quick-jump",
+	Migrate: func(tx *gorm.DB) error {
+		if !tx.Migrator().HasTable(&model.QuickJump{}) {
+			return nil
+		}
+		if err := tx.Where("router LIKE ? OR router LIKE ?", "/ai/%", "/xpack/%").Delete(&model.QuickJump{}).Error; err != nil {
+			return err
+		}
+		var quicks []model.QuickJump
+		if err := tx.Find(&quicks).Error; err != nil {
+			return err
+		}
+		shown := 0
+		for _, quick := range quicks {
+			if quick.IsShow {
+				shown++
+			}
+		}
+		if shown >= 4 {
+			return nil
+		}
+		for _, quick := range quicks {
+			if quick.Name != "Cronjob" || quick.IsShow {
+				continue
+			}
+			return tx.Model(&model.QuickJump{}).Where("id = ?", quick.ID).Update("is_show", true).Error
+		}
+		return nil
+	},
+}

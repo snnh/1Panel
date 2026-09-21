@@ -35,7 +35,7 @@
 
         <el-row :gutter="7" class="card-interval">
             <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
-                <CardWithHeader :header="$t('menu.home')" height="166px">
+                <CardWithHeader :header="$t('menu.home')" :height="isMobile ? 'auto' : '166px'">
                     <template #header-r>
                         <el-button
                             class="h-button-setting"
@@ -48,7 +48,15 @@
                     <template #body>
                         <div class="h-overview">
                             <el-row>
-                                <el-col :span="6" v-for="item in baseInfo.quickJump" :key="item.name">
+                                <el-col
+                                    :xs="12"
+                                    :sm="6"
+                                    :md="6"
+                                    :lg="6"
+                                    :xl="6"
+                                    v-for="item in quickJumps"
+                                    :key="item.name"
+                                >
                                     <span>{{ $t(item.title, 2) }}</span>
                                     <div class="count">
                                         <el-tooltip
@@ -416,7 +424,7 @@ import { MsgSuccess } from '@/utils/message';
 import { useCan } from '@/composables/useMenuManagePermission';
 const router = useRouter();
 import { useGlobalStore } from '@/composables/useGlobalStore';
-const { showEntranceWarn, defaultNetwork, defaultIO, isAdmin, isOnRestart, hasNewVersion } = useGlobalStore();
+const { showEntranceWarn, defaultNetwork, defaultIO, isAdmin, isOnRestart, hasNewVersion, isMobile } = useGlobalStore();
 
 const DASHBOARD_CACHE_TTL = {
     safeStatus: 10 * 60 * 1000,
@@ -553,6 +561,10 @@ const baseInfo = ref<Dashboard.BaseInfo>({
 
     quickJump: [],
 });
+// 过滤掉已移除功能残留的快捷入口（数据库里可能还留着旧版本写入的记录），避免把原始 i18n key 渲染到页面上
+const quickJumps = computed(() =>
+    (baseInfo.value.quickJump || []).filter((item) => item.title && i18n.global.te(item.title)),
+);
 const currentInfo = ref<Dashboard.CurrentInfo>({
     uptime: 0,
     timeSinceUptime: '',
@@ -1101,9 +1113,17 @@ onBeforeUnmount(() => {
 .h-overview {
     text-align: center;
 
+    .el-col {
+        min-width: 0;
+    }
+
     span:first-child {
+        display: block;
+        min-width: 0;
         font-size: 14px;
+        line-height: 20px;
         color: var(--el-text-color-regular);
+        overflow-wrap: anywhere;
     }
 
     @media only screen and (max-width: 1300px) {
@@ -1117,8 +1137,10 @@ onBeforeUnmount(() => {
         margin-top: 10px;
 
         :deep(.el-button) {
+            max-width: 100%;
             font-size: 18px;
             line-height: 32px;
+            overflow-wrap: anywhere;
         }
     }
 }

@@ -87,6 +87,7 @@ func agentDBMigrations() []*gormigrate.Migration {
 		migrations.AddDockerPortGuardReadOnly,
 		migrations.MigrateFirewallPortWhitelistSources,
 		migrations.RemoveNodeScopeSettings,
+		migrations.RemoveAIQuickJump,
 	}
 }
 

@@ -13,6 +13,7 @@
                 </el-button>
             </template>
             <template #rightToolBar>
+                <TableViewSwitch v-model="viewMode" storage-key="snapshot" />
                 <TableSearch @search="search()" v-model:searchName="searchName" />
                 <TableRefresh @search="search()" />
                 <TableSetting title="snapshot-refresh" ref="timerRef" @search="search()" />
@@ -21,6 +22,7 @@
                 <ComplexTable
                     :pagination-config="paginationConfig"
                     v-model:selects="selects"
+                    v-model:view-mode="viewMode"
                     :data="data"
                     @sort-change="search"
                     class="mt-5"
@@ -34,9 +36,15 @@
                         prop="name"
                         sortable
                         fix
+                        card-type="name"
                     />
-                    <el-table-column prop="version" :label="$t('app.version')" />
-                    <el-table-column :label="$t('setting.backupAccount')" :min-width="120" prop="from">
+                    <el-table-column prop="version" :label="$t('app.version')" card-type="content" />
+                    <el-table-column
+                        :label="$t('setting.backupAccount')"
+                        :min-width="120"
+                        prop="from"
+                        card-type="content"
+                    >
                         <template #default="{ row }">
                             <div v-for="(item, index) of row.sourceAccounts" :key="index">
                                 <div v-if="row.expand || (!row.expand && index < 3)">
@@ -66,7 +74,13 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('file.size')" prop="size" min-width="60" show-overflow-tooltip>
+                    <el-table-column
+                        :label="$t('file.size')"
+                        prop="size"
+                        min-width="60"
+                        show-overflow-tooltip
+                        card-type="content"
+                    >
                         <template #default="{ row }">
                             <div v-if="row.hasLoad">
                                 <span v-if="row.size">
@@ -79,7 +93,12 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.table.status')" min-width="80" prop="status">
+                    <el-table-column
+                        :label="$t('commons.table.status')"
+                        min-width="80"
+                        prop="status"
+                        card-type="status"
+                    >
                         <template #default="{ row }">
                             <div>
                                 <el-button
@@ -175,7 +194,12 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.table.description')" prop="description" show-overflow-tooltip>
+                    <el-table-column
+                        :label="$t('commons.table.description')"
+                        prop="description"
+                        show-overflow-tooltip
+                        card-type="description"
+                    >
                         <template #default="{ row }">
                             <fu-input-rw-switch
                                 v-model="row.description"
@@ -190,13 +214,17 @@
                         :label="$t('commons.table.date')"
                         :formatter="dateFormat"
                         show-overflow-tooltip
+                        card-type="content"
                     />
                     <fu-table-operations
-                        width="240px"
+                        :width="isMobile ? '120px' : '240px'"
                         :ellipsis="10"
                         :buttons="buttons"
                         :label="$t('commons.table.operate')"
+                        :min-width="isMobile ? 'auto' : 240"
+                        :fixed="isMobile ? false : 'right'"
                         fix
+                        card-type="button"
                     />
                 </ComplexTable>
             </template>
@@ -245,8 +273,12 @@ import SnapRecover from '@/views/setting/snapshot/recover/index.vue';
 import { MsgError, MsgSuccess } from '@/utils/message';
 import { loadOsInfo } from '@/api/modules/dashboard';
 import { loadRecordSize } from '@/api/modules/backup';
+import { useGlobalStore } from '@/composables/useGlobalStore';
+
+const { isMobile } = useGlobalStore();
 
 const loading = ref(false);
+const viewMode = ref<'table' | 'card'>('table');
 const data = ref();
 const selects = ref<any>([]);
 const paginationConfig = reactive({

@@ -16,6 +16,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Grid, List } from '@element-plus/icons-vue';
+import { useGlobalStore } from '@/composables/useGlobalStore';
 
 defineOptions({ name: 'TableViewSwitch' });
 
@@ -41,7 +42,21 @@ const getStoredViewMode = (): ViewMode | undefined => {
     const mode = localStorage.getItem(getStorageKey());
     return mode === 'card' || mode === 'table' ? mode : undefined;
 };
-const currentViewMode = ref<ViewMode>(getStoredViewMode() || props.modelValue);
+// 只认初始化时的历史偏好，避免下面立即持久化的默认值把「无偏好」误判成「有偏好」
+const initialStoredViewMode = getStoredViewMode();
+const currentViewMode = ref<ViewMode>(initialStoredViewMode || props.modelValue);
+const { isMobile } = useGlobalStore();
+
+// 移动端首次进入（没有历史偏好）时默认卡片视图：宽表格在手机上需要横向滚动、可读性差
+watch(
+    isMobile,
+    (mobile) => {
+        if (mobile && !initialStoredViewMode && currentViewMode.value === 'table') {
+            currentViewMode.value = 'card';
+        }
+    },
+    { immediate: true },
+);
 
 watch(
     () => props.modelValue,

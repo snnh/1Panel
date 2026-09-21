@@ -9,15 +9,23 @@
                 </el-button>
             </template>
             <template #rightToolBar>
+                <TableViewSwitch v-model="viewMode" storage-key="runtime-node" />
                 <TableRefresh @search="search()" />
                 <TableSetting title="node-runtime-refresh" @search="search()" />
             </template>
             <template #main>
-                <ComplexTable :pagination-config="paginationConfig" :data="items" @search="search()" :heightDiff="260">
+                <ComplexTable
+                    :pagination-config="paginationConfig"
+                    :data="items"
+                    @search="search()"
+                    :heightDiff="260"
+                    v-model:view-mode="viewMode"
+                >
                     <el-table-column
                         :label="$t('commons.table.name')"
                         fix
                         prop="name"
+                        card-type="name"
                         min-width="120px"
                         show-overflow-tooltip
                     >
@@ -27,7 +35,12 @@
                             </el-text>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('runtime.codeDir')" prop="codeDir" min-width="120px">
+                    <el-table-column
+                        :label="$t('runtime.codeDir')"
+                        prop="codeDir"
+                        min-width="120px"
+                        card-type="content"
+                    >
                         <template #default="{ row }">
                             <el-button
                                 v-permission:view="'host_file_view'"
@@ -41,18 +54,23 @@
                             </el-button>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('app.version')" prop="version"></el-table-column>
-                    <el-table-column :label="$t('runtime.externalPort')" prop="port" min-width="110px">
+                    <el-table-column :label="$t('app.version')" prop="version" card-type="content"></el-table-column>
+                    <el-table-column
+                        :label="$t('runtime.externalPort')"
+                        prop="port"
+                        min-width="110px"
+                        card-type="content"
+                    >
                         <template #default="{ row }">
                             <PortJump :row="row" :jump="goDashboard" />
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.table.status')" prop="status">
+                    <el-table-column :label="$t('commons.table.status')" prop="status" card-type="status">
                         <template #default="{ row }">
                             <RuntimeStatus :row="row" />
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.button.log')" prop="path" min-width="90px">
+                    <el-table-column :label="$t('commons.button.log')" prop="path" min-width="90px" card-type="button">
                         <template #default="{ row }">
                             <el-button @click="openLog(row)" link type="primary" v-if="row.status != 'Stopped'">
                                 {{ $t('website.check') }}
@@ -60,7 +78,12 @@
                             <span v-else>-</span>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('website.remark')" prop="remark" min-width="150px">
+                    <el-table-column
+                        :label="$t('website.remark')"
+                        prop="remark"
+                        min-width="150px"
+                        card-type="content-full"
+                    >
                         <template #default="{ row }">
                             <fu-read-write-switch v-permission>
                                 <template #read>
@@ -74,6 +97,7 @@
                     </el-table-column>
                     <el-table-column
                         prop="createdAt"
+                        card-type="content"
                         :label="$t('commons.table.date')"
                         :formatter="dateFormat"
                         show-overflow-tooltip
@@ -129,6 +153,7 @@ const { isMobile } = useGlobalStore();
 
 const loading = ref(false);
 const items = ref<Runtime.RuntimeDTO[]>([]);
+const viewMode = ref<'table' | 'card'>('table');
 const operateRef = ref();
 const deleteRef = ref();
 const dialogPortJumpRef = ref();

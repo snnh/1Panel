@@ -43,12 +43,19 @@
                     <el-option :label="$t('commons.status.failed')" value="Failed" />
                 </el-select>
                 <TableSearch @search="search()" v-model:searchName="searchName" />
+                <TableViewSwitch v-model="viewMode" storage-key="log-operation" />
                 <TableRefresh @search="search()" />
                 <TableSetting title="operation-log-refresh" @search="search()" />
             </template>
             <template #main>
-                <ComplexTable :pagination-config="paginationConfig" :data="data" @search="search" :heightDiff="330">
-                    <el-table-column :label="$t('logs.resource')" prop="group" fix>
+                <ComplexTable
+                    :pagination-config="paginationConfig"
+                    :data="data"
+                    @search="search"
+                    :heightDiff="330"
+                    v-model:view-mode="viewMode"
+                >
+                    <el-table-column :label="$t('logs.resource')" prop="group" fix card-type="name">
                         <template #default="{ row }">
                             <span v-if="row.source && row.source.indexOf('-') === -1">
                                 {{ $t('logs.detail.' + row.source) }}
@@ -56,14 +63,24 @@
                             <span v-else>{{ $t('logs.detail.' + row.source.replace('-', '_')) }}</span>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.table.user')" prop="user" show-overflow-tooltip />
-                    <el-table-column :label="$t('commons.table.operate')" min-width="150px" prop="detailZH">
+                    <el-table-column
+                        :label="$t('commons.table.user')"
+                        prop="user"
+                        show-overflow-tooltip
+                        card-type="content"
+                    />
+                    <el-table-column
+                        :label="$t('commons.table.operate')"
+                        min-width="150px"
+                        prop="detailZH"
+                        card-type="content-full"
+                    >
                         <template #default="{ row }">
                             <span v-if="language === 'zh'">{{ row.detailZH }}</span>
                             <span v-if="language === 'en'">{{ row.detailEN }}</span>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.table.status')" prop="status">
+                    <el-table-column :label="$t('commons.table.status')" prop="status" card-type="status">
                         <template #default="{ row }">
                             <Status :status="row.status" :msg="row.message" />
                         </template>
@@ -73,6 +90,7 @@
                         :label="$t('commons.table.date')"
                         :formatter="dateFormat"
                         show-overflow-tooltip
+                        card-type="content"
                     />
                 </ComplexTable>
             </template>
@@ -94,6 +112,7 @@ import { useGlobalStore } from '@/composables/useGlobalStore';
 
 const loading = ref();
 const data = ref();
+const viewMode = ref<'table' | 'card'>('table');
 const confirmDialogRef = ref();
 const paginationConfig = reactive({
     cacheSizeKey: 'operation-log-page-size',

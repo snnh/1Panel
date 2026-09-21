@@ -21,7 +21,7 @@
             <FuTableOperationActions
                 :buttons="buttons"
                 :row="row"
-                :ellipsis="ellipsis"
+                :ellipsis="columnEllipsis"
                 :trigger="resolvedTrigger"
                 :dropdown-style="dropdownStyle"
             />
@@ -35,6 +35,7 @@ import { useMediaQuery } from '@vueuse/core';
 
 import FuTableOperationActions from './TableOperationActions.vue';
 import type { FuTableOperationButton } from './shared';
+import { useGlobalStore } from '@/composables/useGlobalStore';
 
 defineOptions({ name: 'FuTableOperations' });
 
@@ -107,7 +108,14 @@ const resolvedTrigger = computed<DropdownTriggerValue>(
     () => props.trigger ?? (hasFinePointer.value ? 'hover' : 'click'),
 );
 
+// 手机屏幕宽度有限：固定右列会盖住其它列的表头与内容（且列宽常占视口一大半），
+// 因此移动端一律取消固定；操作改由「更多」下拉承载，列宽按单个下拉按钮估算。
+const { isMobile } = useGlobalStore();
+
 const resolvedFixed = computed(() => {
+    if (isMobile.value) {
+        return false;
+    }
     if (props.fixed !== undefined) {
         return props.fixed;
     }
@@ -116,6 +124,8 @@ const resolvedFixed = computed(() => {
     }
     return props.fix ? 'right' : false;
 });
+
+const columnEllipsis = computed(() => (isMobile.value ? 0 : props.ellipsis));
 
 const hasDynamicShow = computed(() => {
     return props.buttons.some((button) => typeof button.show === 'function');
@@ -139,7 +149,13 @@ const estimatedVisibleCount = computed(() => {
 });
 
 const estimatedWidth = computed(() => {
-    const buttonsWidth = 35 + estimatedVisibleCount.value * 58 + 58;
+    const padding = 35;
+    const buttonWidth = 58;
+    if (isMobile.value) {
+        // 移动端操作全部收进「更多」下拉，忽略页面写死的列宽/最小宽度
+        return padding + buttonWidth;
+    }
+    const buttonsWidth = padding + estimatedVisibleCount.value * buttonWidth + buttonWidth;
     const minWidth = normalizeWidth(props.minWidth);
     if (typeof minWidth === 'number') {
         return Math.max(buttonsWidth, minWidth);
@@ -154,6 +170,9 @@ const estimatedWidth = computed(() => {
 });
 
 const resolvedWidth = computed(() => {
+    if (isMobile.value) {
+        return estimatedWidth.value;
+    }
     if (props.width === 'auto') {
         return undefined;
     }
@@ -161,6 +180,9 @@ const resolvedWidth = computed(() => {
 });
 
 const resolvedMinWidth = computed(() => {
+    if (isMobile.value) {
+        return undefined;
+    }
     return props.width === 'auto' ? normalizeWidth(props.minWidth) : undefined;
 });
 

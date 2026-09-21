@@ -78,8 +78,10 @@ import { ProcessStore } from '@/store';
 import { SortBy, TableV2SortOrder, ElButton } from 'element-plus';
 import RuntimeDiagnostics from './diagnostics/index.vue';
 import { useMediaQuery } from '@vueuse/core';
+import { useGlobalStore } from '@/composables/useGlobalStore';
 
 const isCompactTable = useMediaQuery('(max-width: 1024px)');
+const { isMobile } = useGlobalStore();
 const processStore = ProcessStore();
 const permissionDirective = resolveDirective('permission');
 
@@ -110,7 +112,7 @@ const sortByNum = (a: any, b: any, prop: string): number => {
     return aVal - bVal;
 };
 
-const columns = ref([
+const desktopColumns = ref([
     {
         key: 'PID',
         title: 'PID',
@@ -234,6 +236,25 @@ const columns = ref([
         },
     },
 ]);
+
+const mobileColumnWidths: Record<string, number> = {
+    PID: 80,
+    name: 160,
+    username: 90,
+    cpuValue: 80,
+    rssValue: 90,
+    status: 90,
+    actions: 160,
+};
+
+// 移动端只保留关键列并压缩列宽，避免 2280px（约 6 屏）的横向滚动
+const columns = computed(() =>
+    isMobile.value
+        ? desktopColumns.value
+              .filter((column) => mobileColumnWidths[column.key] !== undefined)
+              .map((column) => ({ ...column, width: mobileColumnWidths[column.key] }))
+        : desktopColumns.value,
+);
 
 watch(
     [sortState, () => processStore.psData, filters],

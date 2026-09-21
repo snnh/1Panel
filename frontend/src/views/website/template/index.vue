@@ -12,19 +12,32 @@
             </template>
             <template #rightToolBar>
                 <TableSearch @search="search()" v-model:searchName="searchName" />
+                <TableViewSwitch v-model="viewMode" storage-key="website-template" />
                 <TableRefresh @search="search()" />
             </template>
             <template #main>
-                <ComplexTable :data="data" :pagination-config="paginationConfig" @search="search()" v-loading="loading">
-                    <el-table-column :label="$t('template.name')" prop="name" min-width="120px" show-overflow-tooltip />
-                    <el-table-column :label="$t('template.type')" prop="type" width="150px">
+                <ComplexTable
+                    :data="data"
+                    :pagination-config="paginationConfig"
+                    @search="search()"
+                    v-loading="loading"
+                    v-model:view-mode="viewMode"
+                >
+                    <el-table-column
+                        :label="$t('template.name')"
+                        prop="name"
+                        min-width="120px"
+                        show-overflow-tooltip
+                        card-type="name"
+                    />
+                    <el-table-column :label="$t('template.type')" prop="type" width="150px" card-type="content">
                         <template #default="{ row }">
                             <el-tag>
                                 {{ row.type === 'single' ? $t('template.single') : $t('template.multi') }}
                             </el-tag>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('template.variables')" width="100px">
+                    <el-table-column :label="$t('template.variables')" width="100px" card-type="content">
                         <template #default="{ row }">
                             {{ getVariableCount(row.variables) }}
                         </template>
@@ -34,12 +47,14 @@
                         prop="remark"
                         min-width="150px"
                         show-overflow-tooltip
+                        card-type="content-full"
                     />
                     <el-table-column
                         prop="createdAt"
                         :label="$t('commons.table.date')"
                         :formatter="dateFormat"
                         width="180px"
+                        card-type="content"
                     />
                     <fu-table-operations
                         :ellipsis="3"
@@ -70,6 +85,7 @@ import { reactive, ref, onMounted } from 'vue';
 
 const loading = ref(false);
 const data = ref<Website.Template[]>([]);
+const viewMode = ref<'table' | 'card'>('table');
 const searchName = ref('');
 const opRef = ref();
 const operateRef = ref();

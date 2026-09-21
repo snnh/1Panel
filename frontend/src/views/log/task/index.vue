@@ -12,22 +12,34 @@
                     <el-option :label="$t('commons.status.failed')" value="Failed"></el-option>
                     <el-option :label="$t('logs.taskRunning')" value="Executing"></el-option>
                 </el-select>
+                <TableViewSwitch v-model="viewMode" storage-key="log-task" />
                 <TableRefresh @search="search()" />
                 <TableSetting title="task-log-refresh" @search="search()" />
             </template>
             <template #main>
-                <ComplexTable :pagination-config="paginationConfig" :data="data" @search="search" :heightDiff="330">
-                    <el-table-column :label="$t('logs.taskName')" prop="name" min-width="180px">
+                <ComplexTable
+                    :pagination-config="paginationConfig"
+                    :data="data"
+                    @search="search"
+                    :heightDiff="330"
+                    v-model:view-mode="viewMode"
+                >
+                    <el-table-column :label="$t('logs.taskName')" prop="name" min-width="180px" card-type="name">
                         <template #default="{ row }">
                             {{ row.name }}
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.table.status')" prop="status" max-width="100px">
+                    <el-table-column
+                        :label="$t('commons.table.status')"
+                        prop="status"
+                        max-width="100px"
+                        card-type="status"
+                    >
                         <template #default="{ row }">
                             <Status :status="row.status" :msg="row.errorMsg" />
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.button.log')" prop="log" max-width="100px">
+                    <el-table-column :label="$t('commons.button.log')" prop="log" max-width="100px" card-type="button">
                         <template #default="{ row }">
                             <el-button @click="openTaskLog(row)" link type="primary">
                                 {{ $t('website.check') }}
@@ -40,6 +52,7 @@
                         :label="$t('commons.table.date')"
                         :formatter="dateFormat"
                         show-overflow-tooltip
+                        card-type="content"
                     />
                 </ComplexTable>
             </template>
@@ -59,6 +72,7 @@ import bus from '@/global/bus';
 
 const loading = ref();
 const data = ref();
+const viewMode = ref<'table' | 'card'>('table');
 const paginationConfig = reactive({
     cacheSizeKey: 'task-page-size',
     currentPage: 1,

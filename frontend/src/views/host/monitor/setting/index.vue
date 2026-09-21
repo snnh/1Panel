@@ -4,10 +4,16 @@
 
         <LayoutContent v-loading="loading" :title="$t('menu.settings', 2)" :divider="true">
             <template #main>
-                <el-form :model="form" @submit.prevent ref="panelFormRef" label-position="left" label-width="160px">
+                <el-form
+                    :model="form"
+                    @submit.prevent
+                    ref="panelFormRef"
+                    :label-position="isMobile ? 'top' : 'left'"
+                    label-width="160px"
+                >
                     <el-row>
-                        <el-col :span="1"><br /></el-col>
-                        <el-col :span="12">
+                        <el-col v-if="!isMobile" :span="1"><br /></el-col>
+                        <el-col :span="12" :xs="24">
                             <el-form-item :label="$t('monitor.enableMonitor')" prop="monitorStatus">
                                 <el-switch
                                     v-permission
@@ -85,6 +91,8 @@ import Network from '@/views/host/monitor/setting/default-network/index.vue';
 import IO from '@/views/host/monitor/setting/default-io/index.vue';
 import i18n from '@/lang';
 import { MsgSuccess } from '@/utils/message';
+import { useGlobalStore } from '@/composables/useGlobalStore';
+const { isMobile } = useGlobalStore();
 import { splitTimeFromSecond, transTimeUnit } from '@/utils/validate';
 const loading = ref();
 const form = reactive({

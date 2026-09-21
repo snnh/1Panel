@@ -17,15 +17,23 @@
                 </el-button>
             </template>
             <template #rightToolBar>
+                <TableViewSwitch v-model="viewMode" storage-key="runtime-php" />
                 <TableRefresh @search="search()" />
                 <TableSetting title="php-runtime-refresh" @search="search()" />
             </template>
             <template #main>
-                <ComplexTable :pagination-config="paginationConfig" :data="items" @search="search()" :heightDiff="260">
+                <ComplexTable
+                    :pagination-config="paginationConfig"
+                    :data="items"
+                    @search="search()"
+                    :heightDiff="260"
+                    v-model:view-mode="viewMode"
+                >
                     <el-table-column
                         :label="$t('commons.table.name')"
                         fix
                         prop="name"
+                        card-type="name"
                         min-width="120px"
                         show-overflow-tooltip
                     >
@@ -43,7 +51,7 @@
                             </el-text>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('home.dir')" prop="codeDir" width="100px">
+                    <el-table-column :label="$t('home.dir')" prop="codeDir" width="100px" card-type="content">
                         <template #default="{ row }">
                             <el-button
                                 v-permission:view="'host_file_view'"
@@ -57,38 +65,44 @@
                             </el-button>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('app.source')" prop="resource">
+                    <el-table-column :label="$t('app.source')" prop="resource" card-type="content">
                         <template #default="{ row }">
                             <span v-if="row.resource == 'appstore'">{{ $t('menu.apps') }}</span>
                             <span v-if="row.resource == 'local'">{{ $t('commons.table.local') }}</span>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('app.version')" prop="version">
+                    <el-table-column :label="$t('app.version')" prop="version" card-type="content">
                         <template #default="{ row }">{{ row.params['PHP_VERSION'] }}</template>
                     </el-table-column>
                     <el-table-column
                         :label="$t('container.image')"
                         prop="image"
+                        card-type="content"
                         show-overflow-tooltip
                     ></el-table-column>
-                    <el-table-column :label="$t('commons.table.port')" prop="port">
+                    <el-table-column :label="$t('commons.table.port')" prop="port" card-type="content">
                         <template #default="{ row }">
                             {{ row.port }}
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.table.status')" prop="status" width="100px">
+                    <el-table-column :label="$t('commons.table.status')" prop="status" width="100px" card-type="status">
                         <template #default="{ row }">
                             <RuntimeStatus :row="row" />
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.button.log')" prop="">
+                    <el-table-column :label="$t('commons.button.log')" prop="" card-type="button">
                         <template #default="{ row }">
                             <el-button @click="openLog(row)" link type="primary" :disabled="row.resource == 'local'">
                                 {{ $t('website.check') }}
                             </el-button>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('website.remark')" prop="remark" min-width="150px">
+                    <el-table-column
+                        :label="$t('website.remark')"
+                        prop="remark"
+                        min-width="150px"
+                        card-type="content-full"
+                    >
                         <template #default="{ row }">
                             <fu-read-write-switch v-permission>
                                 <template #read>
@@ -102,6 +116,7 @@
                     </el-table-column>
                     <el-table-column
                         prop="createdAt"
+                        card-type="content"
                         :label="$t('commons.table.date')"
                         :formatter="dateFormat"
                         show-overflow-tooltip
@@ -184,6 +199,7 @@ const deleteRef = ref();
 const createRef = ref();
 const loading = ref(false);
 const items = ref<Runtime.RuntimeDTO[]>([]);
+const viewMode = ref<'table' | 'card'>('table');
 const composeLogRef = ref();
 const configRef = ref();
 const supervisorRef = ref();

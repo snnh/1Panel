@@ -7,7 +7,7 @@
                 </el-button>
             </template>
             <template #main>
-                <div v-if="scanStatus === 'beforeScan'" class="ml-5">
+                <div v-if="scanStatus === 'beforeScan'" class="clean-content">
                     <div v-if="form.lastCleanTime">
                         <el-text class="clean_title">
                             {{ $t('clean.lastCleanTime', [form.lastCleanTime || '-']) }}
@@ -31,7 +31,7 @@
                             {{ $t('clean.scanHelper') }}
                         </el-text>
                     </div>
-                    <el-row type="flex" justify="center" :gutter="20" class="mb-10">
+                    <el-row type="flex" justify="center" :gutter="isMobile ? 0 : 20" class="mb-10">
                         <el-col :xs="24" :sm="24" :md="24" :lg="12" :xl="12" v-for="item in cleanTag" :key="item.title">
                             <el-card class="clean-card">
                                 <el-row>
@@ -61,7 +61,7 @@
                         </el-col>
                     </el-row>
                 </div>
-                <div v-if="scanStatus === 'afterScan'" class="ml-5">
+                <div v-if="scanStatus === 'afterScan'" class="clean-content">
                     <el-text class="clean_title">{{ $t('clean.cleanSuccessful') }}</el-text>
                     <div class="mt-4">
                         <el-text>
@@ -74,7 +74,7 @@
                         </el-text>
                     </div>
                 </div>
-                <div v-if="scanStatus === 'scanned'" class="ml-5">
+                <div v-if="scanStatus === 'scanned'" class="clean-content">
                     <div>
                         <el-text class="clean_title">{{ $t('clean.totalScan') }} {{ computeSize(totalSize) }}</el-text>
                         <el-button
@@ -91,7 +91,7 @@
                             <el-text type="info">{{ $t('clean.selectScan') }} {{ computeSize(selectSize) }}</el-text>
                         </div>
                     </div>
-                    <el-row type="flex" :gutter="20" class="mb-10">
+                    <el-row type="flex" :gutter="isMobile ? 0 : 20" class="mb-10">
                         <el-col :xs="24" :sm="24" :md="24" :lg="16" :xl="16">
                             <div class="tree-container">
                                 <el-collapse v-model="activeNames" class="tree-collapse">
@@ -263,6 +263,8 @@ import { getAgentSettingInfo } from '@/api/modules/setting';
 import { clean, scan } from '@/api/modules/toolbox';
 import i18n from '@/lang';
 import { MsgSuccess } from '@/utils/message';
+import { useGlobalStore } from '@/composables/useGlobalStore';
+const { isMobile } = useGlobalStore();
 
 const loading = ref();
 const totalSize = ref<number>(0);
@@ -612,6 +614,16 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.clean-content {
+    margin-left: 20px;
+}
+
+@media only screen and (max-width: 767px) {
+    .clean-content {
+        margin-left: 0;
+    }
+}
+
 .clean-card {
     margin-top: 20px;
     cursor: pointer;

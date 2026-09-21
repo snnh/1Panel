@@ -509,7 +509,7 @@
                             :columns="columns"
                             localKey="fileManagementColumn"
                         >
-                            <el-table-column type="selection" width="30" />
+                            <el-table-column type="selection" width="48" />
                             <el-table-column
                                 :label="$t('commons.table.name')"
                                 min-width="250"
@@ -588,7 +588,7 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column :label="$t('file.mode')" prop="mode" width="80">
+                            <el-table-column v-if="!isMobile" :label="$t('file.mode')" prop="mode" width="80">
                                 <template #default="{ row }">
                                     <el-link v-permission v-node-admin underline="never" @click="openMode(row)">
                                         {{ row.mode }}
@@ -596,6 +596,7 @@
                                 </template>
                             </el-table-column>
                             <el-table-column
+                                v-if="!isMobile"
                                 :label="`${$t('commons.table.user')} / ${$t('file.group')}`"
                                 prop="user"
                                 show-overflow-tooltip
@@ -640,7 +641,13 @@
                                     {{ row.modTime ? dateFormatSimpleWithSecond(row.modTime) : '-' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column :label="$t('file.remark')" prop="remark" width="180" show-overflow-tooltip>
+                            <el-table-column
+                                v-if="!isMobile"
+                                :label="$t('file.remark')"
+                                prop="remark"
+                                width="180"
+                                show-overflow-tooltip
+                            >
                                 <template #default="{ row }">
                                     <span>{{ row.remark ? row.remark : '-' }}</span>
                                 </template>

@@ -97,6 +97,7 @@
                     </el-option-group>
                 </el-select>
                 <TableSearch @search="search()" v-model:searchName="searchName" />
+                <TableViewSwitch v-model="viewMode" storage-key="database-mongodb" />
                 <TableRefresh @search="search()" />
             </template>
 
@@ -109,8 +110,15 @@
                     @search="search"
                     :data="tableRows"
                     :heightDiff="320"
+                    v-model:view-mode="viewMode"
                 >
-                    <el-table-column :label="$t('commons.table.name')" prop="name" min-width="180" sortable>
+                    <el-table-column
+                        :label="$t('commons.table.name')"
+                        prop="name"
+                        min-width="180"
+                        sortable
+                        card-type="name"
+                    >
                         <template #default="{ row }">
                             <Tooltip v-if="!row.isDelete" :islink="false" :text="row.name" />
                             <div v-else>
@@ -124,6 +132,7 @@
                     <el-table-column
                         :label="$t('commons.login.username')"
                         prop="username"
+                        card-type="content"
                         min-width="180"
                         show-overflow-tooltip
                     >
@@ -146,7 +155,12 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.login.password')" prop="password" min-width="180">
+                    <el-table-column
+                        :label="$t('commons.login.password')"
+                        prop="password"
+                        min-width="180"
+                        card-type="content-full"
+                    >
                         <template #default="{ row }">
                             <span v-if="row.username === ''">-</span>
                             <div v-else-if="row.password" class="flex items-center flex-wrap">
@@ -192,6 +206,7 @@
                     <el-table-column
                         :label="$t('commons.table.description')"
                         prop="description"
+                        card-type="content"
                         min-width="220"
                         show-overflow-tooltip
                     >
@@ -207,6 +222,7 @@
                     <el-table-column
                         :label="$t('commons.table.date')"
                         prop="createdAt"
+                        card-type="content"
                         min-width="200"
                         sortable
                         :formatter="dateFormat"
@@ -358,6 +374,7 @@ import Tooltip from '@/components/tooltip/index.vue';
 const { currentMongodbDB, isAdmin, isMobile } = useGlobalStore();
 
 const loading = ref(false);
+const viewMode = ref<'table' | 'card'>('table');
 const maskShow = ref(true);
 const submitLoading = ref(false);
 const searchName = ref('');

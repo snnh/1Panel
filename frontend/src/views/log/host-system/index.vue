@@ -54,22 +54,47 @@
             <el-checkbox border v-model="watching" @change="changeWatch">
                 {{ $t('commons.button.watch') }}
             </el-checkbox>
+            <TableViewSwitch v-model="viewMode" storage-key="log-host-system" />
             <TableRefresh @search="resetAndLoadLogs" />
         </template>
         <template #main>
-            <ComplexTable :data="logs" :pagination-config="paginationConfig" @row-click="openDetail" :heightDiff="320">
-                <el-table-column prop="time" :label="$t('commons.table.date')" width="220" show-overflow-tooltip />
-                <el-table-column :label="$t('logs.priority')" width="120">
+            <ComplexTable
+                :data="logs"
+                :pagination-config="paginationConfig"
+                @row-click="openDetail"
+                :heightDiff="320"
+                v-model:view-mode="viewMode"
+            >
+                <el-table-column
+                    prop="time"
+                    :label="$t('commons.table.date')"
+                    width="220"
+                    show-overflow-tooltip
+                    card-type="content"
+                />
+                <el-table-column :label="$t('logs.priority')" width="120" card-type="status">
                     <template #default="{ row }">
                         <el-tag size="small" :type="priorityType(row.priority)">
                             {{ priorityLabel(row.priority) }}
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="service" :label="$t('logs.service')" width="220" show-overflow-tooltip>
+                <el-table-column
+                    prop="service"
+                    :label="$t('logs.service')"
+                    width="220"
+                    show-overflow-tooltip
+                    card-type="name"
+                >
                     <template #default="{ row }">{{ row.service || '-' }}</template>
                 </el-table-column>
-                <el-table-column prop="message" :label="$t('logs.message')" min-width="360" show-overflow-tooltip />
+                <el-table-column
+                    prop="message"
+                    :label="$t('logs.message')"
+                    min-width="360"
+                    show-overflow-tooltip
+                    card-type="content-full"
+                />
                 <template #pagination>
                     <div class="flex items-center gap-2">
                         <el-select v-model="paginationConfig.pageSize" class="p-w-100" @change="changePageSize">
@@ -109,6 +134,7 @@ import { shortcuts } from '@/utils/shortcuts';
 
 const logs = ref<Log.SystemLogItem[]>([]);
 const loading = ref(false);
+const viewMode = ref<'table' | 'card'>('table');
 const watching = ref(false);
 const keyword = ref('');
 const priority = ref('');

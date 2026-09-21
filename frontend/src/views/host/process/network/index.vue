@@ -67,12 +67,13 @@
 
 <script setup lang="ts">
 import FireRouter from '@/views/host/process/index.vue';
-import { ref, onMounted, onUnmounted, watch, h } from 'vue';
+import { ref, onMounted, onUnmounted, watch, h, computed } from 'vue';
 import { ProcessStore } from '@/store';
 import { SortBy, TableV2SortOrder, ElIcon } from 'element-plus';
 import { Filter } from '@element-plus/icons-vue';
 import i18n from '@/lang';
 import { useMediaQuery } from '@vueuse/core';
+import { useGlobalStore } from '@/composables/useGlobalStore';
 
 const statusOptions = [
     { text: 'LISTEN', value: 'LISTEN' },
@@ -83,6 +84,7 @@ const statusOptions = [
 ];
 
 const isCompactTable = useMediaQuery('(max-width: 1024px)');
+const { isMobile } = useGlobalStore();
 const processStore = ProcessStore();
 
 const quickSearchName = (name: string) => {
@@ -113,7 +115,7 @@ const sortByNum = (a: any, b: any, prop: string): number => {
     return aVal - bVal;
 };
 
-const columns = ref([
+const desktopColumns = ref([
     {
         key: 'type',
         title: i18n.global.t('commons.table.type'),
@@ -198,6 +200,24 @@ const columns = ref([
         cellRenderer: ({ rowData }) => rowData.status,
     },
 ]);
+
+const mobileColumnWidths: Record<string, number> = {
+    type: 80,
+    PID: 80,
+    name: 160,
+    localaddr: 150,
+    remoteaddr: 150,
+    status: 100,
+};
+
+// 移动端只保留关键列并压缩列宽，避免数千像素的横向滚动
+const columns = computed(() =>
+    isMobile.value
+        ? desktopColumns.value
+              .filter((column) => mobileColumnWidths[column.key] !== undefined)
+              .map((column) => ({ ...column, width: mobileColumnWidths[column.key] }))
+        : desktopColumns.value,
+);
 
 watch(
     [sortState, () => processStore.netData, filters],

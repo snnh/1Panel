@@ -17,16 +17,33 @@
                     <el-option :label="$t('commons.status.failed')" value="Failed"></el-option>
                 </el-select>
                 <TableSearch @search="search()" v-model:searchName="searchInfo" />
+                <TableViewSwitch v-model="viewMode" storage-key="log-login" />
                 <TableRefresh @search="search()" />
                 <TableSetting title="login-log-refresh" @search="search()" />
             </template>
             <template #main>
-                <ComplexTable :pagination-config="paginationConfig" :data="data" @search="search" :heightDiff="330">
-                    <el-table-column :label="$t('logs.loginIP')" prop="ip" />
-                    <el-table-column v-if="isEnterprise" :label="$t('commons.login.username')" prop="user" />
-                    <el-table-column :label="$t('logs.loginAddress')" prop="address" />
-                    <el-table-column :label="$t('logs.loginAgent')" show-overflow-tooltip prop="agent" />
-                    <el-table-column :label="$t('logs.loginStatus')" prop="status">
+                <ComplexTable
+                    :pagination-config="paginationConfig"
+                    :data="data"
+                    @search="search"
+                    :heightDiff="330"
+                    v-model:view-mode="viewMode"
+                >
+                    <el-table-column :label="$t('logs.loginIP')" prop="ip" card-type="name" />
+                    <el-table-column
+                        v-if="isEnterprise"
+                        :label="$t('commons.login.username')"
+                        prop="user"
+                        card-type="content"
+                    />
+                    <el-table-column :label="$t('logs.loginAddress')" prop="address" card-type="content" />
+                    <el-table-column
+                        :label="$t('logs.loginAgent')"
+                        show-overflow-tooltip
+                        prop="agent"
+                        card-type="content-full"
+                    />
+                    <el-table-column :label="$t('logs.loginStatus')" prop="status" card-type="status">
                         <template #default="{ row }">
                             <Status :status="row.status" :msg="loadMsg(row.message)" />
                         </template>
@@ -36,6 +53,7 @@
                         :label="$t('commons.table.date')"
                         :formatter="dateFormat"
                         show-overflow-tooltip
+                        card-type="content"
                     />
                 </ComplexTable>
             </template>
@@ -58,6 +76,7 @@ const { isEnterprise } = useGlobalStore();
 
 const loading = ref();
 const data = ref();
+const viewMode = ref<'table' | 'card'>('table');
 const confirmDialogRef = ref();
 const paginationConfig = reactive({
     cacheSizeKey: 'login-log-page-size',

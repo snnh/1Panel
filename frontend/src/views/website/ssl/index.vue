@@ -24,6 +24,7 @@
             </template>
             <template #rightToolBar>
                 <TableSearch @search="search()" v-model:searchName="req.domain" />
+                <TableViewSwitch v-model="viewMode" storage-key="website-ssl" />
                 <TableRefresh @search="search()" />
                 <fu-table-column-select
                     :columns="columns"
@@ -44,14 +45,16 @@
                     localKey="sslColumn"
                     :height-diff="260"
                     @sort-change="changeSort"
+                    v-model:view-mode="viewMode"
                 >
-                    <el-table-column type="selection" width="30" />
+                    <el-table-column type="selection" width="48" />
                     <el-table-column label="ID" prop="id" width="50px" />
                     <el-table-column
                         :label="$t('website.domain')"
                         show-overflow-tooltip
                         prop="primaryDomain"
                         min-width="150px"
+                        card-type="name"
                     >
                         <template #default="{ row }">
                             <span>{{ row.primaryDomain }}</span>
@@ -70,21 +73,30 @@
                         :label="$t('website.otherDomains')"
                         show-overflow-tooltip
                         prop="domains"
+                        card-type="content"
                         min-width="90px"
                     ></el-table-column>
-                    <el-table-column :label="$t('ssl.applyType')" show-overflow-tooltip prop="provider" width="200px">
+                    <el-table-column
+                        :label="$t('ssl.applyType')"
+                        show-overflow-tooltip
+                        prop="provider"
+                        card-type="content"
+                        width="200px"
+                    >
                         <template #default="{ row }">{{ getProvider(row.provider) }}</template>
                     </el-table-column>
                     <el-table-column
                         :label="$t('ssl.acmeAccount')"
                         show-overflow-tooltip
                         prop="acmeAccount.email"
+                        card-type="content"
                         width="150px"
                     ></el-table-column>
                     <el-table-column
                         :label="$t('commons.table.status')"
                         show-overflow-tooltip
                         prop="status"
+                        card-type="status"
                         width="110px"
                     >
                         <template #default="{ row }">
@@ -110,7 +122,7 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.button.log')" prop="log" width="80px">
+                    <el-table-column :label="$t('commons.button.log')" prop="log" width="80px" card-type="button">
                         <template #default="{ row }">
                             <el-button
                                 @click="openSSLLog(row)"
@@ -126,9 +138,15 @@
                         :label="$t('website.brand')"
                         show-overflow-tooltip
                         prop="organization"
+                        card-type="content"
                         width="150px"
                     ></el-table-column>
-                    <el-table-column :label="$t('website.remark')" prop="description" width="100px">
+                    <el-table-column
+                        :label="$t('website.remark')"
+                        prop="description"
+                        card-type="content-full"
+                        width="100px"
+                    >
                         <template #default="{ row }">
                             <fu-read-write-switch v-permission>
                                 <template #read>
@@ -140,7 +158,7 @@
                             </fu-read-write-switch>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('ssl.autoRenew')" prop="autoRenew" width="200px">
+                    <el-table-column :label="$t('ssl.autoRenew')" prop="autoRenew" card-type="content" width="200px">
                         <template #default="{ row }">
                             <el-switch
                                 v-permission
@@ -156,6 +174,7 @@
                     </el-table-column>
                     <el-table-column
                         prop="expireDate"
+                        card-type="content"
                         :label="$t('website.expireDate')"
                         :formatter="dateFormat"
                         show-overflow-tooltip
@@ -222,6 +241,7 @@ const sslCreateRef = ref();
 const detailRef = ref();
 const data = ref();
 const loading = ref(false);
+const viewMode = ref<'table' | 'card'>('table');
 const opRef = ref();
 const sslUploadRef = ref();
 const applyRef = ref();

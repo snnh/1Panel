@@ -32,10 +32,7 @@ build_core_on_linux:
 	cd $(CORE_PATH) \
 	&& CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) $(GOBUILD) -trimpath -ldflags '-s -w' -o $(BUILD_PATH)/$(CORE_NAME) $(CORE_MAIN)
 
-prepare_vm_helper:
-	bash $(AGENT_PATH)/utils/vm/helper/prepare.sh
-
-build_agent_on_linux: prepare_vm_helper
+build_agent_on_linux:
 	cd $(AGENT_PATH) \
     && CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) $(GOBUILD) -trimpath -ldflags '-s -w' -o $(BUILD_PATH)/$(AGENT_NAME) $(AGENT_MAIN)
 
@@ -43,7 +40,7 @@ build_core_on_darwin:
 	cd $(CORE_PATH) \
 	&&  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -trimpath -ldflags '-s -w'  -o $(BUILD_PATH)/$(CORE_NAME) $(CORE_MAIN)
 
-build_agent_on_darwin: prepare_vm_helper
+build_agent_on_darwin:
 	cd $(AGENT_PATH) \
     &&  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -trimpath -ldflags '-s -w'  -o $(BUILD_PATH)/$(AGENT_NAME) $(AGENT_MAIN)
 

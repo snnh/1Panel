@@ -1027,6 +1027,10 @@ func (a AppService) GetAppIcon(key string) ([]byte, string, string, error) {
 		return nil, "", "", err
 	}
 
+	if appicon.IsRemoteURL(app.Icon) {
+		return nil, app.Icon, "", nil
+	}
+
 	if appicon.IsIconFile(app.Icon) {
 		fileName, etag := appicon.ParseIconField(app.Icon)
 		iconBytes, err := appicon.ReadIconFile(fileName)

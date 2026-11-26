@@ -6,6 +6,7 @@ import { DeviceType } from '@/enums/app';
 import i18n, { setActiveLocale } from '@/lang';
 import { isMasterOnlyPermissionCode, setMasterOnlyPermissionCodes, toManageCode } from '@/utils/permission-codes';
 import { clearPageStateCache } from '@/utils/page-state-cache';
+import { defaultPanelCache } from '@/utils/panel-cache';
 
 const CN_DOCS_URL = 'https://github.com/snnh/1Panel/tree/community-dev/docs';
 const INTL_DOCS_URL = 'https://github.com/snnh/1Panel/tree/community-dev/docs';
@@ -25,6 +26,8 @@ const GlobalStore = defineStore('GlobalState', {
         isFullScreen: false,
         openMenuTabs: false,
         menuAccordion: false,
+        panelCache: { ...defaultPanelCache },
+        cacheUserID: '',
         isLoading: false,
         loadingText: '',
         csrfToken: '',
@@ -50,8 +53,9 @@ const GlobalStore = defineStore('GlobalState', {
         masterOnlyPermissions: [],
         isEnterprise: false,
         isIntl: false,
-        docWithRegion: true,
         isFxplay: false,
+        currentNode: 'local',
+        docWithRegion: true,
         isOffline: false,
     }),
     getters: {
@@ -67,6 +71,7 @@ const GlobalStore = defineStore('GlobalState', {
             return isChinese ? CN_DOCS_URL : INTL_DOCS_URL;
         },
         isMobile: (state) => state.device === DeviceType.Mobile,
+        isMaster: (state) => state.currentNode === 'local',
     },
     actions: {
         setScreenFull() {
@@ -83,6 +88,7 @@ const GlobalStore = defineStore('GlobalState', {
         },
         clearAuthInfo() {
             clearPageStateCache();
+            this.cacheUserID = '';
             this.permissions = [];
             this.masterOnlyPermissions = [];
             this.isAdmin = false;

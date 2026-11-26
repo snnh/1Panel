@@ -36,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+import { prunePanelCache } from '@/utils/panel-cache';
 import { onMounted, computed, ref, watch, onBeforeUnmount } from 'vue';
 import { Sidebar, Footer, AppMain, MobileHeader, Tabs } from './components';
 import TerminalHost from '@/components/terminal/host.vue';
@@ -43,7 +44,7 @@ import TerminalDock from '@/components/terminal/dock/index.vue';
 import useResize from './hooks/useResize';
 import { MenuStore, TabsStore } from '@/store';
 import { getSystemAvailable } from '@/api/modules/setting';
-import { useRoute, useRouter } from 'vue-router';
+import { openMenu } from '@/utils/router';
 import { loadBaseDataFromDB } from '@/panel-setting';
 import { useTheme } from '@/global/use-theme';
 import TaskList from '@/components/task-list/index.vue';
@@ -62,8 +63,6 @@ const openTask = () => {
         menuStore.setCollapse();
     }
 };
-const router = useRouter();
-const route = useRoute();
 const menuStore = MenuStore();
 
 const tabsStore = TabsStore();
@@ -74,6 +73,7 @@ const loadingText = computed(() =>
 );
 
 let timer: NodeJS.Timer | null = null;
+let cacheCleanupTimer: ReturnType<typeof setInterval> | undefined;
 
 const classObj = computed(() => {
     return {
@@ -104,9 +104,7 @@ watch(
     },
 );
 const handleMenuClick = async (path) => {
-    await router.push({ path: path });
-    tabsStore.addTab(route);
-    tabsStore.activeTabPath = route.path;
+    await openMenu(path);
 };
 
 const toLogin = () => {
@@ -141,10 +139,12 @@ const loadStatus = async () => {
     }
 };
 onBeforeUnmount(() => {
+    clearInterval(cacheCleanupTimer);
     clearInterval(Number(timer));
     timer = null;
 });
 onMounted(() => {
+    cacheCleanupTimer = setInterval(() => prunePanelCache(), 300000);
     if (openMenuTabs.value && !tabsStore.activeTabPath) {
         handleMenuClick('/');
     }

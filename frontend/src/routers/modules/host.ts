@@ -28,7 +28,20 @@ const hostRouter = {
             component: () => import('@/views/host/monitor/monitor/index.vue'),
             meta: {
                 icon: 'p-system-monitor-menu',
+                activeMenu: '/hosts/monitor/monitor',
                 title: 'menu.monitor',
+                permission: 'host_monitor_view',
+            },
+        },
+        {
+            path: '/hosts/monitor/export',
+            name: 'HostMonitorExport',
+            component: () => import('@/views/host/monitor/export/index.vue'),
+            hidden: true,
+            meta: {
+                activeMenu: '/hosts/monitor/monitor',
+                title: 'menu.monitor',
+                detail: 'commons.button.export',
                 permission: 'host_monitor_view',
             },
         },
@@ -100,6 +113,17 @@ const hostRouter = {
                 icon: 'p-disk-menu',
                 title: 'menu.disk',
                 permission: 'host_disk_view',
+            },
+        },
+        {
+            path: '/hosts/network',
+            name: 'NetworkManage',
+            component: () => import('@/views/host/network/index.vue'),
+            meta: {
+                icon: 'p-exchange-menu',
+                activeMenu: '/hosts/network',
+                title: 'networkManage.title',
+                permission: 'host_network_view',
             },
         },
         {

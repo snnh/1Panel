@@ -2,11 +2,13 @@
     <div>
         <el-card class="router_card p-1 sm:p-0">
             <div class="flex w-full flex-col justify-start sm:items-center items-start sm:justify-between sm:flex-row">
-                <el-radio-group v-model="activeName" @change="handleChange">
+                <el-radio-group :model-value="activeName" @update:model-value="updateActiveName" @change="handleChange">
                     <el-radio-button
                         class="router_card_button"
+                        :class="{ 'opacity-50': button.disabled }"
                         :label="button.label"
                         :value="button.label"
+                        :disabled="button.disabled"
                         v-for="(button, index) in buttonArray"
                         size="large"
                         :key="index"
@@ -25,7 +27,7 @@
 </template>
 
 <script lang="ts" setup>
-import { routerToNameWithQuery, routerToPathWithQuery } from '@/utils/router';
+import { openPage } from '@/utils/router';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { hasPermissionMetaAccess, hasRouteAccess } from '@/utils/rbac';
@@ -40,6 +42,10 @@ const props = defineProps({
     showExpiresAt: {
         type: Boolean,
         default: false,
+    },
+    activePath: {
+        type: String,
+        default: '',
     },
 });
 
@@ -59,12 +65,22 @@ const buttonArray = computed(() => {
 
 const activeName = ref('');
 
-const handleChange = (label: string) => {
+const updateActiveName = (label: string | number | boolean) => {
+    if (!props.activePath) activeName.value = String(label);
+};
+
+const handleChange = async (label: string) => {
     const btn = buttonArray.value.find((btn) => btn.label === label);
-    if (!btn) return;
-    if (btn.path) routerToPathWithQuery(btn.path, { uncached: 'true' });
-    else if (btn.name) routerToNameWithQuery(btn.name, { uncached: 'true' });
-    activeName.value = btn.label;
+    if (!btn || btn.disabled) {
+        syncActiveName();
+        return;
+    }
+    try {
+        if (btn.path) await openPage({ path: btn.path });
+        else if (btn.name) await openPage({ name: btn.name });
+    } finally {
+        syncActiveName();
+    }
 };
 
 onMounted(() => {
@@ -72,7 +88,10 @@ onMounted(() => {
 });
 
 watch(
-    () => [router.currentRoute.value.path, buttonArray.value.map((button) => button.label).join('|')],
+    () => [
+        props.activePath || router.currentRoute.value.path,
+        buttonArray.value.map((button) => button.label).join('|'),
+    ],
     () => {
         syncActiveName();
     },
@@ -83,19 +102,11 @@ function syncActiveName() {
         activeName.value = '';
         return;
     }
-    if (buttonArray.value.length) {
-        let isPathExist = false;
-        const btn = buttonArray.value.find((btn) => {
-            return btn.path && router.currentRoute.value.path.startsWith(btn.path);
-        });
-        if (btn) {
-            isPathExist = true;
-            activeName.value = btn.label;
-        }
-        if (!isPathExist) {
-            activeName.value = buttonArray.value[0].label;
-        }
-    }
+    const route = props.activePath ? router.resolve(props.activePath) : router.currentRoute.value;
+    const button = buttonArray.value.find((item) =>
+        item.path ? route.path.startsWith(item.path) : item.name && route.name === item.name,
+    );
+    activeName.value = button?.label ?? buttonArray.value[0].label;
 }
 </script>
 

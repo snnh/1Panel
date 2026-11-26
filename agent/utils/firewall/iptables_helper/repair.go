@@ -9,16 +9,20 @@ import (
 
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
+	"github.com/1Panel-dev/1Panel/agent/utils/firewall"
 	"github.com/1Panel-dev/1Panel/agent/utils/firewall/filter"
 	"github.com/1Panel-dev/1Panel/agent/utils/firewall/lifecycle"
 )
 
-func (m *Manager) RepairBaseChains() error {
+func RepairBaseChains(ports []firewall.PortWhitelist, families ...string) error {
+	if len(families) == 0 {
+		families = []string{constant.FirewallFamilyIPv4, constant.FirewallFamilyIPv6}
+	}
 	commands, err := lifecycle.ResolveIptablesCommands()
 	if err != nil {
 		return err
 	}
-	for _, family := range []string{constant.FirewallFamilyIPv4, constant.FirewallFamilyIPv6} {
+	for _, family := range families {
 		ipv6 := family == constant.FirewallFamilyIPv6
 		run, executable := RunWithStd, commands.Restore4
 		if ipv6 {
@@ -35,10 +39,6 @@ func (m *Manager) RepairBaseChains() error {
 			return err
 		}
 		script, err := buildBaseChainsRepairScript(global.Dir.FirewallDir, output, ipv6, func() ([]string, error) {
-			ports, err := m.loadRequiredPorts()
-			if err != nil {
-				return nil, err
-			}
 			return baseDefaultRules(ports, family)
 		})
 		if err != nil {

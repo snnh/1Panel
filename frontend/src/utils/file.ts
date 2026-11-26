@@ -141,14 +141,20 @@ export function downloadFile(filePath: string) {
     window.open(buildFileDownloadUrl(filePath), '_blank');
 }
 
-export function downloadWithContent(content: string, fileName: string) {
-    const downloadUrl = window.URL.createObjectURL(new Blob([content]));
+export function downloadBlob(content: string | Uint8Array<ArrayBuffer> | Blob, fileName: string, type?: string) {
+    const downloadUrl = window.URL.createObjectURL(content instanceof Blob ? content : new Blob([content], { type }));
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = downloadUrl;
     a.download = fileName;
     const event = new MouseEvent('click');
     a.dispatchEvent(event);
+    // revoke asynchronously: revoking right after the click can cancel the download in some browsers
+    setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
+}
+
+export function downloadWithContent(content: string, fileName: string) {
+    downloadBlob(content, fileName);
 }
 
 const editorLanguages = new Map(

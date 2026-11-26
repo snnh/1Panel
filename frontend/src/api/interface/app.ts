@@ -1,7 +1,11 @@
 import { ReqPage, CommonModel } from '.';
 
 export namespace App {
+    export interface LocalAppSyncConfig {
+        enabled: boolean;
+    }
     export interface App extends CommonModel {
+        clusterOnly?: boolean;
         name: string;
         icon?: string;
         key: string;
@@ -39,6 +43,7 @@ export namespace App {
 
     export interface AppItem {
         name: string;
+        icon?: string;
         key: string;
         id: number;
         description: string;
@@ -95,6 +100,8 @@ export namespace App {
         required: boolean;
         default: any;
         envKey: string;
+        disabled?: boolean;
+        rule?: string;
         key?: string;
         values?: ServiceParam[];
         child?: FromFieldChild;
@@ -123,6 +130,9 @@ export namespace App {
     }
 
     export interface AppInstall {
+        syncModelAccount?: boolean;
+        modelAccountBaseURLType?: string;
+        modelAccountBaseURL?: string;
         appDetailId: number;
         params: any;
         taskID: string;
@@ -130,6 +140,7 @@ export namespace App {
     }
 
     export interface AppInstallSearch extends ReqPage {
+        appStore?: boolean;
         name?: string;
         tags?: string[];
         update?: boolean;
@@ -165,6 +176,12 @@ export namespace App {
         version?: string;
     }
 
+    export interface ClusterReplicaSource {
+        host: string;
+        port: number;
+        internal: boolean;
+    }
+
     export interface AppInstalledInfo {
         id: number;
         name: string;
@@ -178,6 +195,7 @@ export namespace App {
     }
 
     export interface AppInstallDto {
+        taskID?: string;
         id: number;
         name: string;
         appID: number;
@@ -211,9 +229,12 @@ export namespace App {
     }
 
     export interface CheckInstalled {
+        taskID?: string;
         name: string;
         version: string;
         isExist: boolean;
+        modelAccountBaseURLType: string;
+        modelAccountBaseURL: string;
         app: string;
         status: string;
         createdAt: string;
@@ -267,8 +288,11 @@ export namespace App {
     }
 
     export interface VersionDetail {
+        feishuLegacy?: boolean;
+        feishuConfigured?: boolean;
         version: string;
         detailId: number;
+        dockerCompose?: string;
     }
 
     export interface InstallParams {
@@ -288,8 +312,15 @@ export namespace App {
     }
 
     export interface AppConfig {
+        appKey: string;
+        name: string;
+        httpPort: number;
+        syncModelAccount: boolean;
+        modelAccountBaseURLType: string;
+        modelAccountBaseURL: string;
         params: InstallParams[];
         rawCompose?: string;
+        isEdit?: boolean;
         cpuQuota: number;
         memoryLimit: number;
         memoryUnit: string;
@@ -313,6 +344,7 @@ export namespace App {
     export interface AppUpdateVersionReq {
         appInstallID: number;
         updateVersion?: string;
+        loadCompose?: boolean;
     }
 
     export interface AppIgnoreReq {

@@ -13,6 +13,7 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/app/model"
 	"github.com/1Panel-dev/1Panel/agent/app/task"
 	"github.com/1Panel-dev/1Panel/agent/global"
+	"github.com/distribution/reference"
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -26,8 +27,18 @@ import (
 var ErrUnavailable = errors.New("Docker is unavailable")
 
 func NewDockerClient() (*client.Client, error) {
+	return NewDockerClientWithContext(context.Background())
+}
+
+func NewDockerClientWithContext(ctx context.Context) (*client.Client, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var settingItem model.Setting
-	_ = global.DB.Where("key = ?", "DockerSockPath").First(&settingItem).Error
+	_ = global.DB.WithContext(ctx).Where("key = ?", "DockerSockPath").First(&settingItem).Error
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if len(settingItem.Value) == 0 {
 		settingItem.Value = "unix:///var/run/docker.sock"
 	}
@@ -39,12 +50,11 @@ func NewDockerClient() (*client.Client, error) {
 }
 
 func NewClient() (Client, error) {
-	var settingItem model.Setting
-	_ = global.DB.Where("key = ?", "DockerSockPath").First(&settingItem).Error
-	if len(settingItem.Value) == 0 {
-		settingItem.Value = "unix:///var/run/docker.sock"
-	}
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithHost(settingItem.Value), client.WithAPIVersionNegotiation())
+	return NewClientWithContext(context.Background())
+}
+
+func NewClientWithContext(ctx context.Context) (Client, error) {
+	cli, err := NewDockerClientWithContext(ctx)
 	if err != nil {
 		return Client{}, err
 	}
@@ -66,6 +76,18 @@ type Client struct {
 
 func (c Client) Close() {
 	_ = c.cli.Close()
+}
+
+// ContainerStateError may be empty when the application itself exits unsuccessfully.
+func (c Client) ContainerStateError(ctx context.Context, containerID string) (string, error) {
+	info, err := c.cli.ContainerInspect(ctx, containerID)
+	if err != nil {
+		return "", err
+	}
+	if info.ContainerJSONBase == nil || info.State == nil {
+		return "", nil
+	}
+	return info.State.Error, nil
 }
 
 func (c Client) ListContainersByName(names []string) ([]container.Summary, error) {
@@ -95,11 +117,15 @@ func (c Client) ListContainersByName(names []string) ([]container.Summary, error
 	return res, nil
 }
 func (c Client) ListAllContainers() ([]container.Summary, error) {
+	return c.ListAllContainersWithContext(context.Background())
+}
+
+func (c Client) ListAllContainersWithContext(ctx context.Context) ([]container.Summary, error) {
 	var (
 		options container.ListOptions
 	)
 	options.All = true
-	containers, err := c.cli.ContainerList(context.Background(), options)
+	containers, err := c.cli.ContainerList(ctx, options)
 	if err != nil {
 		return nil, err
 	}
@@ -197,12 +223,24 @@ func setLog(id, newLastLine string, task *task.Task) error {
 }
 
 func (c Client) PullImageWithProcessAndOptions(task *task.Task, imageName string, options image.PullOptions) error {
-	out, err := c.cli.ImagePull(context.Background(), imageName, options)
+	return c.PullImageWithProcessAndOptionsContext(context.Background(), task, imageName, options)
+}
+
+func (c Client) PullImageWithProcessAndOptionsContext(ctx context.Context, task *task.Task, imageName string, options image.PullOptions) error {
+	ctx, cancel := context.WithTimeout(ctx, 24*time.Hour)
+	defer cancel()
+	out, err := c.cli.ImagePull(ctx, imageName, options)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-	return handlePullImageProcess(out, task)
+	stopClose := context.AfterFunc(ctx, func() { _ = out.Close() })
+	defer stopClose()
+	err = handlePullImageProcess(out, task)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return err
 }
 
 func handlePullImageProcess(out io.Reader, task *task.Task) error {
@@ -319,11 +357,15 @@ func (c Client) BuildImageWithProcessAndOptions(task *task.Task, tar io.ReadClos
 }
 
 func (c Client) PullImageWithProcess(task *task.Task, imageName string) error {
+	return c.PullImageWithProcessContext(context.Background(), task, imageName)
+}
+
+func (c Client) PullImageWithProcessContext(ctx context.Context, task *task.Task, imageName string) error {
 	options := image.PullOptions{}
-	if authStr, ok := loadRegistryAuthFromDockerConfig(imageName); ok {
+	if authStr, ok := RegistryAuthForImage(imageName); ok {
 		options.RegistryAuth = authStr
 	}
-	return c.PullImageWithProcessAndOptions(task, imageName, options)
+	return c.PullImageWithProcessAndOptionsContext(ctx, task, imageName, options)
 }
 
 func logProcess(progress map[string]interface{}, task *task.Task) {
@@ -342,26 +384,31 @@ func PullImage(imageName string) error {
 	}
 	defer cli.Close()
 	options := image.PullOptions{}
-	if authStr, ok := loadRegistryAuthFromDockerConfig(imageName); ok {
+	if authStr, ok := RegistryAuthForImage(imageName); ok {
 		options.RegistryAuth = authStr
 	}
-	if _, err := cli.ImagePull(context.Background(), imageName, options); err != nil {
+	out, err := cli.ImagePull(context.Background(), imageName, options)
+	if err != nil {
 		return err
 	}
-	return nil
+	defer out.Close()
+	return handlePullImageProcess(out, nil)
 }
 
-func loadRegistryAuthFromDockerConfig(imageName string) (string, bool) {
-	registryHost, hasRegistry := extractRegistryHost(imageName)
+func RegistryAuthForImage(imageName string) (string, bool) {
+	named, err := reference.ParseNormalizedNamed(imageName)
+	if err != nil {
+		return "", false
+	}
+	registryHost := normalizeRegistryHost(reference.Domain(named))
 	cfg := config.LoadDefaultConfigFile(io.Discard)
 	if cfg == nil {
 		return "", false
 	}
 	candidates := make([]string, 0)
-	if hasRegistry {
+	if !isDockerHubRegistry(registryHost) {
 		candidates = append(candidates, registryHost, "https://"+registryHost, "http://"+registryHost)
-	}
-	if !hasRegistry || isDockerHubRegistry(registryHost) {
+	} else {
 		candidates = append(candidates,
 			"https://index.docker.io/v1/",
 			"index.docker.io",
@@ -409,18 +456,6 @@ func isDockerHubRegistry(host string) bool {
 	default:
 		return false
 	}
-}
-
-func extractRegistryHost(imageName string) (string, bool) {
-	parts := strings.Split(imageName, "/")
-	if len(parts) < 2 {
-		return "", false
-	}
-	first := parts[0]
-	if strings.Contains(first, ".") || strings.Contains(first, ":") || first == "localhost" {
-		return normalizeRegistryHost(first), true
-	}
-	return "", false
 }
 
 func normalizeRegistryHost(registryKey string) string {

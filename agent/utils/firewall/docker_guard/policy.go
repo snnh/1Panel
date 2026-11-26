@@ -2,9 +2,10 @@ package docker_guard
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,151 +13,117 @@ import (
 	"github.com/mattn/go-shellwords"
 )
 
-var ErrInvalidPolicy = errors.New("invalid Docker port guard request")
-
-func NormalizePolicy(policy Policy) (Policy, error) {
-	policy.Family = strings.ToLower(strings.TrimSpace(policy.Family))
-	policy.HostIP = strings.TrimSpace(policy.HostIP)
-	policy.Protocol = strings.ToLower(strings.TrimSpace(policy.Protocol))
-	policy.Mode = strings.ToLower(strings.TrimSpace(policy.Mode))
-	if policy.HostPort == 0 ||
-		(policy.Protocol != "tcp" && policy.Protocol != "udp") ||
-		(policy.Family != FamilyIPv4 && policy.Family != FamilyIPv6) ||
-		(policy.Mode != ModeAll && policy.Mode != ModeSources && policy.Mode != ModeAllow) {
-		return Policy{}, fmt.Errorf("%w: invalid policy fields", ErrInvalidPolicy)
-	}
-	address, err := netip.ParseAddr(policy.HostIP)
-	if err != nil || (policy.Family == FamilyIPv4) != address.Is4() {
-		return Policy{}, fmt.Errorf("%w: host IP does not match address family", ErrInvalidPolicy)
-	}
-	normalizedSources := make([]string, 0, len(policy.Sources))
-	seen := make(map[string]struct{}, len(policy.Sources))
-	for _, source := range policy.Sources {
-		source = strings.TrimSpace(source)
-		if source == "" {
-			continue
-		}
-		prefix, err := netip.ParsePrefix(source)
-		if err != nil {
-			if sourceAddress, addressErr := netip.ParseAddr(source); addressErr == nil {
-				bits := 128
-				if sourceAddress.Is4() {
-					bits = 32
-				}
-				prefix = netip.PrefixFrom(sourceAddress, bits)
-			} else {
-				return Policy{}, fmt.Errorf("%w: invalid source address %q", ErrInvalidPolicy, source)
-			}
-		}
-		if (policy.Family == FamilyIPv4) != prefix.Addr().Is4() {
-			return Policy{}, fmt.Errorf("%w: source %q does not match address family", ErrInvalidPolicy, source)
-		}
-		canonical := prefix.Masked().String()
-		if _, exists := seen[canonical]; !exists {
-			seen[canonical] = struct{}{}
-			normalizedSources = append(normalizedSources, canonical)
-		}
-	}
-	if policy.Mode != ModeAll && len(normalizedSources) == 0 {
-		return Policy{}, fmt.Errorf("%w: source-based modes require at least one source", ErrInvalidPolicy)
-	}
-	if policy.Mode == ModeAll {
-		normalizedSources = []string{}
-	}
-	sort.Strings(normalizedSources)
-	policy.Sources = normalizedSources
-	return policy, nil
-}
-
-func NormalizePolicyUUIDs(values []string) ([]string, error) {
-	uuids := make([]string, 0, len(values))
-	seen := make(map[string]struct{}, len(values))
-	for _, policyUUID := range values {
-		policyUUID = strings.TrimSpace(policyUUID)
-		if policyUUID == "" {
-			return nil, fmt.Errorf("%w: policy UUID cannot be empty", ErrInvalidPolicy)
-		}
-		if _, exists := seen[policyUUID]; exists {
-			continue
-		}
-		seen[policyUUID] = struct{}{}
-		uuids = append(uuids, policyUUID)
-	}
-	if len(uuids) == 0 {
-		return nil, fmt.Errorf("%w: policy UUIDs cannot be empty", ErrInvalidPolicy)
-	}
-	return uuids, nil
-}
-
-func PolicySyncKey(policy Policy) string {
-	mode := policy.Mode
-	if mode == ModeAllow && len(policy.Sources) == 0 {
-		mode = ModeAll
-	}
-	sources := make([]string, 0, len(policy.Sources))
-	for _, source := range policy.Sources {
-		sources = append(sources, canonicalPolicySource(source))
-	}
-	sort.Strings(sources)
-	return strings.Join([]string{
-		policy.UUID, policy.Family, CanonicalHost(policy.HostIP), strconv.Itoa(int(policy.HostPort)),
-		policy.Protocol, mode, strings.Join(sources, ","),
-	}, "\x00")
-}
-
-func canonicalPolicySource(value string) string {
-	value = strings.TrimSpace(value)
-	if prefix, err := netip.ParsePrefix(value); err == nil {
-		return prefix.Masked().String()
-	}
-	if address, err := netip.ParseAddr(value); err == nil {
-		address = address.Unmap()
-		return netip.PrefixFrom(address, address.BitLen()).String()
-	}
-	return value
-}
-
-func PolicyStatesEqual(left, right []Policy) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	counts := make(map[string]int, len(left))
-	for _, policy := range left {
-		counts[PolicySyncKey(policy)]++
-	}
-	for _, policy := range right {
-		key := PolicySyncKey(policy)
-		if counts[key] == 0 {
-			return false
-		}
-		counts[key]--
-	}
-	return true
-}
-
-func CanonicalHost(value string) string {
-	if address, err := netip.ParseAddr(value); err == nil {
-		return address.String()
-	}
-	return value
-}
-
-func DecodeSources(value string) []string {
-	result := []string{}
-	_ = json.Unmarshal([]byte(value), &result)
-	return result
-}
-
 type observedPolicy struct {
 	policy         Policy
-	sequence       int64
-	nativeRules    []NativeRule
-	managedOrders  []int64
+	orders         []int64
 	dropAll        bool
 	droppedSource  []string
 	allowedSource  []string
 	acceptedSource []string
 	acceptAll      bool
+}
+
+func ConvertPolicyBackend(policy Policy, sourceBackend, targetBackend string) (Policy, error) {
+	compiled := make(map[string][][]string, 2)
+	for _, backend := range []string{sourceBackend, targetBackend} {
+		switch backend {
+		case "iptables":
+			compiled[backend] = compilePolicy(policy)
+		case "nftables":
+			compiled[backend] = compileNftPolicy(policy)
+			for i := range compiled[backend] {
+				compiled[backend][i] = compiled[backend][i][5:]
+			}
+		default:
+			return Policy{}, fmt.Errorf("unsupported Docker firewall backend %q", backend)
+		}
+	}
+	if len(policy.NativeRules) == 0 {
+		return policy, nil
+	}
+	sourceRules, targetRules := compiled[sourceBackend], compiled[targetBackend]
+	if len(policy.NativeRules) != len(sourceRules) {
+		return Policy{}, fmt.Errorf("Docker policy %s contains native rules that cannot be converted from %s to %s", policy.UUID, sourceBackend, targetBackend)
+	}
+	byRule := make(map[string]int, len(sourceRules))
+	for index, rule := range sourceRules {
+		byRule[dockerPolicyRuleKey(rule, sourceBackend)] = index
+	}
+	converted := make([]NativeRule, 0, len(policy.NativeRules))
+	for _, native := range policy.NativeRules {
+		key := dockerPolicyRuleKey(native.Tokens, sourceBackend)
+		index, exists := byRule[key]
+		if !exists || native.Family != policy.Family {
+			return Policy{}, fmt.Errorf("Docker policy %s contains native conditions that cannot be converted from %s to %s", policy.UUID, sourceBackend, targetBackend)
+		}
+		delete(byRule, key)
+		tokens := append([]string(nil), targetRules[index]...)
+		for i, token := range tokens {
+			if unquoted, err := strconv.Unquote(token); err == nil {
+				tokens[i] = unquoted
+			}
+		}
+		converted = append(converted, NativeRule{Family: native.Family, Order: native.Order, Tokens: tokens})
+	}
+	policy.NativeRules = converted
+	return policy, nil
+}
+
+func dockerPolicyRuleKey(tokens []string, backend string) string {
+	tokens = nativeRuleTokens(tokens)
+	if backend == "iptables" {
+		if len(tokens)%2 != 0 {
+			return ""
+		}
+		protocol := ""
+		if index := slices.Index(tokens, "-p"); index >= 0 && index+1 < len(tokens) {
+			protocol = tokens[index+1]
+		}
+		parts := make([]string, 0, len(tokens)/2)
+		for i := 0; i < len(tokens); i += 2 {
+			option, value := tokens[i], tokens[i+1]
+			if option == "-m" && value == protocol && (value == "tcp" || value == "udp") {
+				continue
+			}
+			if option == "--ctorigdst" {
+				value = normalizeObservedHost(value)
+			}
+			if option == "-s" {
+				if address, err := netip.ParseAddr(value); err == nil {
+					value = netip.PrefixFrom(address, address.BitLen()).String()
+				} else if prefix, err := netip.ParsePrefix(value); err == nil {
+					if prefix.Bits() == 0 {
+						continue
+					}
+					value = prefix.Masked().String()
+				}
+			}
+			parts = append(parts, option+"\x00"+value)
+		}
+		sort.Strings(parts)
+		return strings.Join(parts, "\x01")
+	}
+	parts := make([]string, 0, len(tokens))
+	for i, token := range tokens {
+		if token == "counter" {
+			continue
+		}
+		if unquoted, err := strconv.Unquote(token); err == nil {
+			token = unquoted
+		}
+		if i > 0 && tokens[i-1] == "daddr" {
+			token = normalizeObservedHost(token)
+		}
+		if i > 0 && tokens[i-1] == "saddr" {
+			if address, err := netip.ParseAddr(token); err == nil {
+				token = netip.PrefixFrom(address, address.BitLen()).String()
+			} else if prefix, err := netip.ParsePrefix(token); err == nil {
+				token = prefix.Masked().String()
+			}
+		}
+		parts = append(parts, token)
+	}
+	return strings.Join(parts, "\x00")
 }
 
 func parseDockerGuardPolicies(output, family string) (PolicyInventory, error) {
@@ -172,34 +139,33 @@ func parseDockerGuardPolicies(output, family string) (PolicyInventory, error) {
 		if err != nil {
 			return PolicyInventory{}, fmt.Errorf("parse Docker guard rule: %w", err)
 		}
-		managed := strings.Contains(line, "1panel-docker:")
-		if !managed && !hasAcceptAction(tokens) {
-			continue
-		}
 		sequence++
 		fragment, source, action, err := parseDockerGuardRuleTokens(tokens, family)
 		if err != nil {
 			return PolicyInventory{}, err
 		}
-		identity := fragment.UUID
-		if action == "accept" {
-			identity = action
+		if action == "" || (fragment.HostPort == 0 && action == "return") {
+			continue
 		}
-		key := strings.Join([]string{identity, fragment.Family, fragment.HostIP, strconv.Itoa(int(fragment.HostPort)), fragment.Protocol}, "|")
+		key := strings.Join([]string{fragment.UUID, fragment.Family, fragment.HostIP, strconv.Itoa(int(fragment.HostPort)), fragment.Protocol}, "|")
 		group, exists := groups[key]
 		if !exists {
-			group = &observedPolicy{policy: fragment, sequence: sequence}
+			group = &observedPolicy{policy: fragment}
 			groups[key] = group
 			order = append(order, key)
 		}
 		switch {
 		case action == "accept" && source != "":
 			group.acceptedSource = append(group.acceptedSource, source)
-			group.nativeRules = append(group.nativeRules, NativeRule{Family: family, Order: sequence, Tokens: nativeRuleTokens(tokens)})
 		case action == "accept":
 			group.acceptAll = true
-			group.nativeRules = append(group.nativeRules, NativeRule{Family: family, Order: sequence, Tokens: nativeRuleTokens(tokens)})
-		case action == "return" && source != "":
+		case action == "return":
+			if source == "" {
+				source = "0.0.0.0/0"
+				if family == FamilyIPv6 {
+					source = "::/0"
+				}
+			}
 			group.allowedSource = append(group.allowedSource, source)
 		case action == "drop" && source != "":
 			group.droppedSource = append(group.droppedSource, source)
@@ -208,21 +174,19 @@ func parseDockerGuardPolicies(output, family string) (PolicyInventory, error) {
 		default:
 			return PolicyInventory{}, fmt.Errorf("unsupported Docker guard rule action %q", action)
 		}
-		if action != "accept" {
-			group.managedOrders = append(group.managedOrders, sequence)
-		}
+		group.policy.NativeRules = append(group.policy.NativeRules, NativeRule{Family: family, Order: sequence, Tokens: nativeRuleTokens(tokens)})
+		group.orders = append(group.orders, sequence)
 	}
-	inventory := PolicyInventory{Policies: make([]Policy, 0, len(order)), ManagedRuleOrders: make(map[string][]int64)}
+	inventory := PolicyInventory{Policies: make([]Policy, 0, len(order)), RuleOrders: make(map[string][]int64)}
 	for _, key := range order {
 		group := groups[key]
-		if group.acceptAll || len(group.acceptedSource) > 0 {
-			group.policy.Sources = uniqueSortedStrings(group.acceptedSource)
-			inventory.ReadOnly = append(inventory.ReadOnly, ReadOnlyPolicy{
-				Policy: group.policy, Action: "accept", Sequence: group.sequence, NativeRules: group.nativeRules,
-			})
-			continue
-		}
 		switch {
+		case group.acceptAll:
+			group.policy.Mode = ModeAcceptAll
+			group.policy.Sources = []string{}
+		case len(group.acceptedSource) > 0:
+			group.policy.Mode = ModeAcceptSources
+			group.policy.Sources = uniqueSortedStrings(group.acceptedSource)
 		case len(group.allowedSource) > 0:
 			group.policy.Mode = ModeAllow
 			group.policy.Sources = uniqueSortedStrings(group.allowedSource)
@@ -234,8 +198,16 @@ func parseDockerGuardPolicies(output, family string) (PolicyInventory, error) {
 		default:
 			return PolicyInventory{}, fmt.Errorf("Docker guard policy %s has no effective rules", group.policy.UUID)
 		}
+		if _, err := uuid.Parse(group.policy.UUID); err != nil {
+			rules := make([][]string, 0, len(group.policy.NativeRules))
+			for _, rule := range group.policy.NativeRules {
+				rules = append(rules, rule.Tokens)
+			}
+			fingerprint, _ := json.Marshal(rules)
+			group.policy.UUID = uuid.NewSHA1(uuid.NameSpaceOID, append([]byte(family+"\x00"), fingerprint...)).String()
+		}
 		inventory.Policies = append(inventory.Policies, group.policy)
-		inventory.ManagedRuleOrders[managedOrderKey(group.policy.Family, group.policy.UUID)] = append([]int64(nil), group.managedOrders...)
+		inventory.RuleOrders[group.policy.Family+"\x00"+group.policy.UUID] = append([]int64(nil), group.orders...)
 	}
 	return inventory, nil
 }
@@ -260,12 +232,11 @@ func nativeRuleTokens(tokens []string) []string {
 	return result
 }
 
-func managedOrderKey(family, policyUUID string) string {
-	return family + "\x00" + policyUUID
-}
-
 func parseDockerGuardRuleTokens(tokens []string, family string) (Policy, string, string, error) {
-	policy := Policy{Family: family, HostIP: wildcardHost(family)}
+	policy := Policy{Family: family, HostIP: "0.0.0.0"}
+	if family == FamilyIPv6 {
+		policy.HostIP = "::"
+	}
 	source, action := "", ""
 	for index := 0; index < len(tokens); index++ {
 		switch tokens[index] {
@@ -317,38 +288,22 @@ func parseDockerGuardRuleTokens(tokens []string, family string) (Policy, string,
 				policy.HostPort = parsePolicyPort(nextPolicyToken(tokens, index+1))
 			}
 		case "accept", "drop", "return":
-			if isCommentValue(tokens, index) {
+			if index > 0 && (tokens[index-1] == "comment" || tokens[index-1] == "--comment") {
 				continue
 			}
 			action = tokens[index]
 		}
 	}
-	if action == "" || (action != "accept" && (policy.UUID == "" || policy.Protocol == "" || policy.HostPort == 0)) {
+	if action != "accept" && action != "drop" && action != "return" {
+		return policy, "", "", nil
+	}
+	if action == "drop" && (policy.Protocol == "" || policy.HostPort == 0) {
 		return Policy{}, "", "", fmt.Errorf("incomplete 1Panel Docker guard rule")
 	}
 	if action == "accept" && policy.Protocol == "" {
 		policy.Protocol = "all"
 	}
 	return policy, source, action, nil
-}
-
-func hasAcceptAction(tokens []string) bool {
-	for index, token := range tokens {
-		if token == "-j" && strings.EqualFold(nextPolicyToken(tokens, index), "accept") {
-			return true
-		}
-		if strings.EqualFold(token, "accept") && !isCommentValue(tokens, index) {
-			return true
-		}
-	}
-	return false
-}
-
-func isCommentValue(tokens []string, index int) bool {
-	if index == 0 {
-		return false
-	}
-	return tokens[index-1] == "comment" || tokens[index-1] == "--comment"
 }
 
 func normalizeObservedHost(value string) string {
@@ -373,13 +328,6 @@ func parsePolicyPort(value string) uint16 {
 	return uint16(port)
 }
 
-func wildcardHost(family string) string {
-	if family == FamilyIPv6 {
-		return "::"
-	}
-	return "0.0.0.0"
-}
-
 func uniqueSortedStrings(values []string) []string {
 	seen := make(map[string]struct{}, len(values))
 	result := make([]string, 0, len(values))
@@ -392,4 +340,18 @@ func uniqueSortedStrings(values []string) []string {
 	}
 	sort.Strings(result)
 	return result
+}
+
+type orderedPolicyRule struct {
+	order int64
+	rule  []string
+}
+
+func sortPolicyRules(segments []orderedPolicyRule) [][]string {
+	sort.SliceStable(segments, func(i, j int) bool { return segments[i].order < segments[j].order })
+	rules := make([][]string, 0, len(segments))
+	for _, segment := range segments {
+		rules = append(rules, segment.rule)
+	}
+	return rules
 }

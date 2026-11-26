@@ -8,7 +8,6 @@ type ServerConfig struct {
 
 type Base struct {
 	Port         string `mapstructure:"port"`
-	IsFxplay     bool   `mapstructure:"is_fxplay"`
 	IsEnterprise bool   `mapstructure:"is_enterprise"`
 	Edition      string `mapstructure:"edition"` // [ cn / intl]
 	Version      string `mapstructure:"version"`

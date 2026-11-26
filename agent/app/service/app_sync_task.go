@@ -142,6 +142,7 @@ type appWorkResult struct {
 	iconStatus int
 	hadIcon    bool
 	httpFailed bool
+	Details    []model.AppDetail
 }
 
 func (c *appSyncContext) processOneApp(item appWorkItem) appWorkResult {
@@ -215,6 +216,7 @@ func (c *appSyncContext) processOneApp(item appWorkItem) appWorkResult {
 	}
 	app.Details = newDetails
 
+	result.Details = newDetails
 	result.app = app
 	return result
 }

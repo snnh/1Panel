@@ -4,7 +4,7 @@
             <ComplexTable :pagination-config="paginationConfig" :data="data" @search="search">
                 <el-table-column :label="$t('file.path')" show-overflow-tooltip prop="path">
                     <template #default="{ row }">
-                        <el-tooltip class="box-item" effect="dark" :content="row.path" placement="top">
+                        <el-tooltip class="box-item" effect="dark" :content="row.path" v-bind="TABLE_TOOLTIP_OPTIONS">
                             <span class="table-link text-ellipsis" @click="toFavorite(row)" type="primary">
                                 <svg-icon v-if="row.isDir" className="table-icon" iconName="p-file-folder"></svg-icon>
                                 <svg-icon v-else className="table-icon" iconName="p-file-normal"></svg-icon>
@@ -20,6 +20,8 @@
 </template>
 
 <script setup lang="ts">
+import { TABLE_TOOLTIP_OPTIONS } from '@/components/table/shared';
+import { readCachedPageSize } from '@/utils/panel-cache';
 import { searchFavorite, removeFavorite } from '@/api/modules/files';
 import i18n from '@/lang';
 import { reactive, ref } from 'vue';
@@ -28,7 +30,7 @@ import { File } from '@/api/interface/file';
 const paginationConfig = reactive({
     cacheSizeKey: 'favorite-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('favorite-page-size')) || 20,
+    pageSize: readCachedPageSize('favorite-page-size') || 20,
     total: 0,
 });
 const req = reactive({

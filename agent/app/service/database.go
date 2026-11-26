@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/1Panel-dev/1Panel/agent/app/dto"
 	"github.com/1Panel-dev/1Panel/agent/app/repo"
 	"github.com/1Panel-dev/1Panel/agent/buserr"
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
+	"github.com/1Panel-dev/1Panel/agent/utils/cmd"
 	"github.com/1Panel-dev/1Panel/agent/utils/encrypt"
 	"github.com/1Panel-dev/1Panel/agent/utils/mysql"
 	"github.com/1Panel-dev/1Panel/agent/utils/mysql/client"
@@ -126,13 +128,16 @@ func (u *DatabaseService) LoadItems(dbType string) ([]dto.DatabaseItem, error) {
 }
 
 func (u *DatabaseService) CheckDatabase(req dto.DatabaseCreate) bool {
+	if (req.Type == constant.AppMysql || req.Type == constant.AppMariaDB || req.Type == constant.AppPostgresql || req.Type == constant.AppMongodb) && (cmd.CheckIllegal(req.Username, req.Password) || strings.Contains(req.Password, " ")) {
+		return false
+	}
 	if req.Timeout == 0 {
 		req.Timeout = 30
 	}
 	var err error
 	switch req.Type {
 	case constant.AppPostgresql:
-		_, err = postgresql.NewPostgresqlClient(pgclient.DBInfo{
+		pgClient, connectErr := postgresql.NewPostgresqlClient(pgclient.DBInfo{
 			From:      "remote",
 			Address:   req.Address,
 			Port:      req.Port,
@@ -141,6 +146,10 @@ func (u *DatabaseService) CheckDatabase(req dto.DatabaseCreate) bool {
 			Password:  req.Password,
 			Timeout:   req.Timeout,
 		})
+		if connectErr == nil {
+			pgClient.Close()
+		}
+		err = connectErr
 	case constant.AppRedis:
 		_, err = redisclient.NewRedisClient(redisclient.DBInfo{
 			Address:  req.Address,
@@ -180,6 +189,9 @@ func (u *DatabaseService) CheckDatabase(req dto.DatabaseCreate) bool {
 }
 
 func (u *DatabaseService) Create(req dto.DatabaseCreate) error {
+	if (req.Type == constant.AppMysql || req.Type == constant.AppMariaDB || req.Type == constant.AppPostgresql || req.Type == constant.AppMongodb) && (cmd.CheckIllegal(req.Username, req.Password) || strings.Contains(req.Password, " ")) {
+		return buserr.New("ErrCmdIllegal")
+	}
 	if req.Timeout == 0 {
 		req.Timeout = 30
 	}
@@ -192,7 +204,7 @@ func (u *DatabaseService) Create(req dto.DatabaseCreate) error {
 	}
 	switch req.Type {
 	case constant.AppPostgresql:
-		if _, err := postgresql.NewPostgresqlClient(pgclient.DBInfo{
+		pgClient, err := postgresql.NewPostgresqlClient(pgclient.DBInfo{
 			From:      "remote",
 			Address:   req.Address,
 			Port:      req.Port,
@@ -200,9 +212,11 @@ func (u *DatabaseService) Create(req dto.DatabaseCreate) error {
 			Username:  req.Username,
 			Password:  req.Password,
 			Timeout:   req.Timeout,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
+		pgClient.Close()
 	case constant.AppRedis:
 		if _, err := redisclient.NewRedisClient(redisclient.DBInfo{
 			Address:  req.Address,
@@ -294,6 +308,9 @@ func (u *DatabaseService) Delete(req dto.DatabaseDelete) error {
 				return err
 			}
 		} else {
+			if err := databaseUserRepo.Delete(repo.WithByType("postgresql"), databaseUserRepo.WithByDatabase(db.Name)); err != nil && !req.ForceDelete {
+				return err
+			}
 			if err := postgresqlRepo.Delete(context.Background(), postgresqlRepo.WithByPostgresqlName(db.Name)); err != nil && !req.ForceDelete {
 				return err
 			}
@@ -303,9 +320,12 @@ func (u *DatabaseService) Delete(req dto.DatabaseDelete) error {
 }
 
 func (u *DatabaseService) Update(req dto.DatabaseUpdate) error {
+	if (req.Type == constant.AppMysql || req.Type == constant.AppMariaDB || req.Type == constant.AppPostgresql || req.Type == constant.AppMongodb) && (cmd.CheckIllegal(req.Username, req.Password) || strings.Contains(req.Password, " ")) {
+		return buserr.New("ErrCmdIllegal")
+	}
 	switch req.Type {
 	case constant.AppPostgresql:
-		if _, err := postgresql.NewPostgresqlClient(pgclient.DBInfo{
+		pgClient, err := postgresql.NewPostgresqlClient(pgclient.DBInfo{
 			From:      "remote",
 			Address:   req.Address,
 			Port:      req.Port,
@@ -313,9 +333,11 @@ func (u *DatabaseService) Update(req dto.DatabaseUpdate) error {
 			Username:  req.Username,
 			Password:  req.Password,
 			Timeout:   req.Timeout,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
+		pgClient.Close()
 	case constant.AppRedis:
 		if _, err := redisclient.NewRedisClient(redisclient.DBInfo{
 			Address:  req.Address,

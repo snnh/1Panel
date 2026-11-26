@@ -1,12 +1,14 @@
 package router
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/1Panel-dev/1Panel/core/app/api/v2/helper"
 	baseRepo "github.com/1Panel-dev/1Panel/core/app/repo"
@@ -16,15 +18,32 @@ import (
 	"github.com/1Panel-dev/1Panel/core/init/proxy"
 	psessionUtils "github.com/1Panel-dev/1Panel/core/init/session/psession"
 	"github.com/1Panel-dev/1Panel/core/middleware"
+	"github.com/1Panel-dev/1Panel/core/utils/req_helper/proxy_local"
 	terminalsession "github.com/1Panel-dev/1Panel/core/utils/terminal_session"
 	"github.com/gin-gonic/gin"
 )
 
 var errInternalOnlyAgentEndpoint = errors.New("internal agent endpoint cannot be proxied")
 
-func Proxy() gin.HandlerFunc {
+var loadLocalTerminalCapabilities = func(ctx context.Context) (interface{}, error) {
+	return proxy_local.NewLocalClientWithContext(ctx, terminalsession.CapabilityPath, http.MethodGet, nil, nil, 5*time.Second)
+}
+
+type agentProxyPolicy struct {
+	clear func(*http.Request)
+	grant func(*gin.Context, bool)
+}
+
+func Proxy(policies ...agentProxyPolicy) gin.HandlerFunc {
+	policies = append([]agentProxyPolicy(nil), policies...)
 	return func(c *gin.Context) {
+		c.Request.Header.Del("X-1Panel-VM-Limit")
 		terminalsession.ClearForwardedHeaders(c)
+		for _, policy := range policies {
+			if policy.clear != nil {
+				policy.clear(c.Request)
+			}
+		}
 		reqPath := c.Request.URL.Path
 		if !middleware.ShouldProxyToAgent(reqPath) {
 			c.Next()
@@ -52,6 +71,14 @@ func Proxy() gin.HandlerFunc {
 			helper.ErrorWithDetail(c, http.StatusForbidden, "ErrProxy", errInternalOnlyAgentEndpoint)
 			return
 		}
+		for _, policy := range policies {
+			if policy.grant != nil {
+				policy.grant(c, true)
+				if c.IsAborted() {
+					return
+				}
+			}
+		}
 
 		if !strings.HasPrefix(reqPath, "/api/v2/core") {
 			proxyLocalAgent(c)
@@ -72,13 +99,18 @@ func isTerminalRevalidationEndpoint(reqPath string) bool {
 
 func isInternalOnlyAgentEndpoint(reqPath string) bool {
 	normalizedPath := path.Clean(reqPath)
-	return normalizedPath == "/api/v2/xpack/alert/offline/email" ||
-		normalizedPath == "/api/v2/xpack/alert/offline/webhook" ||
-		normalizedPath == "/api/v2/hosts/firewall/port" ||
-		normalizedPath == "/api/v2/internal/terminal/sessions/revoke"
+	return normalizedPath == "/api/v2/hosts/firewall/port" ||
+		normalizedPath == "/api/v2/internal/terminal/sessions/revoke" ||
+		normalizedPath == terminalsession.CapabilityPath
 }
 
 func proxyLocalAgent(c *gin.Context) {
+	if terminalsession.RequiresLeaseCapability(c) {
+		if err := terminalsession.CheckLeaseCapability(func() (interface{}, error) { return loadLocalTerminalCapabilities(c.Request.Context()) }); err != nil {
+			helper.ErrorWithDetail(c, http.StatusBadRequest, "ErrAPIKeyTerminalUpgradeRequired", nil)
+			return
+		}
+	}
 	defer func() {
 		if err := recover(); err != nil && err != http.ErrAbortHandler {
 			global.LOG.Debug(err)
@@ -111,5 +143,7 @@ func checkSession(c *gin.Context, refresh bool) bool {
 }
 
 func isLocalAPI(urlPath string) bool {
-	return urlPath == "/api/v2/core/xpack/sync/ssl" || urlPath == "/api/v2/core/xpack/settings/search"
+	return urlPath == "/api/v2/core/xpack/sync/ssl" ||
+		urlPath == "/api/v2/core/xpack/sync/php/extensions" ||
+		urlPath == "/api/v2/core/xpack/settings/search"
 }

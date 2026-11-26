@@ -181,14 +181,8 @@ func password() {
 		return
 	}
 	complexSetting := getSettingByKey(db, "ComplexityVerification")
-	if complexSetting == constant.StatusEnable {
-		if isValidPassword("newPassword") {
-			fmt.Println("\n" + i18n.GetMsgByKeyForCmd("UpdatePasswordFormat"))
-			return
-		}
-	}
-	if len(newPassword) < 6 {
-		fmt.Println(i18n.GetMsgByKeyForCmd("UpdatePasswordLen"))
+	if complexSetting == constant.StatusEnable && !isValidPassword(newPassword) {
+		fmt.Println("\n" + i18n.GetMsgByKeyForCmd("UpdatePasswordFormat"))
 		return
 	}
 
@@ -271,6 +265,7 @@ func port() {
 		fmt.Println(std)
 	}
 }
+
 func isValidPassword(password string) bool {
 	numCount := 0
 	alphaCount := 0

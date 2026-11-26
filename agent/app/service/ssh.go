@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"net"
@@ -37,6 +38,7 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/utils/common"
 	"github.com/1Panel-dev/1Panel/agent/utils/re"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/ssh"
 )
 
 const sshPath = "/etc/ssh/sshd_config"
@@ -228,7 +230,7 @@ func (u *SSHService) Update(req dto.SSHUpdate) error {
 		return err
 	}
 	if req.Key == "Port" {
-		if err := updateSystemAccessPortWhitelist(context.Background(), firewall.PortWhitelistTypeSSH, splitSSHPorts(req.NewValue)); err != nil {
+		if err := newFirewallService().updateSystemAccessPortWhitelist(context.Background(), firewall.PortWhitelistTypeSSH, splitSSHPorts(req.NewValue)); err != nil {
 			if restoreErr := rewriteSSHManagedDirectives(sshPath, "Port", buildSSHDirectiveLines("Port", oldPortValue)); restoreErr != nil {
 				return fmt.Errorf("save SSH whitelist: %w; restore SSH configuration: %v", err, restoreErr)
 			}
@@ -438,15 +440,33 @@ func (u *SSHService) SyncRootCert() error {
 			global.LOG.Errorf("read pubic key of %s for sync failed, err: %v", item, err)
 			continue
 		}
-		cert.EncryptionMode = loadEncryptioMode(string(pubItem))
+		publicKey, _, _, rest, err := ssh.ParseAuthorizedKey(pubItem)
+		if err != nil || len(bytes.TrimSpace(rest)) != 0 {
+			continue
+		}
+		cert.EncryptionMode = loadSSHKeyType(publicKey)
+		if cert.EncryptionMode == "" {
+			continue
+		}
 		rootCerts = append(rootCerts, cert)
 	}
 	return hostRepo.SyncCert(rootCerts)
 }
 
 func (u *SSHService) CreateRootCert(req dto.RootCertOperate) error {
-	if cmd.CheckIllegal(req.EncryptionMode, req.PassPhrase) {
-		return buserr.New("ErrCmdIllegal")
+	switch req.Mode {
+	case "generate":
+		switch req.EncryptionMode {
+		case "rsa", "ed25519", "ecdsa", "dsa":
+		default:
+			return buserr.WithName("ErrNotSupportType", req.EncryptionMode)
+		}
+	case "input", "import":
+		if err := validateSSHKeyPair(&req); err != nil {
+			return err
+		}
+	default:
+		return buserr.WithName("ErrNotSupportType", req.Mode)
 	}
 	certItem, _ := hostRepo.GetCert(repo.WithByName(req.Name))
 	if certItem.ID != 0 {
@@ -543,6 +563,9 @@ func (u *SSHService) CreateRootCert(req dto.RootCertOperate) error {
 }
 
 func (u *SSHService) EditRootCert(req dto.RootCertOperate) error {
+	if err := validateSSHKeyPair(&req); err != nil {
+		return err
+	}
 	currentUser, err := user.Current()
 	if err != nil {
 		return fmt.Errorf("load current user failed, err: %v", err)
@@ -1300,17 +1323,22 @@ func loadSSHData(
 		successCount int
 		failedCount  int
 	)
+	histories, err := loadSSHHistoriesFromFile(filePath, status, filter, startTime, endTime, currentYear, nyc)
+	if err != nil || len(histories) == 0 {
+		return datas, 0, 0
+	}
 	getLoc, err := geo.NewGeo()
 	if err != nil {
-		return datas, 0, 0
+		if global.LOG != nil {
+			global.LOG.Warnf("load SSH log GeoIP database failed, continuing without database location: %v", err)
+		}
+	} else {
+		defer getLoc.Close()
 	}
-	histories, err := loadSSHHistoriesFromFile(filePath, status, filter, startTime, endTime, currentYear, nyc)
-	if err != nil {
-		return datas, 0, 0
-	}
+	lang := common.GetLang(ctx)
 	for _, itemData := range histories {
 		if successCount+failedCount >= showCountFrom && (showCountTo == -1 || successCount+failedCount < showCountTo) {
-			itemData.Area, _ = geo.GetIPLocation(getLoc, itemData.Address, common.GetLang(ctx))
+			itemData.Area, _ = geo.GetIPLocation(getLoc, itemData.Address, lang)
 			datas = append(datas, itemData)
 		}
 		if itemData.Status == constant.StatusSuccess {
@@ -1681,20 +1709,58 @@ func loadDate(currentYear int, DateStr string, nyc *time.Location) time.Time {
 	return itemDate
 }
 
-func loadEncryptioMode(content string) string {
-	if strings.HasPrefix(content, "ssh-rsa") {
+func loadSSHKeyType(publicKey ssh.PublicKey) string {
+	switch publicKey.Type() {
+	case ssh.KeyAlgoRSA:
 		return "rsa"
-	}
-	if strings.HasPrefix(content, "ssh-ed25519") {
+	case ssh.KeyAlgoED25519:
 		return "ed25519"
-	}
-	if strings.HasPrefix(content, "ssh-ecdsa") {
+	case ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521:
 		return "ecdsa"
-	}
-	if strings.HasPrefix(content, "ssh-dsa") {
+	case ssh.KeyAlgoDSA:
 		return "dsa"
 	}
 	return ""
+}
+
+func validateSSHKeyPair(req *dto.RootCertOperate) error {
+	req.PublicKey = strings.TrimSpace(req.PublicKey)
+	req.PrivateKey = strings.TrimSpace(req.PrivateKey)
+	if req.PublicKey == "" || strings.ContainsAny(req.PublicKey, "\r\n") {
+		return buserr.New("ErrSSHPublicKey")
+	}
+	publicKey, comment, options, rest, err := ssh.ParseAuthorizedKey([]byte(req.PublicKey))
+	if err != nil || len(options) != 0 || len(bytes.TrimSpace(rest)) != 0 {
+		return buserr.New("ErrSSHPublicKey")
+	}
+	req.EncryptionMode = loadSSHKeyType(publicKey)
+	if req.EncryptionMode == "" {
+		return buserr.WithName("ErrNotSupportType", publicKey.Type())
+	}
+	block, rest := pem.Decode([]byte(req.PrivateKey))
+	if !strings.HasPrefix(req.PrivateKey, "-----BEGIN ") || block == nil || len(bytes.TrimSpace(rest)) != 0 {
+		return buserr.New("ErrSSHPrivateKey")
+	}
+	signer, err := ssh.ParsePrivateKey([]byte(req.PrivateKey))
+	var missingPassphrase *ssh.PassphraseMissingError
+	if errors.As(err, &missingPassphrase) {
+		signer, err = ssh.ParsePrivateKeyWithPassphrase([]byte(req.PrivateKey), []byte(req.PassPhrase))
+	} else if err == nil {
+		req.PassPhrase = ""
+	}
+	if err != nil {
+		return buserr.New("ErrSSHPrivateKey")
+	}
+	if !bytes.Equal(signer.PublicKey().Marshal(), publicKey.Marshal()) {
+		return buserr.New("ErrSSHKeyMismatch")
+	}
+	req.PublicKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(publicKey)))
+	if comment != "" {
+		req.PublicKey += " " + comment
+	}
+	req.PublicKey += "\n"
+	req.PrivateKey += "\n"
+	return nil
 }
 
 func updateLocalConn(newPort uint) error {

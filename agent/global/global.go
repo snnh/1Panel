@@ -17,11 +17,11 @@ import (
 )
 
 var (
-	DB           *gorm.DB
-	MonitorDB    *gorm.DB
-	TaskDB       *gorm.DB
-	CoreDB       *gorm.DB
-	AlertDB      *gorm.DB
+	DB        *gorm.DB
+	MonitorDB *gorm.DB
+	TaskDB    *gorm.DB
+	CoreDB    *gorm.DB
+	AlertDB   *gorm.DB
 
 	LOG   *logrus.Logger
 	CONF  ServerConfig
@@ -31,8 +31,11 @@ var (
 
 	Dir SystemDir
 
-	Cron          *cron.Cron
-	MonitorCronID cron.EntryID
+	Cron             *cron.Cron
+	MonitorCronID    cron.EntryID
+	GPUMonitorCronID cron.EntryID
+
+	CleanupVLLMMonitor func(uint) error
 
 	IsMaster bool
 

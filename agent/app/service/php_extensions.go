@@ -1,12 +1,19 @@
 package service
 
 import (
+	"errors"
+	"sync"
+
+	"github.com/1Panel-dev/1Panel/agent/app/dto"
 	"github.com/1Panel-dev/1Panel/agent/app/dto/request"
 	"github.com/1Panel-dev/1Panel/agent/app/dto/response"
 	"github.com/1Panel-dev/1Panel/agent/app/model"
 	"github.com/1Panel-dev/1Panel/agent/app/repo"
 	"github.com/1Panel-dev/1Panel/agent/buserr"
+	"gorm.io/gorm"
 )
+
+var phpExtensionsMu sync.Mutex
 
 type PHPExtensionsService struct {
 }
@@ -17,6 +24,9 @@ type IPHPExtensionsService interface {
 	Create(req request.PHPExtensionsCreate) error
 	Update(req request.PHPExtensionsUpdate) error
 	Delete(req request.PHPExtensionsDelete) error
+	Get(id uint) (model.PHPExtensions, error)
+	Import(req request.PHPExtensionsCreate) (string, error)
+	Push(req dto.PHPExtensionsPush) error
 }
 
 func NewIPHPExtensionsService() IPHPExtensionsService {
@@ -30,7 +40,7 @@ func (p PHPExtensionsService) Page(req request.PHPExtensionsSearch) (int64, []re
 		err        error
 		result     []response.PHPExtensionsDTO
 	)
-	total, extensions, err = phpExtensionsRepo.Page(req.Page, req.PageSize)
+	total, extensions, err = phpExtensionsRepo.Page(req.Page, req.PageSize, repo.WithByLikeName(req.Name))
 	if err != nil {
 		return 0, nil, err
 	}
@@ -61,6 +71,8 @@ func (p PHPExtensionsService) List() ([]response.PHPExtensionsDTO, error) {
 }
 
 func (p PHPExtensionsService) Create(req request.PHPExtensionsCreate) error {
+	phpExtensionsMu.Lock()
+	defer phpExtensionsMu.Unlock()
 	exist, _ := phpExtensionsRepo.GetFirst(repo.WithByName(req.Name))
 	if exist.ID > 0 {
 		return buserr.New("ErrNameIsExist")
@@ -73,6 +85,8 @@ func (p PHPExtensionsService) Create(req request.PHPExtensionsCreate) error {
 }
 
 func (p PHPExtensionsService) Update(req request.PHPExtensionsUpdate) error {
+	phpExtensionsMu.Lock()
+	defer phpExtensionsMu.Unlock()
 	exist, err := phpExtensionsRepo.GetFirst(repo.WithByID(req.ID))
 	if err != nil {
 		return err
@@ -82,5 +96,35 @@ func (p PHPExtensionsService) Update(req request.PHPExtensionsUpdate) error {
 }
 
 func (p PHPExtensionsService) Delete(req request.PHPExtensionsDelete) error {
+	phpExtensionsMu.Lock()
+	defer phpExtensionsMu.Unlock()
 	return phpExtensionsRepo.DeleteBy(repo.WithByID(req.ID))
+}
+
+func (p PHPExtensionsService) Get(id uint) (model.PHPExtensions, error) {
+	return phpExtensionsRepo.GetFirst(repo.WithByID(id))
+}
+
+func (p PHPExtensionsService) Import(req request.PHPExtensionsCreate) (string, error) {
+	phpExtensionsMu.Lock()
+	defer phpExtensionsMu.Unlock()
+	existing, err := phpExtensionsRepo.GetFirst(repo.WithByName(req.Name))
+	if err == nil {
+		if existing.Extensions == req.Extensions {
+			return "skipped", nil
+		}
+		return "", buserr.New("ErrPHPExtensionsConflict")
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", err
+	}
+	item := model.PHPExtensions{Name: req.Name, Extensions: req.Extensions}
+	if err := phpExtensionsRepo.Create(&item); err != nil {
+		return "", err
+	}
+	return "created", nil
+}
+
+func (p PHPExtensionsService) Push(_ dto.PHPExtensionsPush) error {
+	return buserr.New("ErrXpackNotFound")
 }

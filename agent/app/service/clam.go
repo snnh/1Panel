@@ -404,4 +404,3 @@ func (c *ClamService) loadConfigPath(confType string) string {
 		return ""
 	}
 }
-

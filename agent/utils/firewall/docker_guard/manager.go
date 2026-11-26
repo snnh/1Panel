@@ -1,74 +1,22 @@
 package docker_guard
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"github.com/1Panel-dev/1Panel/agent/buserr"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/utils/cmd"
 	firewallutil "github.com/1Panel-dev/1Panel/agent/utils/firewall"
+	"github.com/1Panel-dev/1Panel/agent/utils/firewall/filter"
 	"github.com/1Panel-dev/1Panel/agent/utils/firewall/lifecycle"
 	"github.com/1Panel-dev/1Panel/agent/utils/firewall/nftables_helper"
 )
-
-const (
-	Chain       = "1PANEL_DOCKER"
-	DockerChain = "DOCKER-USER"
-	FamilyIPv4  = constant.FirewallFamilyIPv4
-	FamilyIPv6  = constant.FirewallFamilyIPv6
-	ModeSources = "deny_sources"
-	ModeAllow   = "allow_sources"
-	ModeAll     = "deny_all"
-
-	StatusEffective    = "effective"
-	StatusDisabled     = "disabled"
-	StatusNotEffective = "not_effective"
-
-	ReasonCommandMissing     = "command_missing"
-	ReasonDockerChainMissing = "docker_chain_missing"
-	ReasonGuardChainMissing  = "guard_chain_missing"
-	ReasonJumpMissing        = "jump_missing"
-	ReasonJumpNotFirst       = "jump_not_first"
-	ReasonJumpDuplicate      = "jump_duplicate"
-	ReasonInspectFailed      = "inspect_failed"
-)
-
-var (
-	ErrDockerChainUnavailable         = errors.New("Docker DOCKER-USER chain is unavailable")
-	ErrDockerIptablesChainUnavailable = fmt.Errorf("%w for iptables", ErrDockerChainUnavailable)
-	ErrDockerNftablesChainUnavailable = fmt.Errorf("%w for nftables", ErrDockerChainUnavailable)
-)
-
-type FamilyError struct {
-	Family string
-	Err    error
-}
-
-func (e *FamilyError) Error() string { return fmt.Sprintf("%s Docker port guard: %v", e.Family, e.Err) }
-func (e *FamilyError) Unwrap() error { return e.Err }
-
-type Policy struct {
-	UUID     string
-	Family   string
-	HostIP   string
-	HostPort uint16
-	Protocol string
-	Mode     string
-	Sources  []string
-}
-
-type FamilyStatus struct {
-	State       string
-	Reason      string
-	Initialized bool
-	Bound       bool
-	Effective   bool
-}
 
 type Runner interface {
 	Run(executable string, args ...string) (string, error)
@@ -76,26 +24,27 @@ type Runner interface {
 	Exists(executable string) bool
 }
 
-type commandRunner struct{}
+type commandRunner struct{ ctx context.Context }
 
-func (commandRunner) Run(executable string, args ...string) (string, error) {
+func (r commandRunner) Run(executable string, args ...string) (string, error) {
 	executable = dockerGuardExecutable(executable)
-	manager := cmd.NewCommandMgr(cmd.WithTimeout(60 * time.Second))
+	manager := cmd.NewCommandMgr(cmd.WithContext(r.ctx), cmd.WithTimeout(60*time.Second))
 	stdout, err := manager.RunWithOptionalSudoAndStdout(executable, args...)
+	err = errors.Join(err, r.ctx.Err())
 	if err != nil {
 		return stdout, fmt.Errorf("command=%s %s failed: %w", executable, strings.Join(args, " "), err)
 	}
 	return stdout, nil
 }
 
-func (commandRunner) RunInput(executable, input string, args ...string) (string, error) {
+func (r commandRunner) RunInput(executable, input string, args ...string) (string, error) {
 	executable = dockerGuardExecutable(executable)
 	if executable == "nft" {
-		return "", nftables_helper.RunScript(input)
+		return "", errors.Join(nftables_helper.RunScriptContext(r.ctx, input), r.ctx.Err())
 	}
-	manager := cmd.NewCommandMgr(cmd.WithTimeout(60*time.Second), cmd.WithStdin(strings.NewReader(input)))
+	manager := cmd.NewCommandMgr(cmd.WithContext(r.ctx), cmd.WithTimeout(60*time.Second), cmd.WithStdin(strings.NewReader(input)))
 	stdout, err := manager.RunWithOptionalSudoAndStdout(executable, args...)
-	return stdout, firewallutil.WrapBatchCommandError(executable+" "+strings.Join(args, " "), input, err)
+	return stdout, errors.Join(firewallutil.WrapBatchCommandError(executable+" "+strings.Join(args, " "), input, err), r.ctx.Err())
 }
 
 func (commandRunner) Exists(executable string) bool {
@@ -122,22 +71,21 @@ func dockerGuardExecutable(logical string) string {
 	}
 }
 
-type Manager struct {
+type Iptables struct {
 	runner Runner
 }
 
 var mutationMu sync.Mutex
 
-func NewManager() *Manager { return &Manager{runner: commandRunner{}} }
+func NewIptables(ctx context.Context) *Iptables { return &Iptables{runner: commandRunner{ctx: ctx}} }
 
-func (m *Manager) Initialize(policies []Policy) error {
+func (m *Iptables) Initialize(policies []Policy, inventory PolicyInventory, families ...string) error {
+	if len(families) == 0 {
+		families = []string{FamilyIPv4, FamilyIPv6}
+	}
 	mutationMu.Lock()
 	defer mutationMu.Unlock()
 	if err := CheckIPv4Forwarding(); err != nil {
-		return err
-	}
-	inventory, err := m.ListPolicies()
-	if err != nil {
 		return err
 	}
 	if !m.runner.Exists("iptables-restore") {
@@ -146,7 +94,7 @@ func (m *Manager) Initialize(policies []Policy) error {
 	if err := m.ensureFamily("iptables", true); err != nil {
 		return err
 	}
-	if m.runner.Exists("ip6tables") {
+	if slices.Contains(families, FamilyIPv6) && m.runner.Exists("ip6tables") {
 		available, err := m.chainExists("ip6tables", DockerChain)
 		if err != nil {
 			return &FamilyError{Family: FamilyIPv6, Err: fmt.Errorf("inspect %s chain: %w", DockerChain, err)}
@@ -160,16 +108,19 @@ func (m *Manager) Initialize(policies []Policy) error {
 			}
 		}
 	}
-	return m.rebuildLocked(policies, inventory)
+	return m.rebuildLocked(policies, inventory, families...)
 }
 
-func (m *Manager) Bind() error {
+func (m *Iptables) Bind(families ...string) error {
+	if len(families) == 0 {
+		families = []string{FamilyIPv4, FamilyIPv6}
+	}
 	mutationMu.Lock()
 	defer mutationMu.Unlock()
 	if err := m.bindExistingFamily("iptables", true); err != nil {
 		return err
 	}
-	if m.runner.Exists("ip6tables") {
+	if slices.Contains(families, FamilyIPv6) && m.runner.Exists("ip6tables") {
 		if err := m.bindExistingFamily("ip6tables", false); err != nil {
 			return &FamilyError{Family: FamilyIPv6, Err: err}
 		}
@@ -177,24 +128,23 @@ func (m *Manager) Bind() error {
 	return nil
 }
 
-func (m *Manager) Reconcile(policies []Policy) error {
+func (m *Iptables) ReplacePolicies(policies []Policy, inventory PolicyInventory) error {
 	mutationMu.Lock()
 	defer mutationMu.Unlock()
-	inventory, err := m.ListPolicies()
-	if err != nil {
-		return err
-	}
 	return m.rebuildLocked(policies, inventory)
 }
 
-func (m *Manager) ListPolicies() (PolicyInventory, error) {
-	inventory := PolicyInventory{Policies: make([]Policy, 0), ManagedRuleOrders: make(map[string][]int64)}
+func (m *Iptables) ListPolicies() (PolicyInventory, error) {
+	inventory := PolicyInventory{Policies: make([]Policy, 0), RuleOrders: make(map[string][]int64)}
 	for _, family := range []string{FamilyIPv4, FamilyIPv6} {
 		executable := executableForFamily(family)
 		if executable == "" || !m.runner.Exists(executable) {
 			continue
 		}
 		exists, err := m.chainExists(executable, Chain)
+		if family == FamilyIPv6 && errors.Is(err, filter.ErrFamilyUnavailable) {
+			continue
+		}
 		if err != nil {
 			return PolicyInventory{}, &FamilyError{Family: family, Err: fmt.Errorf("inspect %s chain: %w", Chain, err)}
 		}
@@ -210,29 +160,28 @@ func (m *Manager) ListPolicies() (PolicyInventory, error) {
 			return PolicyInventory{}, &FamilyError{Family: family, Err: err}
 		}
 		inventory.Policies = append(inventory.Policies, parsed.Policies...)
-		inventory.ReadOnly = append(inventory.ReadOnly, parsed.ReadOnly...)
-		for key, orders := range parsed.ManagedRuleOrders {
-			inventory.ManagedRuleOrders[key] = append([]int64(nil), orders...)
+		for key, orders := range parsed.RuleOrders {
+			inventory.RuleOrders[key] = append([]int64(nil), orders...)
 		}
 	}
 	return inventory, nil
 }
 
-func (m *Manager) Unbind() error {
+func (m *Iptables) Unbind(families ...string) error {
 	mutationMu.Lock()
 	defer mutationMu.Unlock()
-	if err := m.unbindFamily("iptables"); err != nil {
-		return err
+	if len(families) == 0 {
+		families = []string{FamilyIPv4, FamilyIPv6}
 	}
-	if m.runner.Exists("ip6tables") {
-		if err := m.unbindFamily("ip6tables"); err != nil {
+	for _, family := range families {
+		if err := m.unbindFamily(executableForFamily(family)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (m *Manager) Cleanup() error {
+func (m *Iptables) Cleanup() error {
 	mutationMu.Lock()
 	defer mutationMu.Unlock()
 	for _, executable := range []string{"iptables", "ip6tables"} {
@@ -254,7 +203,7 @@ func (m *Manager) Cleanup() error {
 	return nil
 }
 
-func (m *Manager) Initialized(family string) (bool, error) {
+func (m *Iptables) Initialized(family string) (bool, error) {
 	executable := executableForFamily(family)
 	if executable == "" || !m.runner.Exists(executable) {
 		return false, nil
@@ -262,7 +211,7 @@ func (m *Manager) Initialized(family string) (bool, error) {
 	return m.chainExists(executable, Chain)
 }
 
-func (m *Manager) Status(family string) FamilyStatus {
+func (m *Iptables) Status(family string) FamilyStatus {
 	executable := executableForFamily(family)
 	if executable == "" || !m.runner.Exists(executable) {
 		return FamilyStatus{State: StatusDisabled, Reason: ReasonCommandMissing}
@@ -278,12 +227,7 @@ func (m *Manager) Status(family string) FamilyStatus {
 		return FamilyStatus{State: StatusDisabled, Reason: ReasonGuardChainMissing}
 	}
 	status := FamilyStatus{State: StatusNotEffective, Initialized: true}
-	rules, err := m.run(executable, "-S", DockerChain)
-	if err != nil {
-		status.Reason = ReasonInspectFailed
-		return status
-	}
-	jumps := countJumps(rules)
+	jumps := countJumps(chains)
 	if jumps == 0 {
 		status.Reason = ReasonJumpMissing
 		return status
@@ -292,7 +236,7 @@ func (m *Manager) Status(family string) FamilyStatus {
 		status.Reason = ReasonJumpDuplicate
 		return status
 	}
-	if !hasFirstUniqueJump(rules) {
+	if !hasFirstUniqueJump(chains) {
 		status.Reason = ReasonJumpNotFirst
 		return status
 	}
@@ -302,7 +246,7 @@ func (m *Manager) Status(family string) FamilyStatus {
 	return status
 }
 
-func (m *Manager) bindExistingFamily(executable string, required bool) error {
+func (m *Iptables) bindExistingFamily(executable string, required bool) error {
 	if !m.runner.Exists(executable) {
 		if required {
 			return fmt.Errorf("%s is not installed", executable)
@@ -315,7 +259,7 @@ func (m *Manager) bindExistingFamily(executable string, required bool) error {
 	}
 	if !chainDeclared(output, DockerChain) {
 		if required {
-			return ErrDockerIptablesChainUnavailable
+			return buserr.New("ErrDockerIptablesChainUnavailable")
 		}
 		return nil
 	}
@@ -328,7 +272,7 @@ func (m *Manager) bindExistingFamily(executable string, required bool) error {
 	return m.restoreLifecycle(executable, dockerGuardLifecycleRules(output, true, false))
 }
 
-func (m *Manager) ensureFamily(executable string, required bool) error {
+func (m *Iptables) ensureFamily(executable string, required bool) error {
 	if !m.runner.Exists(executable) {
 		if required {
 			return fmt.Errorf("%s is not installed", executable)
@@ -341,7 +285,7 @@ func (m *Manager) ensureFamily(executable string, required bool) error {
 	}
 	if !chainDeclared(output, DockerChain) {
 		if required {
-			return ErrDockerIptablesChainUnavailable
+			return buserr.New("ErrDockerIptablesChainUnavailable")
 		}
 		return nil
 	}
@@ -364,7 +308,7 @@ func dockerGuardLifecycleRules(output string, bind, createOwned bool) [][]string
 	return rules
 }
 
-func (m *Manager) restoreLifecycle(executable string, rules [][]string) error {
+func (m *Iptables) restoreLifecycle(executable string, rules [][]string) error {
 	if len(rules) == 0 {
 		return nil
 	}
@@ -382,13 +326,19 @@ func (m *Manager) restoreLifecycle(executable string, rules [][]string) error {
 	return nil
 }
 
-func (m *Manager) rebuildLocked(policies []Policy, inventory PolicyInventory) error {
-	for _, family := range []string{FamilyIPv4, FamilyIPv6} {
+func (m *Iptables) rebuildLocked(policies []Policy, inventory PolicyInventory, families ...string) error {
+	if len(families) == 0 {
+		families = []string{FamilyIPv4, FamilyIPv6}
+	}
+	for _, family := range families {
 		executable := executableForFamily(family)
 		if executable == "" || !m.runner.Exists(executable) {
 			continue
 		}
 		exists, err := m.chainExists(executable, Chain)
+		if family == FamilyIPv6 && errors.Is(err, filter.ErrFamilyUnavailable) && !slices.ContainsFunc(policies, func(policy Policy) bool { return policy.Family == family }) {
+			continue
+		}
 		if err != nil {
 			return &FamilyError{Family: family, Err: fmt.Errorf("inspect %s chain: %w", Chain, err)}
 		}
@@ -413,41 +363,34 @@ func (m *Manager) rebuildLocked(policies []Policy, inventory PolicyInventory) er
 	return nil
 }
 
-type orderedIPTablesRule struct {
-	order int64
-	index int
-	rules [][]string
-}
-
 func orderedIPTablesRules(family string, policies []Policy, inventory PolicyInventory) [][]string {
-	segments := make([]orderedIPTablesRule, 0, len(policies)+len(inventory.ReadOnly))
+	segments := make([]orderedPolicyRule, 0, len(policies))
 	maxOrder := int64(0)
-	index := 0
-	for _, orders := range inventory.ManagedRuleOrders {
+	for _, orders := range inventory.RuleOrders {
 		for _, order := range orders {
-			if order > maxOrder {
-				maxOrder = order
-			}
+			maxOrder = max(maxOrder, order)
 		}
 	}
-	for _, item := range inventory.ReadOnly {
-		for _, native := range item.NativeRules {
-			if native.Family != family || len(native.Tokens) < 2 || native.Tokens[0] != "-A" || native.Tokens[1] != Chain {
-				continue
-			}
-			segments = append(segments, orderedIPTablesRule{order: native.Order, index: index, rules: [][]string{append([]string(nil), native.Tokens...)}})
-			index++
-			if native.Order > maxOrder {
-				maxOrder = native.Order
-			}
+	for _, policy := range policies {
+		for _, rule := range policy.NativeRules {
+			maxOrder = max(maxOrder, rule.Order)
 		}
 	}
 	for _, policy := range policies {
 		if policy.Family != family {
 			continue
 		}
+		if len(policy.NativeRules) > 0 {
+			for _, native := range policy.NativeRules {
+				if native.Family != family || len(native.Tokens) < 2 || native.Tokens[0] != "-A" || native.Tokens[1] != Chain {
+					continue
+				}
+				segments = append(segments, orderedPolicyRule{order: native.Order, rule: append([]string(nil), native.Tokens...)})
+			}
+			continue
+		}
 		compiled := compilePolicy(policy)
-		orders := inventory.ManagedRuleOrders[managedOrderKey(policy.Family, policy.UUID)]
+		orders := inventory.RuleOrders[policy.Family+"\x00"+policy.UUID]
 		for ruleIndex, rule := range compiled {
 			order := int64(0)
 			if ruleIndex < len(orders) {
@@ -456,21 +399,10 @@ func orderedIPTablesRules(family string, policies []Policy, inventory PolicyInve
 				maxOrder++
 				order = maxOrder
 			}
-			segments = append(segments, orderedIPTablesRule{order: order, index: index, rules: [][]string{rule}})
-			index++
+			segments = append(segments, orderedPolicyRule{order: order, rule: rule})
 		}
 	}
-	sort.SliceStable(segments, func(left, right int) bool {
-		if segments[left].order == segments[right].order {
-			return segments[left].index < segments[right].index
-		}
-		return segments[left].order < segments[right].order
-	})
-	rules := make([][]string, 0)
-	for _, segment := range segments {
-		rules = append(rules, segment.rules...)
-	}
-	return rules
+	return sortPolicyRules(segments)
 }
 
 func buildRestoreScript(rules [][]string) (string, error) {
@@ -503,14 +435,20 @@ func compilePolicy(policy Policy) [][]string {
 	}
 	base = append(base, "--ctorigdstport", strconv.Itoa(int(policy.HostPort)))
 	comment := "1panel-docker:" + policy.UUID
-	if policy.Mode == ModeAll {
-		return [][]string{append(append([]string{}, base...), "-m", "comment", "--comment", comment, "-j", "DROP")}
+	if policy.Mode == ModeAll || policy.Mode == ModeAcceptAll {
+		target := "DROP"
+		if policy.Mode == ModeAcceptAll {
+			target = "ACCEPT"
+		}
+		return [][]string{append(append([]string{}, base...), "-m", "comment", "--comment", comment, "-j", target)}
 	}
 	target := "DROP"
 	capacity := len(policy.Sources)
 	if policy.Mode == ModeAllow {
 		target = "RETURN"
 		capacity++
+	} else if policy.Mode == ModeAcceptSources {
+		target = "ACCEPT"
 	}
 	rules := make([][]string, 0, capacity)
 	for _, source := range policy.Sources {
@@ -524,7 +462,7 @@ func compilePolicy(policy Policy) [][]string {
 	return rules
 }
 
-func (m *Manager) unbindFamily(executable string) error {
+func (m *Iptables) unbindFamily(executable string) error {
 	if !m.runner.Exists(executable) {
 		return nil
 	}
@@ -538,7 +476,7 @@ func (m *Manager) unbindFamily(executable string) error {
 	return nil
 }
 
-func (m *Manager) chainExists(executable, chain string) (bool, error) {
+func (m *Iptables) chainExists(executable, chain string) (bool, error) {
 	output, err := m.run(executable, "-S")
 	if err != nil {
 		return false, err
@@ -556,9 +494,13 @@ func chainDeclared(output, chain string) bool {
 	return false
 }
 
-func (m *Manager) run(executable string, args ...string) (string, error) {
+func (m *Iptables) run(executable string, args ...string) (string, error) {
 	commandArgs := append([]string{"-w", "-t", "filter"}, args...)
-	return m.runner.Run(executable, commandArgs...)
+	output, err := m.runner.Run(executable, commandArgs...)
+	if executable == "ip6tables" && err != nil && (strings.Contains(err.Error(), "Address family not supported") || strings.Contains(err.Error(), "Protocol not supported")) {
+		return output, fmt.Errorf("%w: %v", filter.ErrFamilyUnavailable, err)
+	}
+	return output, err
 }
 
 func executableForFamily(family string) string {
@@ -599,4 +541,21 @@ func hasFirstUniqueJump(output string) bool {
 func isWildcardHost(family, hostIP string) bool {
 	return (family == FamilyIPv4 && (hostIP == "" || hostIP == "0.0.0.0")) ||
 		(family == FamilyIPv6 && (hostIP == "" || hostIP == "::"))
+}
+
+func (m *Iptables) OperateFamily(family string, initialize bool) error {
+	if family != FamilyIPv4 && family != FamilyIPv6 {
+		return fmt.Errorf("unsupported Docker firewall family %q", family)
+	}
+	if family == FamilyIPv4 {
+		if err := CheckIPv4Forwarding(); err != nil {
+			return err
+		}
+	}
+	mutationMu.Lock()
+	defer mutationMu.Unlock()
+	if initialize {
+		return m.ensureFamily(executableForFamily(family), true)
+	}
+	return m.bindExistingFamily(executableForFamily(family), true)
 }

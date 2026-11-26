@@ -1463,6 +1463,28 @@
 		"formatZH": "postgresql 数据库 [name] 描述信息修改 [description]",
 		"formatEN": "The description of the postgresql database [name] is modified =\u003e [description]"
 	},
+	"/databases/pg/grants": {
+		"bodyKeys": [
+			"database",
+			"username",
+			"name"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "绑定 PostgreSQL 实例 [database] 数据库 [name] 用户 [username]",
+		"formatEN": "bind PostgreSQL instance [database] database [name] user [username]"
+	},
+	"/databases/pg/grants/del": {
+		"bodyKeys": [
+			"database",
+			"username",
+			"name"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "撤销 PostgreSQL 实例 [database] 数据库 [name] 用户 [username] 绑定",
+		"formatEN": "revoke PostgreSQL instance [database] database [name] user [username] binding"
+	},
 	"/databases/pg/password": {
 		"bodyKeys": [
 			"id"
@@ -1490,6 +1512,56 @@
 		"beforeFunctions": [],
 		"formatZH": "更新数据库 [database] 用户 [username] 权限",
 		"formatEN": "Update [username] privileges of database [database]"
+	},
+	"/databases/pg/users": {
+		"bodyKeys": [
+			"database",
+			"username"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "创建 PostgreSQL 实例 [database] 用户 [username]",
+		"formatEN": "create PostgreSQL instance [database] user [username]"
+	},
+	"/databases/pg/users/del": {
+		"bodyKeys": [
+			"database",
+			"username"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "删除 PostgreSQL 实例 [database] 用户 [username]",
+		"formatEN": "delete PostgreSQL instance [database] user [username]"
+	},
+	"/databases/pg/users/password": {
+		"bodyKeys": [
+			"database",
+			"username"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "修改 PostgreSQL 实例 [database] 用户 [username] 密码",
+		"formatEN": "change PostgreSQL instance [database] user [username] password"
+	},
+	"/databases/pg/users/password/save": {
+		"bodyKeys": [
+			"database",
+			"username"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "补充 PostgreSQL 实例 [database] 用户 [username] 密码",
+		"formatEN": "save PostgreSQL instance [database] user [username] password locally"
+	},
+	"/databases/pg/users/update": {
+		"bodyKeys": [
+			"database",
+			"username"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "修改 PostgreSQL 实例 [database] 用户 [username]",
+		"formatEN": "update PostgreSQL instance [database] user [username]"
 	},
 	"/databases/redis/conf/update": {
 		"bodyKeys": [],
@@ -1951,20 +2023,22 @@
 		"formatEN": "batch update Docker port guard policies"
 	},
 	"/hosts/firewall/docker/policies/delete/batch": {
-		"bodyKeys": [
-			"uuids"
-		],
-		"paramKeys": [],
-		"beforeFunctions": [],
-		"formatZH": "删除 Docker 端口防护策略 [uuids]",
-		"formatEN": "delete Docker port guard policies [uuids]"
-	},
-	"/hosts/firewall/docker/sync": {
 		"bodyKeys": [],
 		"paramKeys": [],
 		"beforeFunctions": [],
-		"formatZH": "同步 Docker 端口防护规则",
-		"formatEN": "sync Docker port guard rules"
+		"formatZH": "删除 Docker 端口防护策略",
+		"formatEN": "delete Docker port guard policies"
+	},
+	"/hosts/firewall/family/operate": {
+		"bodyKeys": [
+			"subsystem",
+			"family",
+			"operation"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "[operation] [subsystem] [family] 防火墙链",
+		"formatEN": "[operation] [subsystem] [family] firewall chains"
 	},
 	"/hosts/firewall/filter/operate": {
 		"bodyKeys": [
@@ -2005,13 +2079,6 @@
 		"formatZH": "添加防火墙规则",
 		"formatEN": "create firewall rules"
 	},
-	"/hosts/firewall/rules/adopt": {
-		"bodyKeys": [],
-		"paramKeys": [],
-		"beforeFunctions": [],
-		"formatZH": "纳管防火墙规则",
-		"formatEN": "adopt firewall rule"
-	},
 	"/hosts/firewall/rules/delete": {
 		"bodyKeys": [],
 		"paramKeys": [],
@@ -2020,13 +2087,11 @@
 		"formatEN": "delete firewall rules"
 	},
 	"/hosts/firewall/rules/reorder": {
-		"bodyKeys": [
-			"uuid"
-		],
+		"bodyKeys": [],
 		"paramKeys": [],
 		"beforeFunctions": [],
-		"formatZH": "调整防火墙规则顺序 [uuid]",
-		"formatEN": "reorder firewall rule [uuid]"
+		"formatZH": "调整防火墙规则顺序",
+		"formatEN": "reorder firewall rule"
 	},
 	"/hosts/firewall/rules/reset": {
 		"bodyKeys": [],
@@ -2035,25 +2100,21 @@
 		"formatZH": "重置防火墙规则",
 		"formatEN": "reset firewall rules"
 	},
-	"/hosts/firewall/rules/sync": {
-		"bodyKeys": [
-			"subsystem",
-			"sourceProvider",
-			"targetProvider"
-		],
-		"paramKeys": [],
-		"beforeFunctions": [],
-		"formatZH": "同步 [subsystem] 防火墙规则到 [targetProvider]",
-		"formatEN": "sync [subsystem] firewall rules to [targetProvider]"
-	},
 	"/hosts/firewall/rules/update": {
+		"bodyKeys": [],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "更新防火墙规则",
+		"formatEN": "update firewall rule"
+	},
+	"/hosts/firewall/settings/ipv6": {
 		"bodyKeys": [
-			"uuid"
+			"status"
 		],
 		"paramKeys": [],
 		"beforeFunctions": [],
-		"formatZH": "更新防火墙规则 [uuid]",
-		"formatEN": "update firewall rule [uuid]"
+		"formatZH": "设置防火墙 IPv6 支持为 [status]",
+		"formatEN": "Set firewall IPv6 support to [status]"
 	},
 	"/hosts/firewall/settings/operate": {
 		"bodyKeys": [
@@ -2095,11 +2156,13 @@
 		"formatEN": "update firewall port whitelist"
 	},
 	"/hosts/monitor/clean": {
-		"bodyKeys": [],
+		"bodyKeys": [
+			"type"
+		],
 		"paramKeys": [],
 		"beforeFunctions": [],
-		"formatZH": "清空监控数据",
-		"formatEN": "clean monitor datas"
+		"formatZH": "清空 [type] 监控数据",
+		"formatEN": "clean [type] monitoring data"
 	},
 	"/hosts/monitor/setting/update": {
 		"bodyKeys": [
@@ -2110,6 +2173,48 @@
 		"beforeFunctions": [],
 		"formatZH": "修改默认监控网卡 [key]-[value]",
 		"formatEN": "update default monitor [key]-[value]"
+	},
+	"/hosts/network/address": {
+		"bodyKeys": [
+			"interface",
+			"address"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "添加网卡 [interface] 地址 [address]",
+		"formatEN": "add address [address] to interface [interface]"
+	},
+	"/hosts/network/address/del": {
+		"bodyKeys": [
+			"interface",
+			"address"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "移除网卡 [interface] 地址 [address]",
+		"formatEN": "remove address [address] from interface [interface]"
+	},
+	"/hosts/network/routes": {
+		"bodyKeys": [
+			"destination",
+			"gateway",
+			"interface"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "添加路由 [destination] 网关 [gateway] 设备 [interface]",
+		"formatEN": "add route [destination] gateway [gateway] device [interface]"
+	},
+	"/hosts/network/routes/del": {
+		"bodyKeys": [
+			"destination",
+			"gateway",
+			"interface"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "移除路由 [destination] 网关 [gateway] 设备 [interface]",
+		"formatEN": "remove route [destination] gateway [gateway] device [interface]"
 	},
 	"/hosts/ssh/cert": {
 		"bodyKeys": [],
@@ -2307,22 +2412,29 @@
 		"formatEN": "Create runtime [name]"
 	},
 	"/runtimes/del": {
-		"bodyKeys": [
-			"id"
-		],
+		"bodyKeys": [],
 		"paramKeys": [],
 		"beforeFunctions": [],
-		"formatZH": "删除运行环境 [id]",
-		"formatEN": "Delete runtime [id]"
+		"formatZH": "删除运行环境 [name]",
+		"formatEN": "Delete runtime [name]"
 	},
 	"/runtimes/operate": {
 		"bodyKeys": [
-			"id"
+			"ID"
 		],
 		"paramKeys": [],
-		"beforeFunctions": [],
-		"formatZH": "操作运行环境 [id]",
-		"formatEN": "Operate runtime [id]"
+		"beforeFunctions": [
+			{
+				"input_column": "id",
+				"input_value": "ID",
+				"isList": false,
+				"db": "runtimes",
+				"output_column": "name",
+				"output_value": "name"
+			}
+		],
+		"formatZH": "操作运行环境 [name]",
+		"formatEN": "Operate runtime [name]"
 	},
 	"/runtimes/php/config": {
 		"bodyKeys": [
@@ -2341,6 +2453,25 @@
 		],
 		"formatZH": "[domain] PHP 配置修改",
 		"formatEN": "[domain] PHP conf update"
+	},
+	"/runtimes/php/extensions/import": {
+		"bodyKeys": [
+			"name"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "同步 PHP 扩展模版 [name]",
+		"formatEN": "Sync PHP extension template [name]"
+	},
+	"/runtimes/php/extensions/push": {
+		"bodyKeys": [
+			"sourceNode",
+			"targetNodes"
+		],
+		"paramKeys": [],
+		"beforeFunctions": [],
+		"formatZH": "推送 PHP 扩展模版 [sourceNode] 至 [targetNodes]",
+		"formatEN": "Push PHP extension template from [sourceNode] to [targetNodes]"
 	},
 	"/runtimes/php/update": {
 		"bodyKeys": [

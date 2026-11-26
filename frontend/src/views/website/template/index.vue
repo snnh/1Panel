@@ -74,6 +74,7 @@
 </template>
 
 <script lang="ts" setup>
+import { useSearchState } from '@/utils/search-reset';
 import { Website } from '@/api/interface/website';
 import { deleteTemplate, searchTemplates } from '@/api/modules/website';
 import TemplateOperate from '@/views/website/template/operate/index.vue';
@@ -81,7 +82,7 @@ import OutputCreate from '@/views/website/template/output/create.vue';
 import OutputList from '@/views/website/template/output/index.vue';
 import { dateFormat } from '@/utils/date';
 import i18n from '@/lang';
-import { reactive, ref, onMounted } from 'vue';
+import { toRef, reactive, ref, onMounted } from 'vue';
 
 const loading = ref(false);
 const data = ref<Website.Template[]>([]);
@@ -100,11 +101,15 @@ const routerButton = [
 ];
 
 const paginationConfig = reactive({
-    cacheSizeKey: 'website-template-page-size',
     currentPage: 1,
     pageSize: 20,
     total: 0,
 });
+useSearchState(
+    'website/template/index',
+    { search: searchName, page: toRef(paginationConfig, 'currentPage'), pageSize: toRef(paginationConfig, 'pageSize') },
+    { onRevisit: () => search() },
+);
 
 const buttons = [
     {

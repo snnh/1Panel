@@ -88,9 +88,7 @@ const (
 type ScopeNoticeCode string
 
 const (
-	ScopeNoticeDefaultScopeMismatch     ScopeNoticeCode = "default_scope_mismatch"
 	ScopeNoticeManagedScopeInactive     ScopeNoticeCode = "managed_scope_inactive"
-	ScopeNoticeUnmanagedActiveScopes    ScopeNoticeCode = "unmanaged_active_scopes"
 	ScopeNoticeRuntimePermanentMismatch ScopeNoticeCode = "runtime_permanent_mismatch"
 	ScopeNoticeManagedScopeMissing      ScopeNoticeCode = "managed_scope_missing"
 	ScopeNoticeFamilyUnavailable        ScopeNoticeCode = "family_unavailable"
@@ -110,13 +108,12 @@ type ScopeNotice struct {
 }
 
 var (
-	ErrInvalidScope       = errors.New("invalid firewall scope")
-	ErrUnsupportedScope   = errors.New("unsupported firewall scope")
-	ErrManagedScopeChange = fmt.Errorf("%w: managed rule scope cannot be changed", ErrUnsupportedScope)
-	ErrInvalidRule        = errors.New("invalid firewall rule")
-	ErrProtectedRule      = errors.New("protected firewall rule cannot be modified")
-	ErrCompositeRule      = errors.New("firewall rule must be atomic")
-	ErrExpansionLimit     = errors.New("firewall rule expansion limit exceeded")
+	ErrInvalidScope     = errors.New("invalid firewall scope")
+	ErrUnsupportedScope = errors.New("unsupported firewall scope")
+	ErrInvalidRule      = errors.New("invalid firewall rule")
+	ErrProtectedRule    = errors.New("protected firewall rule cannot be modified")
+	ErrCompositeRule    = errors.New("firewall rule must be atomic")
+	ErrExpansionLimit   = errors.New("firewall rule expansion limit exceeded")
 )
 
 type Scope struct {
@@ -298,16 +295,9 @@ type ObservedRule struct {
 	Persistence     PersistenceStatus `json:"persistence,omitempty"`
 }
 
-type Snapshot struct {
-	Scope    Scope          `json:"scope"`
-	Revision string         `json:"revision"`
-	Rules    []ObservedRule `json:"rules"`
-	Notices  []ScopeNotice  `json:"notices,omitempty"`
-}
-
-type Capabilities struct {
-	Marker           bool
-	OwnedChains      bool
-	ExplicitPosition bool
-	ExplicitPriority bool
+type RuleSet struct {
+	LastPosition int            `json:"-"`
+	Scope        Scope          `json:"scope"`
+	Rules        []ObservedRule `json:"rules"`
+	Notices      []ScopeNotice  `json:"notices,omitempty"`
 }

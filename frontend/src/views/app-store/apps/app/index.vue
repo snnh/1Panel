@@ -3,7 +3,9 @@
         <el-card>
             <div class="app-wrapper" @click="openDetail(app.key)">
                 <div class="app-image">
-                    <el-avatar shape="square" :size="60" :src="getAppIconUrl(app.key)" />
+                    <el-avatar shape="square" :size="60" :src="getAppIconUrl(app.key, undefined, app.icon)">
+                        <SvgIcon iconName="p-appstore" />
+                    </el-avatar>
                 </div>
                 <div class="app-content">
                     <div class="content-top">

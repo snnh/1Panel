@@ -186,5 +186,6 @@ type AppParam struct {
 type AppConfig struct {
 	Params     []AppParam `json:"params"`
 	RawCompose string     `json:"rawCompose"`
+	IsEdit     bool       `json:"isEdit"`
 	request.AppContainerConfig
 }

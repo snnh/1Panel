@@ -1,4 +1,5 @@
 import { resolve } from 'path';
+import { benchmarkReportPlugin } from './build/benchmark-report';
 import { wrapperEnv } from './src/utils/get-env';
 import viteCompression from 'vite-plugin-compression';
 import eslintPlugin from 'vite-plugin-eslint2';
@@ -88,10 +89,18 @@ export default defineConfig(async ({ mode }: ConfigEnv): Promise<UserConfig> => 
                     target: 'http://localhost:9999/',
                     changeOrigin: true,
                     ws: true,
+                    configure(proxy) {
+                        proxy.on('proxyReqWs', (proxyReq, req) => {
+                            if (req.headers.host) {
+                                proxyReq.setHeader('Host', req.headers.host);
+                            }
+                        });
+                    },
                 },
             },
         },
         plugins: [
+            benchmarkReportPlugin(__dirname),
             patchCodeFilterOverflow(),
             vue(),
             eslintPlugin({

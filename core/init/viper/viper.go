@@ -92,7 +92,6 @@ func Init() {
 	global.CONF.Base.Mode = mode
 	global.CONF.Base.InstallDir = baseDir
 	global.CONF.Base.IsDemo = v.GetBool("base.is_demo")
-	global.CONF.Base.IsFxplay = v.GetBool("base.is_fxplay")
 	global.CONF.Base.IsOffline = v.GetBool("base.is_offline")
 	if edition == "intl" {
 		global.CONF.Base.Edition = "intl"

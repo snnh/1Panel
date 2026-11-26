@@ -10,14 +10,6 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/utils/firewall/lifecycle"
 )
 
-func (m *Manager) EnsureIPv6BaseChains() error {
-	ports, err := m.loadRequiredPorts()
-	if err != nil {
-		return err
-	}
-	return EnsureIPv6BaseChains(ports)
-}
-
 func EnsureIPv6BaseChains(ports []firewall.PortWhitelist) error {
 	commands, err := lifecycle.ResolveIptablesCommands()
 	if err != nil || !commands.IPv6Available() {
@@ -40,16 +32,7 @@ func EnsureIPv6BaseChains(ports []firewall.PortWhitelist) error {
 	if err := setBaseChainBindings(true, true); err != nil {
 		return err
 	}
-	for _, chain := range []struct{ name, file string }{
-		{BasicBeforeChain, IPv6FileName(BasicBeforeFileName)},
-		{BasicChain, IPv6FileName(BasicFileName)},
-		{BasicAfterChain, IPv6FileName(BasicAfterFileName)},
-	} {
-		if err := SaveIPv6RulesToFile(FilterTab, chain.name, chain.file); err != nil {
-			return err
-		}
-	}
-	return nil
+	return saveBaseChainsFamily(true)
 }
 
 func UnbindIPv6BaseChains() error {
@@ -69,8 +52,9 @@ func BindIPv6BaseChains() error {
 }
 
 func buildIPv6BaseInitializationScript(dir string, ports []firewall.PortWhitelist, output string) (string, error) {
+	existing := iptablesRuleIndex(output)
 	for _, chain := range BasicChains() {
-		if !containsIptablesRule(output, "-N "+chain) {
+		if !existing[canonicalIptablesRule("-N "+chain)] {
 			return buildBaseChainsRestoreScript(dir, true, ports...)
 		}
 	}
@@ -81,7 +65,9 @@ func buildIPv6BaseInitializationScript(dir string, ports []firewall.PortWhitelis
 	var script strings.Builder
 	script.WriteString("*filter\n")
 	for _, rule := range defaults {
-		if !containsIptablesRule(output, rule) {
+		key := canonicalIptablesRule(rule)
+		if !existing[key] {
+			existing[key] = true
 			script.WriteString(rule + "\n")
 		}
 	}

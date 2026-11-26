@@ -16,20 +16,14 @@
                 <el-select v-model="group" @change="search()" clearable class="p-w-200">
                     <template #prefix>{{ $t('commons.table.group') }}</template>
                     <el-option :label="$t('commons.table.all')" value=""></el-option>
-                    <div v-for="item in groupList" :key="item.id">
-                        <el-option
-                            v-if="item.name === 'Default'"
-                            :label="$t('commons.table.default')"
-                            :value="item.id"
-                        />
-                        <el-option v-else :label="item.name" :value="item.id" />
-                    </div>
+                    <el-option v-for="item in groupList" :key="item.id" :label="item.name" :value="item.id" />
                 </el-select>
                 <TableSearch @search="search()" v-model:searchName="info" />
                 <TableRefresh @search="search()" />
             </template>
             <template #main>
                 <ComplexTable
+                    :cache-pagination="false"
                     :pagination-config="paginationConfig"
                     v-model:selects="selects"
                     :data="data"
@@ -48,16 +42,14 @@
                         <template #default="{ row }">
                             <fu-select-rw-switch v-model="row.groupID" @change="updateGroup(row)">
                                 <template #read>
-                                    {{ row.groupBelong === 'Default' ? $t('commons.table.default') : row.groupBelong }}
+                                    {{ row.groupBelong }}
                                 </template>
-                                <div v-for="item in groupList" :key="item.id">
-                                    <el-option
-                                        v-if="item.name === 'Default'"
-                                        :label="$t('commons.table.default')"
-                                        :value="item.id"
-                                    />
-                                    <el-option v-else :label="item.name" :value="item.id" />
-                                </div>
+                                <el-option
+                                    v-for="item in groupList"
+                                    :key="item.id"
+                                    :label="item.name"
+                                    :value="item.id"
+                                />
                             </fu-select-rw-switch>
                         </template>
                     </el-table-column>
@@ -67,6 +59,19 @@
                         show-overflow-tooltip
                         prop="description"
                     />
+                    <el-table-column :label="$t('terminal.authMode')" min-width="100">
+                        <template #default="{ row }">
+                            {{
+                                $t(
+                                    row.authMode === 'passwordless'
+                                        ? 'terminal.passwordless'
+                                        : row.authMode === 'key'
+                                          ? 'terminal.keyMode'
+                                          : 'terminal.passwordMode',
+                                )
+                            }}
+                        </template>
+                    </el-table-column>
                     <fu-table-operations width="200px" :buttons="buttons" :label="$t('commons.table.operate')" fix />
                 </ComplexTable>
             </template>
@@ -79,11 +84,12 @@
 </template>
 
 <script setup lang="ts">
+import { useSearchState } from '@/utils/search-reset';
 import GroupDialog from '@/components/agent-group/index.vue';
 import OperateDialog from '@/views/terminal/host/operate/index.vue';
 import { deleteHost, editHostGroup, searchHosts } from '@/api/modules/terminal';
 import { getAgentGroupList } from '@/api/modules/group';
-import { reactive, ref } from 'vue';
+import { toRef, reactive, ref } from 'vue';
 import i18n from '@/lang';
 import { Host } from '@/api/interface/host';
 import { MsgSuccess } from '@/utils/message';
@@ -93,12 +99,16 @@ const data = ref();
 const groupList = ref();
 const selects = ref<any>([]);
 const paginationConfig = reactive({
-    cacheSizeKey: 'terminal-host-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('terminal-host-page-size')) || 20,
+    pageSize: 20,
     total: 0,
 });
 const info = ref();
+useSearchState('terminal/host/index', {
+    search: info,
+    page: toRef(paginationConfig, 'currentPage'),
+    pageSize: toRef(paginationConfig, 'pageSize'),
+});
 const group = ref<string>('');
 
 const opRef = ref();

@@ -5,7 +5,7 @@
         :resource="resourceName"
         @close="handleClose"
     >
-        <div v-loading="loading">
+        <div v-loading="loading || loadingVersions">
             <el-descriptions direction="vertical">
                 <el-descriptions-item>
                     <el-link @click="toLink(app.website)">
@@ -41,9 +41,29 @@
                             :label="version.version"
                         ></el-option>
                     </el-select>
+                    <el-button
+                        v-if="operateReq.operate === 'upgrade' && !composeReady && !loadingVersions"
+                        class="mt-2"
+                        @click="getVersions(operateReq.version)"
+                    >
+                        {{ $t('commons.button.retry') }}
+                    </el-button>
                 </el-form-item>
+                <el-alert
+                    v-if="showOpenclawHttpRollbackNotice"
+                    type="warning"
+                    :closable="false"
+                    show-icon
+                    class="upgrade-notice"
+                >
+                    <template #title>{{ $t('app.openclawHttpsUpgradeNoticeTitle') }}</template>
+                    <div class="upgrade-notice-content">
+                        <div>1. {{ $t('app.openclawHttpsUpgradeNoticeItem1') }}</div>
+                        <div>2. {{ $t('app.openclawHttpsUpgradeNoticeItem2') }}</div>
+                    </div>
+                </el-alert>
                 <el-form-item prop="backup" v-if="operateReq.operate === 'upgrade'">
-                    <el-checkbox v-model="operateReq.backup" :label="$t('app.backupApp')" />
+                    <el-checkbox v-model="operateReq.backup" :disabled="feishuLegacy" :label="$t('app.backupApp')" />
                     <span class="input-help">
                         <el-text type="warning">{{ $t('app.backupAppHelper') }}</el-text>
                     </span>
@@ -56,7 +76,7 @@
                     <el-checkbox v-model="operateReq.deleteImage" :label="$t('app.upgradeDeleteImage')" />
                 </el-form-item>
             </el-form>
-            <div v-if="operateReq.operate === 'upgrade'">
+            <div v-if="operateReq.operate === 'upgrade' && composeReady">
                 <el-text type="danger" v-if="isEdit">{{ $t('app.isEdirWarn') }}</el-text>
                 <el-text type="warning" v-else>{{ $t('app.upgradeWarn') }}</el-text>
                 <div>
@@ -73,7 +93,16 @@
         </div>
         <template #footer>
             <el-button @click="handleClose" :disabled="loading">{{ $t('commons.button.cancel') }}</el-button>
-            <el-button type="primary" @click="onOperate" :disabled="versions == null || loading">
+            <el-button
+                type="primary"
+                @click="onOperate"
+                :disabled="
+                    versions == null ||
+                    loading ||
+                    loadingVersions ||
+                    (operateReq.operate === 'upgrade' && !composeReady)
+                "
+            >
                 {{ $t('commons.button.confirm') }}
             </el-button>
         </template>
@@ -87,20 +116,27 @@ import TaskLog from '@/components/log/task/index.vue';
 import CodemirrorPro from '@/components/codemirror-pro/index.vue';
 
 import { App } from '@/api/interface/app';
-import { getAppUpdateVersions, ignoreUpgrade, installedOp } from '@/api/modules/app';
+import { getAppInstallParams, getAppUpdateVersions, ignoreUpgrade, installedOp } from '@/api/modules/app';
 import { getAppStoreConfig } from '@/api/modules/setting';
+import { isOpenclawCurrentHTTPVersion, isOpenclawHTTPSWindowVersion } from '@/utils/agent';
 import i18n from '@/lang';
 import { ElMessageBox, FormInstance } from 'element-plus';
-import { onBeforeUnmount, reactive, ref } from 'vue';
-import { MsgSuccess } from '@/utils/message';
+import { computed, onBeforeUnmount, reactive, ref } from 'vue';
+import { MsgError, MsgSuccess } from '@/utils/message';
 import { Rules } from '@/global/form-rules';
 import bus from '@/global/bus';
 import { v4 as uuidv4 } from 'uuid';
+import { useGlobalStore } from '@/composables/useGlobalStore';
+const { currentNode } = useGlobalStore();
 
 const composeDiffRef = ref();
 const updateRef = ref<FormInstance>();
 const open = ref(false);
 const loading = ref(false);
+const loadingVersions = ref(false);
+const composeReady = ref(false);
+const currentComposeReady = ref(false);
+let versionRequest = 0;
 const versions = ref<App.VersionDetail[]>();
 const operateReq = reactive({
     detailId: 0,
@@ -113,6 +149,8 @@ const operateReq = reactive({
     dockerCompose: '',
     taskID: '',
 });
+const feishuLegacy = ref(false);
+const feishuConfigured = ref(false);
 const resourceName = ref('');
 const rules = ref<any>({
     detailId: [Rules.requiredSelect],
@@ -122,6 +160,9 @@ const oldContent = ref('');
 const newContent = ref('');
 const em = defineEmits(['close']);
 const handleClose = () => {
+    versionRequest++;
+    loadingVersions.value = false;
+    composeReady.value = false;
     open.value = false;
     em('close', open.value);
 };
@@ -137,15 +178,27 @@ const ignoreAppReq = reactive({
 });
 const isEdit = ref(false);
 const node = ref('');
+const currentVersion = ref('');
+const currentAppKey = ref('');
+
+const showOpenclawHttpRollbackNotice = computed(() => {
+    return (
+        operateReq.operate === 'upgrade' &&
+        currentAppKey.value === 'openclaw' &&
+        isOpenclawHTTPSWindowVersion(currentVersion.value) &&
+        isOpenclawCurrentHTTPVersion(operateReq.version)
+    );
+});
 
 const toLink = (link: string) => {
     window.open(link, '_blank');
 };
 
 const openDiff = async () => {
-    if (newContent.value === '') {
+    if (!composeReady.value) {
         await getVersions(operateReq.version);
     }
+    if (!composeReady.value) return;
     composeDiffRef.value.acceptParams(oldContent.value, newContent.value);
 };
 
@@ -160,22 +213,37 @@ const getNewCompose = (compose: string) => {
 };
 
 const initData = async () => {
+    const request = versionRequest;
     const config = await getAppStoreConfig();
+    if (request !== versionRequest) return false;
     newCompose.value = '';
     useNewCompose.value = false;
     operateReq.backup = config.data.upgradeBackup == 'Enable';
     operateReq.pullImage = true;
     operateReq.deleteImage = config.data.upgradeDeleteImage == 'Enable';
     operateReq.dockerCompose = '';
+    return true;
 };
 
-const acceptParams = (appInstall: App.AppInstallDto, op: string, opNode?: string) => {
+const acceptParams = async (appInstall: App.AppInstallDto, op: string, opNode?: string) => {
+    versionRequest++;
+    composeReady.value = false;
+    currentComposeReady.value = false;
+    loadingVersions.value = false;
+    versions.value = undefined;
+    operateReq.detailId = 0;
+    operateReq.version = '';
     if (opNode) {
         node.value = opNode;
     } else {
+        node.value = currentNode.value;
     }
-    initData();
+    feishuLegacy.value = false;
+    feishuConfigured.value = false;
+    if (!(await initData())) return;
     isEdit.value = appInstall.isEdit;
+    currentVersion.value = appInstall.version;
+    currentAppKey.value = appInstall.appKey;
     operateReq.installId = appInstall.id;
     operateReq.operate = op;
     resourceName.value = appInstall.name;
@@ -191,34 +259,65 @@ const acceptParams = (appInstall: App.AppInstallDto, op: string, opNode?: string
 };
 
 const getVersions = async (version: string) => {
-    const req = {
+    const request = ++versionRequest;
+    const upgrading = operateReq.operate === 'upgrade';
+    composeReady.value = false;
+    if (upgrading) operateReq.detailId = 0;
+    loadingVersions.value = true;
+    const req: App.AppUpdateVersionReq = {
         appInstallID: appInstallID.value,
+        loadCompose: false,
     };
-    if (version !== '') {
-        req['updateVersion'] = version;
-    }
     try {
-        const res = await getAppUpdateVersions(req);
-        versions.value = res.data || [];
-        if (res.data != null && res.data.length > 0) {
-            let item = res.data[0];
-            if (version != '') {
-                item = res.data.find((v) => v.version === version);
-            }
-            operateReq.detailId = item.detailId;
-            operateReq.version = item.version;
-            newContent.value = item.dockerCompose;
-            newCompose.value = item.dockerCompose;
-            useNewCompose.value = false;
+        if (!versions.value || version === '') {
+            const res = await getAppUpdateVersions(req, node.value);
+            if (request !== versionRequest) return;
+            versions.value = res.data || [];
         }
-    } catch (error) {}
+        let item = version ? versions.value.find((v) => v.version === version) : versions.value[0];
+        if (!item) {
+            if (upgrading && version) MsgError(i18n.global.t('container.contentEmpty'));
+            return;
+        }
+        operateReq.version = item.version;
+        if (!upgrading) {
+            operateReq.detailId = item.detailId;
+            return;
+        }
+        if (!currentComposeReady.value) {
+            const config = await getAppInstallParams(appInstallID.value, node.value);
+            if (request !== versionRequest) return;
+            if (typeof config.data.isEdit === 'boolean') isEdit.value = config.data.isEdit;
+            oldContent.value = config.data.dockerCompose;
+            currentComposeReady.value = true;
+        }
+        const res = await getAppUpdateVersions({ ...req, loadCompose: true, updateVersion: item.version }, node.value);
+        if (request !== versionRequest) return;
+        item = res.data?.find((v) => v.version === operateReq.version);
+        if (!item?.dockerCompose?.trim()) {
+            MsgError(i18n.global.t('container.contentEmpty'));
+            return;
+        }
+        feishuLegacy.value = Boolean(item.feishuLegacy);
+        feishuConfigured.value = Boolean(item.feishuConfigured);
+        if (feishuLegacy.value) operateReq.backup = true;
+        operateReq.detailId = item.detailId;
+        newContent.value = item.dockerCompose;
+        newCompose.value = item.dockerCompose;
+        useNewCompose.value = false;
+        composeReady.value = true;
+    } catch (error) {
+    } finally {
+        if (request === versionRequest) loadingVersions.value = false;
+    }
 };
 
 const openTaskLog = (taskID: string) => {
-    taskLogRef.value.openWithTaskID(taskID, true);
+    taskLogRef.value.openWithTaskID(taskID, true, node.value);
 };
 
 const operate = async () => {
+    if (operateReq.operate === 'upgrade' && !composeReady.value) return;
     loading.value = true;
     if (operateReq.operate === 'upgrade') {
         if (useNewCompose.value) {
@@ -226,7 +325,7 @@ const operate = async () => {
         }
         const taskID = uuidv4();
         operateReq.taskID = taskID;
-        await installedOp(operateReq)
+        await installedOp(operateReq, node.value)
             .then(() => {
                 bus.emit('upgrade', true);
                 handleClose();
@@ -249,15 +348,19 @@ const operate = async () => {
 };
 
 const onOperate = async () => {
-    ElMessageBox.confirm(
-        i18n.global.t('app.operatorHelper', [i18n.global.t('commons.button.' + operateReq.operate)]),
-        i18n.global.t('commons.button.upgrade'),
-        {
-            confirmButtonText: i18n.global.t('commons.button.confirm'),
-            cancelButtonText: i18n.global.t('commons.button.cancel'),
-            type: 'info',
-        },
-    ).then(() => {
+    if (loadingVersions.value || (operateReq.operate === 'upgrade' && !composeReady.value)) return;
+    if (operateReq.operate === 'upgrade' && useNewCompose.value && !newCompose.value.trim()) {
+        MsgError(i18n.global.t('container.contentEmpty'));
+        return;
+    }
+    await updateRef.value?.validate();
+    const helper = i18n.global.t('app.operatorHelper', [i18n.global.t('commons.button.' + operateReq.operate)]);
+    const notice = helper;
+    ElMessageBox.confirm(notice, i18n.global.t('commons.button.upgrade'), {
+        confirmButtonText: i18n.global.t('commons.button.confirm'),
+        cancelButtonText: i18n.global.t('commons.button.cancel'),
+        type: 'info',
+    }).then(() => {
         operate();
     });
 };
@@ -270,3 +373,13 @@ defineExpose({
     acceptParams,
 });
 </script>
+
+<style lang="scss" scoped>
+.upgrade-notice {
+    margin-bottom: 16px;
+}
+
+.upgrade-notice-content {
+    line-height: 1.8;
+}
+</style>

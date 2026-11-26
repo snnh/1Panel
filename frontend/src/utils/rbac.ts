@@ -19,6 +19,7 @@ type RouteAccessTarget = {
 export const syncAuthInfo = async () => {
     const globalStore = GlobalStore();
     const res = await getUserInfo();
+    globalStore.cacheUserID = `community:${res.data.id}`;
     globalStore.setAuthInfo({
         isAdmin: res.data.role === 'ADMIN',
         permissions: res.data.permissions || [],

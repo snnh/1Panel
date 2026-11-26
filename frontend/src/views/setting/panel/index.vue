@@ -142,6 +142,12 @@
                                 </el-button>
                             </el-form-item>
 
+                            <el-form-item :label="$t('setting.panelCache.title')">
+                                <el-button v-show="!show" @click="cacheRef.acceptParams()" icon="Setting">
+                                    {{ $t('commons.button.set') }}
+                                </el-button>
+                            </el-form-item>
+
                             <el-form-item :label="$t('setting.runtimeEnv')" prop="edition">
                                 <el-button icon="Setting" @click="onChangeRegion">
                                     {{ runtimeEnvLabel() }}
@@ -158,11 +164,13 @@
         <Proxy ref="proxyRef" @search="search()" />
         <Timeout ref="timeoutRef" @search="search()" />
         <HideMenu ref="hideMenuRef" @search="search()" />
+        <CacheSettings ref="cacheRef" />
         <Edition ref="editionRef" @search="search()" />
     </div>
 </template>
 
 <script lang="ts" setup>
+import { applyPanelCacheSettings } from '@/utils/panel-cache';
 import { ref, reactive, onMounted } from 'vue';
 import { ElForm } from 'element-plus';
 import { getSettingInfo, updateSetting, getSystemAvailable, getAgentSettingInfo } from '@/api/modules/setting';
@@ -174,6 +182,7 @@ import Timeout from '@/views/setting/panel/timeout/index.vue';
 import PanelName from '@/views/setting/panel/name/index.vue';
 import SystemIP from '@/views/setting/panel/systemip/index.vue';
 import Proxy from '@/views/setting/panel/proxy/index.vue';
+import CacheSettings from '@/views/setting/panel/cache/index.vue';
 import HideMenu from '@/views/setting/panel/hidemenu/index.vue';
 import { codeEditorThemeStorageKey } from '@/utils/code-editor-theme';
 import i18n from '@/lang';
@@ -215,6 +224,7 @@ const systemIPRef = ref();
 const proxyRef = ref();
 const timeoutRef = ref();
 const hideMenuRef = ref();
+const cacheRef = ref();
 const editionRef = ref();
 const unset = ref(i18n.global.t('setting.unSetting'));
 
@@ -236,6 +246,7 @@ const search = async () => {
     form.menuTabs = res.data.menuTabs;
     form.menuAccordion = res.data.menuAccordion || 'Disable';
     menuAccordion.value = form.menuAccordion === 'Enable';
+    applyPanelCacheSettings(res.data.panelCache);
     form.panelName = res.data.panelName;
     form.language = res.data.language;
     form.sessionTimeout = Number(res.data.sessionTimeout || 0);

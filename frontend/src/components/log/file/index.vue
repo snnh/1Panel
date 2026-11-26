@@ -1,5 +1,5 @@
 <template>
-    <div v-loading="firstLoading">
+    <div v-loading="firstLoading && !preload">
         <div v-if="defaultButton">
             <el-button icon="Refresh" v-if="!showTail" @click="getContent(false)">
                 {{ $t('commons.button.refresh') }}
@@ -87,6 +87,7 @@ const props = defineProps({
         type: Boolean,
         default: true,
     },
+    preload: Boolean,
     loading: {
         type: Boolean,
         default: true,
@@ -119,7 +120,7 @@ const stopSignals = [
     'image push successful!',
     '[TASK-END]',
 ];
-const emit = defineEmits(['update:loading', 'update:hasContent', 'update:isReading', 'stop-reading']);
+const emit = defineEmits(['update:loading', 'update:hasContent', 'update:isReading', 'stop-reading', 'loaded']);
 const tailLog = ref(true);
 const loading = ref(props.loading);
 const readReq = reactive({
@@ -260,6 +261,7 @@ const getContent = async (pre: boolean) => {
     }
     isLoading.value = true;
     emit('update:isReading', true);
+    const requestedPage = readReq.page;
 
     let res;
     try {
@@ -282,7 +284,6 @@ const getContent = async (pre: boolean) => {
 
     if (res.data.taskStatus && res.data.taskStatus !== 'Executing') {
         isTailDisabled.value = true;
-        tailLog.value = false;
     }
 
     logPath.value = res.data.path;
@@ -388,6 +389,14 @@ const getContent = async (pre: boolean) => {
         }
     }
     isLoading.value = false;
+    if (readReq.type === 'task' && res.data.taskStatus && res.data.taskStatus !== 'Executing') {
+        if (!pre && !res.data.end && res.data.scope !== 'tail' && requestedPage < res.data.total) {
+            readReq.page = requestedPage + 1;
+            await getContent(false);
+        } else {
+            onCloseLog();
+        }
+    }
 };
 
 const onCloseLog = async () => {
@@ -430,6 +439,22 @@ const containerStyle = computed(() => ({
     height: `calc(100vh - ${props.heightDiff}px)`,
 }));
 
+let initialLoad: Promise<void> | undefined;
+let initialScrollPending = true;
+const scrollToEndOnFirstShow = () => {
+    const container = logContainer.value;
+    if (initialScrollPending && container?.clientHeight) {
+        container.scrollTop = container.scrollHeight;
+        initialScrollPending = false;
+    }
+};
+
+const waitForInitialLoad = async () => {
+    await initialLoad;
+    await nextTick();
+    return !!logContainer.value;
+};
+
 onMounted(async () => {
     showTail.value = props.showTail;
     logs.value = [];
@@ -442,33 +467,31 @@ onMounted(async () => {
     readReq.taskType = props.config.taskType;
     readReq.taskOperate = props.config.taskOperate;
     readReq.resourceID = props.config.resourceID;
-    await init();
+    initialLoad = init();
+    await initialLoad;
+    if (logContainer.value) {
+        emit('loaded', logs.value);
+    }
 
     updateContainerHeight();
 
     if (logContainer.value) {
         resizeObserver = new ResizeObserver(() => {
             updateContainerHeight();
+            scrollToEndOnFirstShow();
         });
         resizeObserver.observe(logContainer.value);
     }
 
-    nextTick(() => {
-        if (logContainer.value) {
-            logContainer.value.scrollTop = logContainer.value.scrollHeight;
-        }
-    });
+    nextTick(scrollToEndOnFirstShow);
 });
 
 onUnmounted(() => {
     onCloseLog();
-    if (resizeObserver && logContainer.value) {
-        resizeObserver.unobserve(logContainer.value);
-        resizeObserver.disconnect();
-    }
+    resizeObserver?.disconnect();
 });
 
-defineExpose({ changeTail, onDownload, clearLog });
+defineExpose({ changeTail, onDownload, clearLog, waitForInitialLoad });
 </script>
 <style lang="scss" scoped>
 .log-container {

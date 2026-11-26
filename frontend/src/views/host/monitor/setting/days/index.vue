@@ -23,11 +23,16 @@ import { FormInstance } from 'element-plus';
 import { Rules } from '@/global/form-rules';
 import { updateMonitorSetting } from '@/api/modules/host';
 
+const props = defineProps({
+    updateSetting: { type: Function, default: updateMonitorSetting },
+});
 const emit = defineEmits<{ (e: 'search'): void }>();
 
 interface DialogProps {
+    key: string;
     monitorStoreDays: number;
 }
+const settingKey = ref<DialogProps['key']>('MonitorStoreDays');
 const drawerVisible = ref();
 const loading = ref();
 
@@ -38,6 +43,7 @@ const form = reactive({
 const formRef = ref<FormInstance>();
 
 const acceptParams = (params: DialogProps): void => {
+    settingKey.value = params.key;
     form.monitorStoreDays = params.monitorStoreDays;
     drawerVisible.value = true;
 };
@@ -47,7 +53,8 @@ const onSave = async (formEl: FormInstance | undefined) => {
     formEl.validate(async (valid) => {
         if (!valid) return;
         loading.value = true;
-        await updateMonitorSetting('MonitorStoreDays', form.monitorStoreDays + '')
+        await props
+            .updateSetting(settingKey.value, form.monitorStoreDays + '')
             .then(() => {
                 loading.value = false;
                 handleClose();

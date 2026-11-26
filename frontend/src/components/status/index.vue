@@ -5,7 +5,7 @@
         :aria-disabled="isDisabled"
         @click.capture="handlePermissionClick"
     >
-        <el-tooltip v-if="msg && msg != ''" effect="dark" placement="bottom">
+        <el-tooltip v-if="msg && msg != ''" effect="dark" v-bind="TABLE_TOOLTIP_OPTIONS">
             <template #content>
                 <div class="content">{{ msg }}</div>
             </template>
@@ -40,6 +40,7 @@
 </template>
 
 <script lang="ts" setup>
+import { TABLE_TOOLTIP_OPTIONS } from '@/components/table/shared';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -98,12 +99,16 @@ const getType = (status: string) => {
         case 'disable':
         case 'unhealthy':
         case 'failed':
+        case 'crashed':
         case 'lost':
         case 'exited':
         case 'notfound':
         case 'inaccessible':
             return 'danger';
         case 'paused':
+        case 'blocked':
+        case 'shutdown':
+        case 'pmsuspended':
         case 'dead':
         case 'removing':
         case 'deleted':
@@ -131,6 +136,7 @@ const loadingStatus = [
     'recreating',
     'creating',
     'starting',
+    'shutdown',
     'removing',
     'applying',
     'uninstalling',

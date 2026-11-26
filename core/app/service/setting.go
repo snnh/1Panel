@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/1Panel-dev/1Panel/core/app/auth"
 	"github.com/1Panel-dev/1Panel/core/app/dto"
 	"github.com/1Panel-dev/1Panel/core/app/model"
 	"github.com/1Panel-dev/1Panel/core/app/repo"
@@ -119,6 +120,9 @@ func (u *SettingService) GetSettingInfo() (*dto.SettingInfo, error) {
 	for _, set := range setting {
 		settingMap[set.Key] = set.Value
 	}
+	if settingMap["PanelCache"] == "" {
+		settingMap["PanelCache"] = dto.DefaultPanelCache
+	}
 	repairAndSortHideMenu(settingMap)
 	var info dto.SettingInfo
 	arr, err := json.Marshal(settingMap)
@@ -154,6 +158,9 @@ func (u *SettingService) GetSettingBaseInfo() (*dto.SettingBaseInfo, error) {
 	for _, set := range setting {
 		settingMap[set.Key] = set.Value
 	}
+	if settingMap["PanelCache"] == "" {
+		settingMap["PanelCache"] = dto.DefaultPanelCache
+	}
 	repairAndSortHideMenu(settingMap)
 	var info dto.SettingBaseInfo
 	arr, err := json.Marshal(settingMap)
@@ -171,6 +178,8 @@ func (u *SettingService) GetSettingBaseInfo() (*dto.SettingBaseInfo, error) {
 		info.MenuAccordion = constant.StatusDisable
 		_ = settingRepo.UpdateOrCreate("MenuAccordion", info.MenuAccordion)
 	}
+
+	info.ProxyEnabled = info.ProxyType == "http" || info.ProxyType == "https" || info.ProxyType == "socks5"
 
 	return &info, err
 }
@@ -206,6 +215,30 @@ func sortShowMenus(menus []dto.ShowMenu) {
 }
 
 func (u *SettingService) Update(c *gin.Context, key, value string) error {
+	if auth.IsAPICredentialSetting(key) {
+		return buserr.New("ErrInvalidParams")
+	}
+	if key == "PanelCache" {
+		var config dto.PanelCache
+		decoder := json.NewDecoder(strings.NewReader(value))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&config); err != nil {
+			return buserr.New("ErrInvalidParams")
+		}
+		if err := decoder.Decode(new(any)); err != io.EOF {
+			return buserr.New("ErrInvalidParams")
+		}
+		if config.Tabs == nil || config.Pagination == nil || config.Refresh == nil || config.Search == nil {
+			return buserr.New("ErrInvalidParams")
+		}
+		switch config.Duration {
+		case "24h", "week", "month", "forever":
+		default:
+			return buserr.New("ErrInvalidParams")
+		}
+		data, _ := json.Marshal(config)
+		return settingRepo.UpdateOrCreate(key, string(data))
+	}
 	oldVal, err := settingRepo.Get(repo.WithByKey(key))
 	if err != nil {
 		return err

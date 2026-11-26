@@ -25,6 +25,10 @@ type Process struct {
 	User    string  `json:"user"`
 }
 
+type MonitorClean struct {
+	Type string `json:"type" validate:"required,oneof=host"`
+}
+
 type MonitorSetting struct {
 	MonitorStatus    string `json:"monitorStatus"`
 	MonitorStoreDays string `json:"monitorStoreDays"`
@@ -37,4 +41,3 @@ type MonitorSettingUpdate struct {
 	Key   string `json:"key" validate:"required,oneof=MonitorStatus MonitorStoreDays MonitorInterval DefaultNetwork DefaultIO"`
 	Value string `json:"value"`
 }
-

@@ -105,6 +105,7 @@ export namespace File {
         dst: string;
         type: string;
         secret: string;
+        overwrite?: boolean;
         taskID?: string;
     }
 

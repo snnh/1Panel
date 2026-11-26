@@ -9,28 +9,29 @@ var (
 	ErrAdapterUnavailable   = errors.New("firewall rule adapter is unavailable")
 	ErrInventoryUnavailable = errors.New("firewall rule inventory is unavailable")
 	ErrFamilyUnavailable    = errors.New("firewall address family is unavailable")
+	ErrRuleNotFound         = errors.New("firewall rule does not exist")
 )
 
 type ChangeOperation string
 
 const (
 	ChangeCreate  ChangeOperation = "create"
-	ChangeAdopt   ChangeOperation = "adopt"
 	ChangeUpdate  ChangeOperation = "update"
 	ChangeDelete  ChangeOperation = "delete"
 	ChangeReorder ChangeOperation = "reorder"
 )
 
-type DesiredChange struct {
-	CommandOnly     bool            `json:"-"`
-	UnmarkedAdopted bool            `json:"-"`
-	Operation       ChangeOperation `json:"operation"`
-	Before          *FirewallRule   `json:"before,omitempty"`
-	After           *FirewallRule   `json:"after,omitempty"`
-	Locator         *Locator        `json:"locator,omitempty"`
-	PreviousMarker  string          `json:"previousMarker,omitempty"`
-	Append          bool            `json:"append,omitempty"`
-	RestoreAtEnd    bool            `json:"restoreAtEnd,omitempty"`
+type RuleChange struct {
+	Target         *ObservedRule   `json:"-"`
+	Raw            string          `json:"raw,omitempty"`
+	CommandOnly    bool            `json:"-"`
+	Operation      ChangeOperation `json:"operation"`
+	Before         *FirewallRule   `json:"before,omitempty"`
+	After          *FirewallRule   `json:"after,omitempty"`
+	Locator        *Locator        `json:"locator,omitempty"`
+	PreviousMarker string          `json:"previousMarker,omitempty"`
+	Append         bool            `json:"append,omitempty"`
+	RestoreAtEnd   bool            `json:"restoreAtEnd,omitempty"`
 }
 
 type NativeCommand struct {
@@ -39,7 +40,7 @@ type NativeCommand struct {
 	Stdin      string   `json:"stdin,omitempty"`
 }
 
-type NativeRulePlan struct {
+type RuleCommands struct {
 	RuleUUID         string          `json:"ruleUUID"`
 	Operation        ChangeOperation `json:"operation"`
 	Commands         []NativeCommand `json:"commands"`
@@ -48,15 +49,14 @@ type NativeRulePlan struct {
 	Expected         ObservedRule    `json:"expected"`
 }
 
-type BackendPlan struct {
-	CommandOnly      bool             `json:"-"`
-	Provider         Provider         `json:"provider"`
-	Scope            Scope            `json:"scope"`
-	SnapshotRevision string           `json:"snapshotRevision"`
-	Rules            []NativeRulePlan `json:"rules"`
+type CommandBatch struct {
+	CommandOnly bool           `json:"-"`
+	Provider    Provider       `json:"provider"`
+	Scope       Scope          `json:"scope"`
+	Rules       []RuleCommands `json:"rules"`
 }
 
-func (p BackendPlan) CreatesOnly() bool {
+func (p CommandBatch) CreatesOnly() bool {
 	if len(p.Rules) == 0 {
 		return false
 	}
@@ -68,40 +68,16 @@ func (p BackendPlan) CreatesOnly() bool {
 	return true
 }
 
-type ApplyResult struct {
-	Applied      []ObservedRule `json:"applied"`
-	Verification *VerifyResult  `json:"verification,omitempty"`
-}
-
-type VerifyResult struct {
-	Snapshot Snapshot `json:"snapshot"`
-	Matched  bool     `json:"matched"`
-}
-
 type Adapter interface {
 	Provider() Provider
-	Capabilities(context.Context) (Capabilities, error)
-	Observe(context.Context, Scope) (Snapshot, error)
-	Compile(Snapshot, []DesiredChange) (BackendPlan, error)
-	Apply(context.Context, BackendPlan) (ApplyResult, error)
-	Verify(context.Context, BackendPlan) (VerifyResult, error)
+	ListRules(context.Context, Scope) (RuleSet, error)
+	BuildCommands(RuleSet, []RuleChange) (CommandBatch, error)
+	RunCommands(context.Context, CommandBatch) error
+	Rollback(context.Context, CommandBatch) error
 }
 
-type MultiScopeObserver interface {
-	ObserveScopes(context.Context, []Scope) ([]Snapshot, error)
-}
-
-type ObservationSessionFactory interface {
-	NewObservationSession() Adapter
-}
-
-type CreatePlanner interface {
-	Compile(DesiredChange) (BackendPlan, error)
-	Applied(ObservedRule)
-}
-
-type CreatePlannerFactory interface {
-	NewCreatePlanner(Snapshot) CreatePlanner
+type MultiScopeReader interface {
+	ListRuleScopes(context.Context, []Scope) ([]RuleSet, error)
 }
 
 type RulePreparer interface {
@@ -112,7 +88,8 @@ type RuleChecker interface {
 	CheckRule(context.Context, FirewallRule) error
 }
 
-type UnverifiedRuleAppender interface {
+type ExternalRuleAdapter interface {
+	ListRulesByComment(context.Context, []Scope, string) ([]ObservedRule, error)
 	AppendUnverified(context.Context, FirewallRule, string) error
 }
 
@@ -120,6 +97,6 @@ type NativeDetailReader interface {
 	NativeDetail(context.Context, string, bool) (string, error)
 }
 
-type PlanRollbacker interface {
-	Rollback(context.Context, BackendPlan) error
+type RuleSaver interface {
+	SaveRules(context.Context, Scope) error
 }

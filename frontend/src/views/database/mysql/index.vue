@@ -59,18 +59,52 @@
                 >
                     {{ $t('menu.terminal') }}
                 </el-button>
-                <el-dropdown>
+                <el-dropdown trigger="click" :hide-on-click="false">
                     <el-button type="primary" plain>
                         {{ $t('database.manage') }}
                         <el-icon class="el-icon--right"><arrow-down /></el-icon>
                     </el-button>
                     <template #dropdown>
                         <el-dropdown-menu>
-                            <el-dropdown-item icon="Position" @click="goDashboard('phpMyAdmin')">
-                                phpMyAdmin
-                            </el-dropdown-item>
-                            <el-dropdown-item icon="Position" @click="goDashboard('Adminer')" divided>
-                                Adminer
+                            <el-dropdown-item
+                                v-for="(tool, index) in dashboardTools"
+                                :key="tool.key"
+                                :divided="index > 0"
+                                :disabled="!dashboardsLoaded"
+                                class="dashboard-menu-item"
+                                @click="goDashboard(tool)"
+                            >
+                                <el-popover
+                                    placement="right"
+                                    trigger="hover"
+                                    :teleported="true"
+                                    :disabled="!tool.installed"
+                                    :popper-style="{ width: 'fit-content', maxWidth: 'min(92vw, 560px)' }"
+                                >
+                                    <template #reference>
+                                        <span class="dashboard-menu-trigger">
+                                            <el-icon><Position /></el-icon>
+                                            {{ tool.name }}
+                                        </span>
+                                    </template>
+                                    <div class="dashboard-links">
+                                        <el-button
+                                            v-for="link in dashboardLinks(tool.installed)"
+                                            :key="link"
+                                            type="primary"
+                                            link
+                                            @click="toLink(link)"
+                                        >
+                                            {{ link }}
+                                        </el-button>
+                                        <span v-if="!dashboardLinks(tool.installed).length">
+                                            {{ $t('app.webUIConfig') }}
+                                            <el-link icon="Position" type="primary" @click="routerToName('Panel')">
+                                                {{ $t('firewall.quickJump') }}
+                                            </el-link>
+                                        </span>
+                                    </div>
+                                </el-popover>
                             </el-dropdown-item>
                         </el-dropdown-menu>
                     </template>
@@ -119,6 +153,7 @@
             <template #main>
                 <ComplexTable
                     v-if="currentDB"
+                    :cache-pagination="false"
                     :pagination-config="paginationConfig"
                     :class="{ mask: maskShow }"
                     @sort-change="search"
@@ -138,7 +173,9 @@
                             <Tooltip v-if="!row.isDelete" :islink="false" :text="row.name" />
                             <div v-else>
                                 <span v-if="row.name.length < 15">{{ row.name }}</span>
-                                <el-tooltip v-else :content="row.name">{{ row.name.substring(0, 10) }}...</el-tooltip>
+                                <el-tooltip v-else :content="row.name" v-bind="TABLE_TOOLTIP_OPTIONS">
+                                    {{ row.name.substring(0, 10) }}...
+                                </el-tooltip>
                                 <el-tag round type="info" class="ml-1" size="small">
                                     {{ $t('database.isDelete') }}
                                 </el-tag>
@@ -232,7 +269,6 @@
         <Backups ref="dialogBackupRef" />
         <AppResources ref="checkRef"></AppResources>
         <DeleteDialog ref="deleteRef" @search="search" />
-        <PortJumpDialog ref="dialogPortJumpRef" />
         <TerminalDialog ref="dialogTerminalRef" />
         <UserDialog ref="userRef" @search="search" />
         <BindDialog ref="bindRef" @search="onBindSearch" />
@@ -240,6 +276,8 @@
 </template>
 
 <script lang="ts" setup>
+import { TABLE_TOOLTIP_OPTIONS } from '@/components/table/shared';
+import { useSearchState } from '@/utils/search-reset';
 import BindDialog from '@/views/database/mysql/bind/index.vue';
 import UserDialog from '@/views/database/mysql/user/index.vue';
 import OperateDialog from '@/views/database/mysql/create/index.vue';
@@ -250,11 +288,10 @@ import AppResources from '@/views/database/mysql/check/index.vue';
 import AppStatus from '@/components/app-status/index.vue';
 import Backups from '@/components/backup/index.vue';
 import UploadDialog from '@/components/upload/index.vue';
-import PortJumpDialog from '@/components/port-jump/index.vue';
 import Tooltip from '@/components/tooltip/index.vue';
 import { dateFormat } from '@/utils/date';
 import { ElMessageBox } from 'element-plus';
-import { onMounted, reactive, ref } from 'vue';
+import { toRef, onMounted, reactive, ref } from 'vue';
 import {
     deleteCheckMysqlDB,
     listDatabases,
@@ -266,7 +303,9 @@ import {
 import i18n from '@/lang';
 import { Database } from '@/api/interface/database';
 import { App } from '@/api/interface/app';
-import { getAppPort } from '@/api/modules/app';
+import { getAppInstalled } from '@/api/modules/app';
+import { getAgentSettingInfo } from '@/api/modules/setting';
+import { toLink } from '@/utils/browser';
 import { MsgSuccess } from '@/utils/message';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import { routerToName, routerToNameWithParams, routerToNameWithQuery } from '@/utils/router';
@@ -292,27 +331,38 @@ const checkRef = ref();
 const deleteRef = ref();
 const dialogTerminalRef = ref();
 
-const phpadminPort = ref();
-const adminerPort = ref();
+interface DashboardTool {
+    key: string;
+    name: string;
+    installed?: App.AppInstalled;
+}
+const dashboardTools = ref<DashboardTool[]>([
+    { key: 'phpmyadmin', name: 'phpMyAdmin' },
+    { key: 'adminer', name: 'Adminer' },
+]);
+const dashboardsLoaded = ref(false);
+const dashboardHost = ref('');
 const dashboardName = ref();
 const dashboardKey = ref();
 const open = ref(false);
 
 const appStatusRef = ref();
 
-const dialogPortJumpRef = ref();
-
 const data = ref<Database.MysqlDBInfo[]>([]);
 let grantSummaryRequestID = 0;
 const paginationConfig = reactive({
-    cacheSizeKey: 'mysql-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('mysql-page-size')) || 20,
+    pageSize: 20,
     total: 0,
     orderBy: 'createdAt',
     order: 'null',
 });
 const searchName = ref();
+useSearchState(
+    'database/mysql/index',
+    { search: searchName, page: toRef(paginationConfig, 'currentPage'), pageSize: toRef(paginationConfig, 'pageSize') },
+    { onRevisit: () => search() },
+);
 
 const mysqlContainer = ref();
 const mysqlStatus = ref();
@@ -500,38 +550,62 @@ const onChange = async (info: any) => {
     MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));
 };
 
-const goDashboard = async (name: string) => {
-    if (name === 'phpMyAdmin') {
-        if (phpadminPort.value === 0) {
-            dashboardName.value = 'phpMyAdmin';
-            dashboardKey.value = 'phpmyadmin';
-            open.value = true;
-            return;
+const goDashboard = (tool: DashboardTool) => {
+    if (tool.installed) {
+        return;
+    }
+    dashboardName.value = tool.name;
+    dashboardKey.value = tool.key;
+    open.value = true;
+};
+
+const dashboardLinks = (installed?: App.AppInstalled) => {
+    if (!installed) {
+        return [];
+    }
+    const links: string[] = [];
+    const host = dashboardHost.value;
+    if (host) {
+        const address = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+        if (installed.httpPort > 0) {
+            links.push(`http://${address}:${installed.httpPort}`);
         }
-        dialogPortJumpRef.value.acceptParams({ port: phpadminPort.value });
-        return;
+        if (installed.httpsPort > 0) {
+            links.push(`https://${address}:${installed.httpsPort}`);
+        }
     }
-    if (adminerPort.value === 0) {
-        dashboardName.value = 'Adminer';
-        dashboardKey.value = 'adminer';
-        open.value = true;
-        return;
+    if (installed.webUI) {
+        links.push(installed.webUI);
     }
-    dialogPortJumpRef.value.acceptParams({ port: adminerPort.value });
+    return [...new Set(links)];
 };
 
 const getAppDetail = () => {
     routerToNameWithQuery('AppAll', { install: dashboardKey.value });
 };
 
-const loadPhpMyAdminPort = async () => {
-    const res = await getAppPort('phpmyadmin', '');
-    phpadminPort.value = res.data;
-};
-
-const loadAdminerPort = async () => {
-    const res = await getAppPort('adminer', '');
-    adminerPort.value = res.data;
+const loadDashboards = async () => {
+    const [settings, installed] = await Promise.all([
+        getAgentSettingInfo(),
+        (async () => {
+            const items: App.AppInstalled[] = [];
+            let page = 1;
+            let total = 0;
+            do {
+                const res = await getAppInstalled({ page: page++, pageSize: 100, type: '' });
+                const batch = res.data.items || [];
+                items.push(...batch);
+                total = res.data.total;
+                if (!batch.length) break;
+            } while (items.length < total);
+            return items;
+        })(),
+    ]);
+    dashboardHost.value = settings.data.systemIP;
+    for (const tool of dashboardTools.value) {
+        tool.installed = installed.find((app) => app.appKey === tool.key);
+    }
+    dashboardsLoaded.value = true;
 };
 
 const checkExist = (data: App.CheckInstalled) => {
@@ -654,12 +728,41 @@ const onBindSearch = async () => {
 
 onMounted(() => {
     loadDBOptions();
-    loadPhpMyAdminPort();
-    loadAdminerPort();
+    loadDashboards();
 });
 </script>
 
 <style lang="scss" scoped>
+.dashboard-menu-item {
+    padding: 0;
+}
+
+.dashboard-menu-trigger {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 5px 16px;
+    box-sizing: border-box;
+}
+
+.dashboard-links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    max-height: 65vh;
+    overflow-y: auto;
+
+    .el-button.is-link {
+        margin-left: 0;
+        white-space: normal;
+        text-align: left;
+        height: auto;
+        line-height: 1.4;
+        word-break: break-all;
+    }
+}
+
 .iconInTable {
     margin-left: 5px;
     margin-top: 3px;

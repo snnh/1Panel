@@ -159,7 +159,7 @@ const onClean = async () => {
         type: 'info',
     }).then(async () => {
         loading.value = true;
-        await cleanMonitors()
+        await cleanMonitors('host')
             .then(() => {
                 loading.value = false;
                 MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));

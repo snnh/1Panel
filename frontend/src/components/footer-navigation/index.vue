@@ -16,7 +16,7 @@ import { useGlobalStore } from '@/composables/useGlobalStore';
 import { createDefaultFooterNavigationLinks, footerNavigationKeys, isSafeExternalUrl } from './model';
 import type { FooterNavigationKey } from './model';
 
-const { docsUrl, isFxplay, isIntl } = useGlobalStore();
+const { docsUrl, isIntl } = useGlobalStore();
 
 const links = computed(() => createDefaultFooterNavigationLinks(isIntl.value, docsUrl.value));
 const labels: Record<FooterNavigationKey, string> = {
@@ -27,12 +27,7 @@ const labels: Record<FooterNavigationKey, string> = {
 
 const visibleLinks = computed(() => {
     return footerNavigationKeys
-        .filter((key) => {
-            if (isFxplay.value && key !== 'documentation') {
-                return false;
-            }
-            return links.value[key].visible;
-        })
+        .filter((key) => links.value[key].visible)
         .map((key) => ({
             key,
             label: labels[key],

@@ -124,6 +124,12 @@ type WebsiteSSLUpload struct {
 	Description     string `json:"description"`
 }
 
+type WebsiteSSLPush struct {
+	ID     uint   `json:"id" validate:"required"`
+	TaskID string `json:"taskID" validate:"required"`
+	Sync   bool   `json:"sync"`
+}
+
 type WebsiteCASearch struct {
 	dto.PageInfo
 }
@@ -163,4 +169,13 @@ type WebsiteSSLFileUpload struct {
 	Type        string `json:"type"`
 	Description string `json:"description"`
 	SSLID       uint64 `json:"sslID"`
+}
+
+type WebsiteCAImport struct {
+	Name            string `json:"name" validate:"required,max=128"`
+	Type            string `json:"type" validate:"required,oneof=paste local"`
+	Certificate     string `json:"certificate" validate:"required_if=Type paste"`
+	PrivateKey      string `json:"privateKey" validate:"required_if=Type paste"`
+	CertificatePath string `json:"certificatePath" validate:"required_if=Type local"`
+	PrivateKeyPath  string `json:"privateKeyPath" validate:"required_if=Type local"`
 }

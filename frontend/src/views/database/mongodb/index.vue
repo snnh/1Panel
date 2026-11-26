@@ -55,9 +55,30 @@
                 >
                     {{ $t('menu.terminal') }}
                 </el-button>
-                <el-button type="primary" plain :disabled="currentDB?.from !== 'local'" @click="goDashboard">
-                    {{ $t('database.manage') }}
-                </el-button>
+                <el-dropdown trigger="click" :hide-on-click="false" :disabled="currentDB?.from !== 'local'">
+                    <el-button type="primary" plain :disabled="currentDB?.from !== 'local'">
+                        {{ $t('database.manage') }}
+                        <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                        <el-dropdown-menu>
+                            <el-dropdown-item class="dashboard-menu-item">
+                                <AppDashboard
+                                    app-key="mongo-express"
+                                    :disabled="currentDB?.from !== 'local'"
+                                    @not-installed="goDashboard"
+                                >
+                                    <template #reference="{ disabled, onClick }">
+                                        <span class="dashboard-menu-trigger" :aria-disabled="disabled" @click="onClick">
+                                            <el-icon><Position /></el-icon>
+                                            mongo-express
+                                        </span>
+                                    </template>
+                                </AppDashboard>
+                            </el-dropdown-item>
+                        </el-dropdown-menu>
+                    </template>
+                </el-dropdown>
             </template>
 
             <template #rightToolBar>
@@ -105,6 +126,7 @@
                 <ComplexTable
                     v-if="currentDB"
                     :class="{ mask: maskShow }"
+                    :cache-pagination="false"
                     :pagination-config="paginationConfig"
                     @sort-change="search"
                     @search="search"
@@ -277,6 +299,7 @@
                             <el-button @click="random">{{ $t('commons.button.random') }}</el-button>
                         </template>
                     </el-input>
+                    <span class="input-help">{{ $t('commons.rule.illegalChar') }}</span>
                 </el-form-item>
                 <el-form-item :label="$t('database.permission')" prop="permission">
                     <el-select v-model="createForm.permission" class="w-full">
@@ -329,7 +352,6 @@
         <Backups ref="dialogBackupRef" />
         <PasswordDialog ref="passwordRef" @search="search" />
         <PrivilegesDialog ref="privilegesRef" @search="search" />
-        <PortJumpDialog ref="dialogPortJumpRef" />
         <TerminalDialog ref="dialogTerminalRef" />
         <AppResources ref="checkRef" />
         <DeleteDialog ref="deleteRef" @search="search" />
@@ -337,7 +359,8 @@
 </template>
 
 <script lang="ts" setup>
-import { nextTick, onMounted, reactive, ref } from 'vue';
+import { useSearchState } from '@/utils/search-reset';
+import { toRef, nextTick, onMounted, reactive, ref } from 'vue';
 import { dateFormat } from '@/utils/date';
 import { getRandomStr } from '@/utils/id';
 import { Position } from '@element-plus/icons-vue';
@@ -347,7 +370,7 @@ import { App } from '@/api/interface/app';
 import { Database } from '@/api/interface/database';
 import AppStatus from '@/components/app-status/index.vue';
 import Backups from '@/components/backup/index.vue';
-import PortJumpDialog from '@/components/port-jump/index.vue';
+import AppDashboard from '@/components/app-dashboard/index.vue';
 import TerminalDialog from '@/components/terminal/database.vue';
 import UploadDialog from '@/components/upload/index.vue';
 import BindDialog from '@/views/database/mongodb/bind/index.vue';
@@ -356,7 +379,7 @@ import DeleteDialog from '@/views/database/mongodb/delete/index.vue';
 import PasswordDialog from '@/views/database/mongodb/password/index.vue';
 import PrivilegesDialog from '@/views/database/mongodb/permission/index.vue';
 import AppResources from '@/views/database/postgresql/check/index.vue';
-import { getAppConnInfo, getAppPort } from '@/api/modules/app';
+import { getAppConnInfo } from '@/api/modules/app';
 import { Rules } from '@/global/form-rules';
 import {
     addMongodbDB,
@@ -388,9 +411,7 @@ const checkRef = ref();
 const deleteRef = ref();
 const dialogBackupRef = ref();
 const dialogTerminalRef = ref();
-const dialogPortJumpRef = ref();
 const privilegesRef = ref();
-const mongoExpressPort = ref(0);
 const dashboardName = ref('mongo-express');
 const dashboardKey = ref('mongo-express');
 const mongodbStatus = ref('');
@@ -404,13 +425,17 @@ const dbOptionsRemote = ref<Array<Database.DatabaseOption>>([]);
 
 const tableRows = ref<Array<Database.MongodbDBInfo>>([]);
 const paginationConfig = reactive({
-    cacheSizeKey: 'mongodb-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('mongodb-page-size')) || 20,
+    pageSize: 20,
     total: 0,
     orderBy: 'createdAt',
     order: 'null',
 });
+useSearchState(
+    'database/mongodb/index',
+    { search: searchName, page: toRef(paginationConfig, 'currentPage'), pageSize: toRef(paginationConfig, 'pageSize') },
+    { onRevisit: () => search() },
+);
 
 type FormInstance = InstanceType<typeof ElForm>;
 const formRef = ref<FormInstance>();
@@ -426,7 +451,7 @@ const createForm = reactive({
 const rules = reactive({
     name: [Rules.requiredInput, Rules.dbName],
     username: [Rules.requiredInput, Rules.name],
-    password: [Rules.requiredInput, Rules.noSpace, Rules.illegal],
+    password: [Rules.requiredInput, Rules.databasePassword],
     permission: [Rules.requiredSelect],
 });
 
@@ -474,25 +499,13 @@ const onLoadFromRemote = async () => {
 };
 
 const goDashboard = () => {
-    if (currentDB.value?.from !== 'local') {
-        return;
-    }
-    if (mongoExpressPort.value === 0) {
-        dashboardName.value = 'mongo-express';
-        dashboardKey.value = 'mongo-express';
-        open.value = true;
-        return;
-    }
-    dialogPortJumpRef.value?.acceptParams({ port: mongoExpressPort.value });
+    dashboardName.value = 'mongo-express';
+    dashboardKey.value = 'mongo-express';
+    open.value = true;
 };
 
 const getAppDetail = () => {
     routerToNameWithQuery('AppAll', { install: dashboardKey.value });
-};
-
-const loadMongoExpressPort = async () => {
-    const res = await getAppPort('mongo-express', '');
-    mongoExpressPort.value = res.data;
 };
 
 const goRemoteDB = async () => {
@@ -843,7 +856,6 @@ const onDelete = async (row: Database.MongodbDBInfo) => {
 };
 
 onMounted(() => {
-    loadMongoExpressPort();
     loadDBOptions();
 });
 </script>
@@ -858,5 +870,22 @@ onMounted(() => {
 
 .optionClass {
     min-width: 350px;
+}
+</style>
+
+<style scoped lang="scss">
+.dashboard-menu-item {
+    padding: 0;
+}
+.dashboard-menu-trigger {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 5px 16px;
+    box-sizing: border-box;
+    &[aria-disabled='true'] {
+        color: var(--el-text-color-placeholder);
+        cursor: not-allowed;
+    }
 }
 </style>

@@ -67,6 +67,7 @@ const (
 	TaskInstallCluster = "TaskInstallCluster"
 	TaskCreateCluster  = "TaskCreateCluster"
 	TaskBackup         = "TaskBackup"
+	TaskRecover        = "TaskRecover"
 	TaskPush           = "TaskPush"
 	TaskExec           = "TaskExec"
 )
@@ -80,7 +81,7 @@ const (
 	TaskScopeCluster    = "Cluster"
 	TaskScopeAppInstall = "AppInstallTask"
 	TaskScopeAI         = "AI"
-	TaskScopeVm         = "VirtualMachine"
+	TaskScopePanelMCP   = "PanelMCP"
 )
 
 func GetTaskName(resourceName, operate, scope string) string {
@@ -320,6 +321,12 @@ func (t *Task) Execute() error {
 
 func (t *Task) DeleteLogFile() {
 	_ = os.Remove(t.Task.LogFile)
+}
+
+func (t *Task) Close() {
+	if t.logFile != nil {
+		_ = t.logFile.Close()
+	}
 }
 
 func (t *Task) LogWithStatus(msg string, err error) {

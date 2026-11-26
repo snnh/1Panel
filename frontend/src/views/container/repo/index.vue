@@ -20,6 +20,7 @@
             </template>
             <template #main>
                 <ComplexTable
+                    :cache-pagination="false"
                     :pagination-config="paginationConfig"
                     v-model:selects="selects"
                     :data="data"
@@ -59,8 +60,9 @@
 </template>
 
 <script lang="ts" setup>
+import { useSearchState } from '@/utils/search-reset';
 import OperatorDialog from '@/views/container/repo/operator/index.vue';
-import { reactive, ref } from 'vue';
+import { toRef, reactive, ref } from 'vue';
 import { dateFormat } from '@/utils/date';
 import { Container } from '@/api/interface/container';
 import { checkRepoStatus, deleteImageRepo, searchImageRepo } from '@/api/modules/container';
@@ -71,12 +73,16 @@ const loading = ref();
 const data = ref();
 const selects = ref<any>([]);
 const paginationConfig = reactive({
-    cacheSizeKey: 'image-repo-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('image-repo-page-size')) || 20,
+    pageSize: 20,
     total: 0,
 });
 const searchName = ref();
+useSearchState(
+    'container/repo/index',
+    { search: searchName, page: toRef(paginationConfig, 'currentPage'), pageSize: toRef(paginationConfig, 'pageSize') },
+    { onRevisit: () => search() },
+);
 
 const opRef = ref();
 const confirmDialog = ref();

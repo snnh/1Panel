@@ -5,7 +5,7 @@
                 <el-alert class="clam-helper-alert" type="info" :closable="false">
                     <template #title>
                         {{ $t('toolbox.clam.clamHelper') }}
-                        <el-link class="ml-1 text-xs" v-if="!isFxplay" @click="toDoc()" type="primary">
+                        <el-link class="ml-1 text-xs" @click="toDoc()" type="primary">
                             {{ $t('commons.button.helpDoc') }}
                         </el-link>
                     </template>
@@ -49,8 +49,11 @@
             </el-card>
             <template #main v-if="clamStatus.isExist">
                 <ComplexTable
+                    :selection-context="() => [searchName]"
+                    row-key="id"
                     :class="{ mask: !clamStatus.isRunning }"
                     v-if="!isSettingShow"
+                    :cache-pagination="false"
                     :pagination-config="paginationConfig"
                     :scrollbar-always-on="isMobile"
                     v-model:selects="selects"
@@ -170,7 +173,8 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, reactive, ref } from 'vue';
+import { useSearchState } from '@/utils/search-reset';
+import { toRef, onMounted, reactive, ref } from 'vue';
 import i18n from '@/lang';
 import { MsgSuccess } from '@/utils/message';
 import { deleteClam, handleClamScan, searchClam, updateClam, updateClamStatus } from '@/api/modules/toolbox';
@@ -185,17 +189,21 @@ import { routerToFileWithPath, routerToName } from '@/utils/router';
 const loading = ref();
 const selects = ref<any>([]);
 
-const { docsUrl, isFxplay, isMobile } = useGlobalStore();
+const { docsUrl, isMobile } = useGlobalStore();
 const data = ref();
 const paginationConfig = reactive({
-    cacheSizeKey: 'clam-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('clam-page-size')) || 20,
+    pageSize: 20,
     total: 0,
     orderBy: 'createdAt',
     order: 'null',
 });
 const searchName = ref();
+useSearchState(
+    'toolbox/clam/index',
+    { search: searchName, page: toRef(paginationConfig, 'currentPage'), pageSize: toRef(paginationConfig, 'pageSize') },
+    { onRevisit: () => search() },
+);
 
 const opRef = ref();
 const dialogRef = ref();

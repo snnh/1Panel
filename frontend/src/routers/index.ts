@@ -1,3 +1,4 @@
+import { panelCacheKey, writePanelCache, prunePanelCache } from '@/utils/panel-cache';
 import router from '@/routers/router';
 import NProgress from '@/config/nprogress';
 import { useGlobalStore } from '@/composables/useGlobalStore';
@@ -9,7 +10,6 @@ import { TerminalDockSessionStore, TerminalSessionStore } from '@/store';
 
 const axiosCanceler = new AxiosCanceler();
 
-let isRedirecting = false;
 const noLoginWhiteList = ['entrance', 'login', 'file-share', '404'];
 
 const clearLoginStatus = () => {
@@ -20,7 +20,7 @@ const clearLoginStatus = () => {
     TerminalDockSessionStore().closeAll();
 };
 
-router.beforeEach(async (to, from) => {
+router.beforeEach(async (to) => {
     const { entrance, isLogin } = useGlobalStore();
     NProgress.start();
     axiosCanceler.removeAllPending();
@@ -65,29 +65,11 @@ router.beforeEach(async (to, from) => {
     if (to.path === '/apps/all' && to.query.install != undefined) {
         return true;
     }
-    const activeMenuKey = 'cachedRoute' + (to.meta.activeMenu || '');
+    // Compatibility for old links: explicit navigation no longer needs to clear a cache.
     if (to.query.uncached != undefined) {
         const query = { ...to.query };
         delete query.uncached;
-        localStorage.removeItem(activeMenuKey);
-        return { path: to.path, query };
-    }
-
-    const cachedRoute = localStorage.getItem(activeMenuKey);
-    if (
-        to.meta.activeMenu &&
-        to.meta.activeMenu != from.meta.activeMenu &&
-        cachedRoute &&
-        cachedRoute !== to.path &&
-        !isRedirecting
-    ) {
-        const cachedRouteInfo = router.resolve(cachedRoute);
-        if (cachedRouteInfo.matched.length > 0 && hasRouteAccess(cachedRouteInfo)) {
-            isRedirecting = true;
-            NProgress.done();
-            return cachedRoute;
-        }
-        localStorage.removeItem(activeMenuKey);
+        return { path: to.path, query, hash: to.hash };
     }
 
     if (!hasRouteAccess(to)) {
@@ -98,26 +80,30 @@ router.beforeEach(async (to, from) => {
     return true;
 });
 
-router.afterEach((to) => {
-    if (to.meta.activeMenu && !to.meta.ignoreTab && !isRedirecting) {
+router.afterEach((to, _from, failure) => {
+    prunePanelCache();
+    if (failure) {
+        NProgress.done();
+        return;
+    }
+    if (to.meta.activeMenu && !to.meta.ignoreTab) {
         let notMathParam = true;
         if (to.matched.some((record) => record.path.includes(':'))) {
             notMathParam = false;
         }
         if (notMathParam) {
             if (to.meta.activeMenu === '/cronjobs' && to.path === '/cronjobs/cronjob/operate') {
-                localStorage.setItem('cachedRoute' + to.meta.activeMenu, '/cronjobs/cronjob');
+                writePanelCache('tabs', panelCacheKey(String(to.meta.activeMenu)), '/cronjobs/cronjob');
             } else if (to.meta.activeMenu === '/containers' && to.path === '/containers/container/operate') {
-                localStorage.setItem('cachedRoute' + to.meta.activeMenu, '/containers/container');
+                writePanelCache('tabs', panelCacheKey(String(to.meta.activeMenu)), '/containers/container');
             } else if (to.meta.activeMenu === '/toolbox' && to.path === '/toolbox/clam/setting') {
-                localStorage.setItem('cachedRoute' + to.meta.activeMenu, '/toolbox/clam');
+                writePanelCache('tabs', panelCacheKey(String(to.meta.activeMenu)), '/toolbox/clam');
             } else {
-                localStorage.setItem('cachedRoute' + to.meta.activeMenu, to.path);
+                writePanelCache('tabs', panelCacheKey(String(to.meta.activeMenu)), to.path);
             }
         }
     }
 
-    isRedirecting = false;
     NProgress.done();
 });
 

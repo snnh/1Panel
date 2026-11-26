@@ -121,7 +121,7 @@
                             {{ $t('commons.login.passkeyToPassword') }}
                         </el-link>
                     </el-form-item>
-                    <el-form-item v-if="!isIntl && !isEnterprise && !isFxplay">
+                    <el-form-item v-if="!loginSettingsLoading && requireCommunityLicense">
                         <el-checkbox v-model="loginForm.agreeLicense">
                             <template #default>
                                 <span class="agree-title">
@@ -234,6 +234,7 @@
                                 class="w-full login-button"
                                 type="primary"
                                 size="default"
+                                :disabled="loginSettingsLoading"
                             >
                                 {{ $t('commons.button.login') }}
                             </el-button>
@@ -290,7 +291,7 @@
                         <el-text v-if="isDemo" type="danger" class="demo">
                             {{ $t('commons.login.username') }}:demo {{ $t('commons.login.password') }}:1panel
                         </el-text>
-                        <el-form-item prop="agreeLicense" v-if="!isIntl && !isEnterprise && !isFxplay">
+                        <el-form-item prop="agreeLicense" v-if="!loginSettingsLoading && requireCommunityLicense">
                             <el-checkbox v-model="loginForm.agreeLicense">
                                 <template #default>
                                     <span class="agree-title">
@@ -335,6 +336,7 @@
 </template>
 
 <script setup lang="ts">
+import { applyPanelCacheSettings } from '@/utils/panel-cache';
 import { ref, reactive, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import type { ElForm } from 'element-plus';
 import {
@@ -376,7 +378,6 @@ const {
     ignoreCaptcha,
     isAdmin,
     isEnterprise,
-    isFxplay,
     isIntl,
     isLogin,
     isOffline,
@@ -404,6 +405,9 @@ const autoPasskeyEnabledKey = '1panel-passkey-auto-enabled';
 const showPasswordLogin = ref(false);
 const loginSource = ref<'local' | 'ldap'>('local');
 const isDemo = ref(false);
+const loginSettingsLoading = ref(true);
+const isMasterProductPro = ref(false);
+const requireCommunityLicense = computed(() => !isIntl.value && !isEnterprise.value && !isMasterProductPro.value);
 const open = ref(false);
 let loginViewActive = true;
 
@@ -449,7 +453,7 @@ function checkPassword(rule: any, value: any, callback: any) {
     callback();
 }
 function checkAgreeLicense(rule: any, value: any, callback: any) {
-    if (!value && !_isMobile()) {
+    if (requireCommunityLicense.value && !value && !_isMobile()) {
         return callback(new Error(i18n.t('commons.login.errorAgree')));
     }
     callback();
@@ -561,7 +565,7 @@ const navigateAfterLogin = async () => {
 const completeLogin = async (result: LoginModel.ResLogin) => {
     isLogin.value = true;
     agreeLicense.value = true;
-    menuStore.setMenuList([]);
+    menuStore.resetMenuList();
     tabsStore.removeAllTabs();
     isAdmin.value = result.role === 'ADMIN';
     await syncAuthInfo();
@@ -588,12 +592,12 @@ const handleLoginResult = async (result: LoginModel.ResLogin) => {
 };
 
 const login = (formEl: FormInstance | undefined) => {
-    if (!formEl || isLoggingIn) return;
+    if (!formEl || isLoggingIn || loginSettingsLoading.value) return;
     errAuthInfo.value = false;
     errCaptcha.value = false;
     formEl.validate(async (valid) => {
         if (!valid) return;
-        if (isIntl.value || isFxplay.value || isEnterprise.value) {
+        if (!requireCommunityLicense.value) {
             loginForm.agreeLicense = true;
         }
         if (!loginForm.agreeLicense) {
@@ -689,7 +693,7 @@ const passkeyLogin = async () => {
         MsgError(i18n.t('commons.login.passkeyNotSupported'));
         return;
     }
-    if (!isIntl.value && !isEnterprise.value && !isFxplay.value && !loginForm.agreeLicense) {
+    if (requireCommunityLicense.value && !loginForm.agreeLicense) {
         if (_isMobile() || showPasskeyOnly.value) {
             pendingLoginMethod.value = 'passkey';
             open.value = true;
@@ -875,7 +879,6 @@ const getSetting = async () => {
         const language = res.data.language || loginForm.language;
         await handleCommand(language);
         isIntl.value = res.data.isIntl;
-        isFxplay.value = res.data.isFxplay;
         isOffline.value = res.data.isOffline;
         isEnterprise.value = res.data.isEnterprise;
         ignoreCaptcha.value = !res.data.needCaptcha;
@@ -888,15 +891,19 @@ const getSetting = async () => {
         i18n.warnHtmlMessage = false;
         openMenuTabs.value = res.data.menuTabs === 'Enable';
         menuAccordion.value = res.data.menuAccordion === 'Enable';
+        applyPanelCacheSettings(res.data.panelCache);
         themeConfig.value = { ...themeConfig.value, theme: res.data.theme, panelName: res.data.panelName };
 
-        if (res.data.passkeySetting && !isIntl.value && !isFxplay.value) {
+        if (res.data.passkeySetting && !isIntl.value) {
             loginForm.agreeLicense = true;
         }
         if (passkeySetting.value && passkeySupported.value && isAutoPasskeyEnabled() && !hasPendingExternalTicket) {
             passkeyLogin();
         }
-    } catch (error) {}
+    } catch (error) {
+    } finally {
+        loginSettingsLoading.value = false;
+    }
 };
 
 const applyLoginButtonTheme = () => {

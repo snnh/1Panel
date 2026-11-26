@@ -1,6 +1,6 @@
 <template>
     <LayoutContent
-        back-name="CronjobItem"
+        :back-to="cronjobListRoute"
         :title="isCreate ? $t('commons.button.create') : $t('commons.button.edit') + ' - ' + form.name"
     >
         <template #main>
@@ -64,6 +64,12 @@
                                         {{ $t('firewall.quickJump') }}
                                     </el-link>
                                 </span>
+                                <span class="input-help logText" v-if="form.type === 'syncIpGroup'">
+                                    {{ $t('cronjob.syncIpGroupHelper') }}
+                                    <el-link class="link" icon="Position" @click="goWafIpGroup" type="primary">
+                                        {{ $t('firewall.quickJump') }}
+                                    </el-link>
+                                </span>
                             </el-form-item>
                             <el-row :gutter="20">
                                 <LayoutCol>
@@ -74,14 +80,12 @@
                                 <LayoutCol>
                                     <el-form-item :label="$t('commons.table.group')" prop="groupID">
                                         <el-select filterable v-model="form.groupID" clearable>
-                                            <div v-for="item in groupOptions" :key="item.id">
-                                                <el-option
-                                                    v-if="item.name === 'Default'"
-                                                    :label="$t('commons.table.default')"
-                                                    :value="item.id"
-                                                />
-                                                <el-option v-else :label="item.name" :value="item.id" />
-                                            </div>
+                                            <el-option
+                                                v-for="item in groupOptions"
+                                                :key="item.id"
+                                                :label="item.name"
+                                                :value="item.id"
+                                            />
                                         </el-select>
                                     </el-form-item>
                                 </LayoutCol>
@@ -94,7 +98,29 @@
                             v-model="form.scopes"
                         ></CleanLogConfig>
 
-                        <el-card class="mt-5">
+                        <el-card class="mt-5" v-if="form.type === 'websiteStartStop'">
+                            <el-row :gutter="20">
+                                <LayoutCol v-for="field in ['startTime', 'stopTime'] as const" :key="field">
+                                    <el-form-item :label="$t('cronjob.' + field)" :prop="field" required>
+                                        <el-select
+                                            v-model="form[field]"
+                                            @change="onWebsiteTimeChange(field)"
+                                            class="w-full"
+                                            :placeholder="$t('cronjob.' + field)"
+                                        >
+                                            <el-option
+                                                v-for="time in websiteTimeOptions"
+                                                :key="time"
+                                                :label="time"
+                                                :value="time"
+                                            />
+                                        </el-select>
+                                    </el-form-item>
+                                </LayoutCol>
+                            </el-row>
+                            <span class="input-help">{{ $t('cronjob.websiteTimeHint') }}</span>
+                        </el-card>
+                        <el-card class="mt-5" v-else>
                             <el-form-item :label="$t('cronjob.cronSpec')" prop="specCustom">
                                 <el-checkbox :label="$t('container.custom')" v-model="form.specCustom" />
                             </el-form-item>
@@ -219,7 +245,7 @@
                                         </el-button>
                                         <el-divider v-if="form.specs.length > 1" class="divider" />
                                     </div>
-                                    <span class="input-help logText" v-if="!isFxplay">
+                                    <span class="input-help logText">
                                         {{ $t('cronjob.cronSpecDoc') }}
                                         <el-link class="link" icon="Position" @click="toDoc" type="primary">
                                             {{ $t('firewall.quickJump') }}
@@ -239,38 +265,7 @@
                                         :label="form.type === 'website' ? $t('cronjob.website') : $t('menu.website')"
                                         prop="websiteList"
                                     >
-                                        <el-select
-                                            v-model="form.websiteList"
-                                            multiple
-                                            @change="
-                                                form.websiteList = form.websiteList.includes('all')
-                                                    ? ['all']
-                                                    : form.websiteList
-                                            "
-                                        >
-                                            <el-option :label="$t('commons.table.all')" value="all" />
-                                            <el-option
-                                                v-for="(item, index) in websiteOptions"
-                                                :key="index"
-                                                :value="item.id + ''"
-                                                :label="item.primaryDomain"
-                                            >
-                                                <div class="option-content">
-                                                    <el-tooltip
-                                                        :content="item.primaryDomain"
-                                                        placement="top"
-                                                        :open-delay="500"
-                                                        effect="dark"
-                                                    >
-                                                        <span class="domain-text">{{ item.primaryDomain }}</span>
-                                                    </el-tooltip>
-
-                                                    <el-tag class="tagClass">
-                                                        {{ item.alias }}
-                                                    </el-tag>
-                                                </div>
-                                            </el-option>
-                                        </el-select>
+                                        <WebsiteSelection v-model="form.websiteList" />
                                         <span class="input-help" v-if="form.type === 'cutWebsiteLog'">
                                             {{ $t('cronjob.cutWebsiteLogHelper') }}
                                         </span>
@@ -372,20 +367,30 @@
                                         </el-radio-group>
                                     </el-form-item>
                                 </LayoutCol>
-                                <LayoutCol v-if="form.type === 'curl'">
+                                <LayoutCol :span="20" v-if="form.type === 'curl'">
                                     <el-form-item :label="$t('cronjob.url')" prop="urlItems">
-                                        <div v-for="(_, index) of form.urlItems" :key="index" class="w-full">
-                                            <el-input class="mt-2" v-model="form.urlItems[index]">
-                                                <template #append>
-                                                    <el-button
-                                                        link
-                                                        icon="Delete"
-                                                        @click="form.urlItems.splice(index, 1)"
-                                                    />
-                                                </template>
-                                            </el-input>
+                                        <div v-for="(item, index) of form.urlItems" :key="index" class="curl-url-group">
+                                            <el-input
+                                                v-model="item.url"
+                                                :aria-label="$t('cronjob.url')"
+                                                :placeholder="$t('cronjob.url')"
+                                            />
+                                            <el-input
+                                                v-model="item.header"
+                                                type="textarea"
+                                                :autosize="{ minRows: 1, maxRows: 4 }"
+                                                aria-label="User-Agent"
+                                                placeholder="User-Agent"
+                                            />
+                                            <el-button
+                                                link
+                                                icon="Delete"
+                                                :aria-label="$t('commons.button.delete')"
+                                                :disabled="form.urlItems.length <= 1"
+                                                @click="form.urlItems.length > 1 && form.urlItems.splice(index, 1)"
+                                            />
                                         </div>
-                                        <el-button class="mt-2" @click="form.urlItems.push('')">
+                                        <el-button class="mt-2" @click="form.urlItems.push({ url: '', header: '' })">
                                             {{ $t('commons.button.add') }}
                                         </el-button>
                                     </el-form-item>
@@ -649,7 +654,7 @@
                                         <el-input type="password" show-password v-model="form.secret" />
                                     </el-form-item>
                                 </LayoutCol>
-                                <LayoutCol>
+                                <LayoutCol v-if="form.type !== 'websiteStartStop'">
                                     <el-form-item :label="$t('cronjob.retainCopies')" prop="retainCopies">
                                         <el-input-number
                                             class="selectClass"
@@ -683,17 +688,31 @@
 
                         <el-card class="mt-5">
                             <el-row :gutter="20">
-                                <LayoutCol :span="8">
+                                <LayoutCol :span="20">
                                     <el-form-item prop="hasAlert">
-                                        <el-checkbox v-model="form.hasAlert" :label="$t('alert.isAlert')" />
-                                        <span class="input-help">{{ $t('alert.cronJobHelper') }}</span>
+                                        <el-checkbox v-model="form.hasAlert" :label="$t('xpack.alert.isAlert')" />
+                                        <span class="input-help">{{ $t('xpack.alert.alertNotificationHelper') }}</span>
+                                    </el-form-item>
+                                </LayoutCol>
+                            </el-row>
+                            <el-row :gutter="20" v-if="form.hasAlert">
+                                <LayoutCol>
+                                    <el-form-item :label="$t('xpack.alert.alertTriggerMode')" prop="alertTriggerMode">
+                                        <el-select class="selectClass" v-model="form.alertTriggerMode">
+                                            <el-option
+                                                v-for="item in cronjobAlertModes"
+                                                :key="item.value"
+                                                :value="item.value"
+                                                :label="$t(item.label)"
+                                            />
+                                        </el-select>
                                     </el-form-item>
                                 </LayoutCol>
                             </el-row>
                             <el-row :gutter="20">
                                 <LayoutCol>
                                     <el-form-item
-                                        :label="$t('alert.alertMethod')"
+                                        :label="$t('xpack.alert.alertMethod')"
                                         v-if="form.hasAlert"
                                         prop="alertMethodItems"
                                     >
@@ -712,7 +731,7 @@
                                                 :key="group.type"
                                                 :label="
                                                     i18n.global.t(
-                                                        'alert.' + (group.type === 'email' ? 'mail' : group.type),
+                                                        'xpack.alert.' + (group.type === 'email' ? 'mail' : group.type),
                                                     )
                                                 "
                                             >
@@ -744,7 +763,7 @@
                                     <el-form-item
                                         prop="alertCount"
                                         v-if="form.hasAlert"
-                                        :label="$t('alert.alertCount')"
+                                        :label="$t('xpack.alert.alertCount')"
                                     >
                                         <el-input-number
                                             class="selectClass"
@@ -754,7 +773,7 @@
                                             :step="1"
                                             v-model.number="form.alertCount"
                                         />
-                                        <span class="input-help">{{ $t('alert.alertCountHelper') }}</span>
+                                        <span class="input-help">{{ $t('xpack.alert.alertCountHelper') }}</span>
                                     </el-form-item>
                                 </LayoutCol>
                             </el-row>
@@ -830,7 +849,7 @@ import { ElForm } from 'element-plus';
 import { Cronjob } from '@/api/interface/cronjob';
 import { addCronjob, editCronjob, loadCronjobInfo, loadNextHandle, loadScriptOptions } from '@/api/modules/cronjob';
 import { listDbItems } from '@/api/modules/database';
-import { getWebsiteOptions } from '@/api/modules/website';
+import WebsiteSelection from './website-selection.vue';
 import { MsgError, MsgSuccess } from '@/utils/message';
 import { useRouter } from 'vue-router';
 import { listContainer } from '@/api/modules/container';
@@ -853,12 +872,13 @@ import { loadContainerUsers } from '@/api/modules/container';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import { splitTimeFromSecond, transferTimeToSecond } from '@/utils/validate';
 import { getGroupList } from '@/api/modules/group';
-import { routerToName, routerToPath } from '@/utils/router';
+import { routerToPath } from '@/utils/router';
 import { loadBaseDir } from '@/api/modules/setting';
 import { getAlertConfigDisplayName } from '@/views/setting/alert/setting/drawer/secret-field';
+import { cronjobAlertModes, normalizeCronjobAlertMode } from '@/utils/cronjob-alert';
 const router = useRouter();
 
-const { docsUrl, isFxplay } = useGlobalStore();
+const { docsUrl } = useGlobalStore();
 const scriptFileRef = ref();
 const dirRef = ref();
 const fileRef = ref();
@@ -947,23 +967,28 @@ const groupedAlertConfigOptions = computed(() => {
 });
 
 const getConfigTypeLabel = (type: string): string => {
-    return i18n.global.t(`alert.${type === 'email' ? 'mail' : type}`);
+    return i18n.global.t(`xpack.alert.${type === 'email' ? 'mail' : type}`);
 };
 
 const getAlertConfigOptionLabel = (c: Alert.AlertConfigInfo): string => {
     try {
         const cfg = JSON.parse(c.config || '{}') as Record<string, unknown>;
-        return getAlertConfigDisplayName(c.type, cfg) || i18n.global.t(`alert.${c.type === 'email' ? 'mail' : c.type}`);
+        return (
+            getAlertConfigDisplayName(c.type, cfg) ||
+            i18n.global.t(`xpack.alert.${c.type === 'email' ? 'mail' : c.type}`)
+        );
     } catch {
-        return i18n.global.t(`alert.${c.type === 'email' ? 'mail' : c.type}`);
+        return i18n.global.t(`xpack.alert.${c.type === 'email' ? 'mail' : c.type}`);
     }
 };
 
-const form = reactive<Cronjob.CronjobInfo>({
+const form = reactive<Cronjob.CronjobInfo & { startTime: string; stopTime: string }>({
     id: 0,
     name: '',
     type: 'shell',
     groupID: null,
+    startTime: '',
+    stopTime: '',
     specCustom: false,
     spec: '',
     specs: ['0 0 * * *'],
@@ -987,7 +1012,7 @@ const form = reactive<Cronjob.CronjobInfo>({
     dbType: 'mysql',
     dbName: '',
     url: '',
-    urlItems: [''],
+    urlItems: [{ url: '', header: '' }],
     isDir: true,
     files: [],
     sourceDir: '',
@@ -1015,6 +1040,7 @@ const form = reactive<Cronjob.CronjobInfo>({
     secret: '',
     hasAlert: false,
     alertCount: 3,
+    alertTriggerMode: 'failed',
     alertTitle: '',
     alertMethod: '',
     alertMethodItems: [],
@@ -1035,8 +1061,15 @@ const search = async () => {
                 form.type = res.data.type;
                 form.specCustom = res.data.specCustom;
                 form.spec = res.data.spec;
+                if (form.type === 'websiteStartStop') {
+                    const times = res.data.spec.split('&&').map((spec) => {
+                        const [minute, hour] = spec.split(' ');
+                        return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+                    });
+                    [form.startTime, form.stopTime] = times;
+                }
                 form.specs = res.data.specs || [];
-                if (!form.specCustom && form.spec) {
+                if (form.type !== 'websiteStartStop' && !form.specCustom && form.spec) {
                     let objs = [];
                     for (const item of res.data.spec.split('&&')) {
                         objs.push(transSpecToObj(item));
@@ -1049,7 +1082,12 @@ const search = async () => {
 
                 form.script = res.data.script;
                 form.scriptMode = res.data.scriptMode;
-                form.urlItems = res.data.url.split(',') || [];
+                form.urlItems =
+                    res.data.urlItems?.map((item) => ({ ...item })) ??
+                    (res.data.url || '')
+                        .split(',')
+                        .filter(Boolean)
+                        .map((url) => ({ url, header: '' }));
 
                 form.containerName = res.data.containerName;
                 form.user = res.data.user;
@@ -1114,6 +1152,7 @@ const search = async () => {
                 form.secret = res.data.secret;
                 form.hasAlert = res.data.alertCount > 0;
                 form.alertCount = res.data.alertCount || 3;
+                form.alertTriggerMode = normalizeCronjobAlertMode(res.data.alertTriggerMode);
                 form.alertTitle = res.data.alertTitle;
                 if (res.data.alertMethod) {
                     form.alertMethodItems = normalizeAlertMethodItems(res.data.alertMethod.split(',') || []);
@@ -1130,7 +1169,6 @@ const search = async () => {
     loadBackups();
     loadAppInstalls();
     loadUserOptions(true);
-    loadWebsites();
     loadContainers();
     loadScripts();
     if (form.dbType) {
@@ -1144,8 +1182,12 @@ const goRouter = async (path: string) => {
     routerToPath(path);
 };
 
+const goWafIpGroup = async () => {
+    localStorage.setItem('black-white-tab', '3');
+    routerToPath('/xpack/waf/blackwhite');
+};
+
 const containerOptions = ref([]);
-const websiteOptions = ref([]);
 const backupOptions = ref([]);
 const accountOptions = ref([]);
 const appOptions = ref([]);
@@ -1172,7 +1214,7 @@ const verifyUrlItems = () => {
         return false;
     }
     for (const item of form.urlItems) {
-        if (!item) {
+        if (!item.url.trim()) {
             return false;
         }
     }
@@ -1180,6 +1222,10 @@ const verifyUrlItems = () => {
 };
 
 const verifySpec = (rule: any, value: any, callback: any) => {
+    if (form.type === 'websiteStartStop') {
+        callback();
+        return;
+    }
     if (form.specCustom) {
         if (form.specs.length === 0) {
             callback(new Error(i18n.global.t('commons.rule.requiredInput')));
@@ -1303,7 +1349,25 @@ const checkSendCount = (rule: any, value: any, callback: any) => {
     callback();
 };
 
+const websiteTimeOptions = Array.from(
+    { length: 288 },
+    (_, index) => `${String(Math.floor(index / 12)).padStart(2, '0')}:${String((index % 12) * 5).padStart(2, '0')}`,
+);
 const rules = reactive({
+    startTime: [Rules.requiredSelect],
+    stopTime: [
+        Rules.requiredSelect,
+        {
+            validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
+                if (form.type === 'websiteStartStop' && form.startTime && value && value <= form.startTime) {
+                    callback(new Error(i18n.global.t('cronjob.websiteTimeInvalid')));
+                    return;
+                }
+                callback();
+            },
+            trigger: 'change',
+        },
+    ],
     name: [Rules.requiredInput, Rules.noSpace, Rules.linuxName],
     type: [Rules.requiredSelect],
     spec: [
@@ -1332,6 +1396,12 @@ const rules = reactive({
 
 type FormInstance = InstanceType<typeof ElForm>;
 const formRef = ref<FormInstance>();
+
+const onWebsiteTimeChange = (field: 'startTime' | 'stopTime') => {
+    if (field === 'startTime' && form.stopTime) {
+        void formRef.value?.validateField('stopTime').catch(() => undefined);
+    }
+};
 
 const toDoc = () => {
     window.open(docsUrl.value + '/user_manual/cronjobs/', '_blank', 'noopener,noreferrer');
@@ -1371,9 +1441,8 @@ const loadGroups = async () => {
     }
 };
 
-const goBack = () => {
-    routerToName('CronjobItem');
-};
+const cronjobListRoute = { path: '/cronjobs/cronjob' };
+const goBack = () => router.push(cronjobListRoute);
 
 const loadFile = async (path: string) => {
     for (const item of form.files) {
@@ -1391,7 +1460,7 @@ const hasHour = (item: any) => {
     return item.specType !== 'perHour' && item.specType !== 'perNMinute' && item.specType !== 'perNSecond';
 };
 const isWebsite = () => {
-    return form.type === 'website' || form.type === 'cutWebsiteLog';
+    return form.type === 'website' || form.type === 'cutWebsiteLog' || form.type === 'websiteStartStop';
 };
 const isDir = () => {
     return form.type === 'directory';
@@ -1558,11 +1627,6 @@ const loadAppInstalls = async () => {
     appOptions.value = res.data || [];
 };
 
-const loadWebsites = async () => {
-    const res = await getWebsiteOptions({});
-    websiteOptions.value = res.data || [];
-};
-
 const loadContainers = async () => {
     const res = await listContainer();
     containerOptions.value = res.data || [];
@@ -1602,7 +1666,25 @@ const onSubmit = async (formEl: FormInstance | undefined) => {
         MsgError(i18n.global.t('cronjob.urlHelper'));
         return;
     }
-    if (!form.specCustom) {
+    if (form.type === 'curl' && form.urlItems.some((item) => /[\r\n\0]/.test(item.header))) {
+        MsgError(i18n.global.t('cronjob.userAgentInvalid'));
+        return;
+    }
+    if (form.type === 'websiteStartStop') {
+        if (
+            !websiteTimeOptions.includes(form.startTime) ||
+            !websiteTimeOptions.includes(form.stopTime) ||
+            form.startTime >= form.stopTime
+        ) {
+            MsgError(i18n.global.t('cronjob.websiteTimeInvalid'));
+            return;
+        }
+        form.specCustom = false;
+        specs = [form.startTime, form.stopTime].map((time) => {
+            const [hour, minute] = time.split(':').map(Number);
+            return `${minute} ${hour} * * *`;
+        });
+    } else if (!form.specCustom) {
         for (const item of form.specObjs) {
             const itemSpec = transObjToSpec(item.specType, item.week, item.day, item.hour, item.minute, item.second);
             if (itemSpec === '') {
@@ -1621,7 +1703,7 @@ const onSubmit = async (formEl: FormInstance | undefined) => {
         }
         form.sourceDir = files.join(',');
     }
-    form.url = form.urlItems.join(',');
+    form.url = form.urlItems.map((item) => item.url.trim()).join(',');
     form.sourceAccountIDs = form.sourceAccountItems.join(',');
     form.spec = specs.join('&&');
     form.args = form.argItems.join(',');
@@ -1647,7 +1729,7 @@ const onSubmit = async (formEl: FormInstance | undefined) => {
         form.alertCount = form.hasAlert ? form.alertCount : 0;
         form.alertMethod = form.alertMethodItems.join(',');
         form.alertTitle = form.hasAlert
-            ? i18n.global.t('cronjob.alertTitle', [i18n.global.t('cronjob.' + form.type), form.name])
+            ? i18n.global.t('xpack.alert.notificationTitle', [i18n.global.t('cronjob.' + form.type), form.name])
             : '';
         if (!form) return;
 
@@ -1658,7 +1740,7 @@ const onSubmit = async (formEl: FormInstance | undefined) => {
         }
 
         MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));
-        goBack();
+        await goBack();
     });
 };
 
@@ -1675,6 +1757,23 @@ onMounted(() => {
 });
 </script>
 <style scoped lang="scss">
+.curl-url-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    width: 100%;
+    margin-top: 8px;
+}
+@media only screen and (max-width: 600px) {
+    .curl-url-group {
+        grid-template-columns: minmax(0, 1fr) auto;
+        > :first-child {
+            grid-column: 1 / -1;
+        }
+    }
+}
+
 .specClass {
     width: 17% !important;
     margin-left: 20px;

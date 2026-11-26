@@ -29,7 +29,7 @@ import i18n from '@/lang';
 
 // session: agent side session id known (fresh or reattached)
 // expired: the agent no longer has the session; a reconnect must open a new one
-const emit = defineEmits(['session', 'expired']);
+const emit = defineEmits(['session', 'expired', 'reconnect', 'connection']);
 
 // Close codes of the agent's session protocol (agent/utils/terminal/session.go).
 const CLOSE_SESSION_NOT_FOUND = 4404;
@@ -54,6 +54,7 @@ let closing = false;
 let reconnecting = false;
 let reconnectNoticeShown = false;
 let revalidating = false;
+let expired = false;
 let reconnectStartedAt = 0;
 let reconnectDelay = 1000;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -277,6 +278,7 @@ function resizeTerminal() {
     if (terminalElement.value.clientWidth <= 0 || terminalElement.value.clientHeight <= 0) {
         return;
     }
+    if (terminalElement.value.closest('.terminal-host')) return;
 
     fitAddon.fit();
     if (isWsOpen()) {
@@ -303,6 +305,7 @@ function resizeTerminal() {
 const initWebSocket = async (endpoint_: string, args: string = '') => {
     const token = ++initWebSocketToken;
     closing = false;
+    emit('connection', 'connecting');
     wsEndpoint = endpoint_;
     wsArgs = args;
     const href = window.location.href;
@@ -324,6 +327,7 @@ const initWebSocket = async (endpoint_: string, args: string = '') => {
         reconnecting = false;
         revalidating = false;
         sessionId.value = '';
+        emit('connection', 'disconnected');
         showWebSocketAuthError(authError);
         emit('expired');
         return;
@@ -356,8 +360,9 @@ const showWebSocketAuthError = (message: string) => {
 
 const runRealTerminal = () => {
     webSocketReady.value = true;
+    emit('connection', 'connected');
     changeTerminalSize();
-    term.value?.focus();
+    if (terminalElement.value?.clientWidth) term.value?.focus();
     // a reattached shell already ran its init command
     if (initCmd.value !== '' && !sessionId.value) {
         hideInitCmdEcho.value = true;
@@ -457,6 +462,7 @@ const errorRealTerminal = (ex: any) => {
 };
 
 const closeRealTerminal = (ev: CloseEvent) => {
+    emit('connection', 'disconnected');
     clearAINotice();
     webSocketReady.value = false;
     if (heartbeatTimer.value) {
@@ -478,6 +484,7 @@ const closeRealTerminal = (ev: CloseEvent) => {
                 '31',
                 ev.code === 1000 ? 'The connection has been disconnected.' : i18n.global.t('terminal.sessionExpired'),
             );
+            expired = true;
             emit('expired');
             return;
         case CLOSE_ATTACHED_ELSEWHERE:
@@ -516,17 +523,18 @@ const scheduleReconnect = (forRevalidation = false) => {
         writeNotice('33', i18n.global.t('terminal.sessionReconnecting'));
         reconnectNoticeShown = true;
     }
-    reconnectTimer = setTimeout(
-        () => {
-            reconnectTimer = null;
-            if (closing || !sessionId.value) return;
+    if (forRevalidation) {
+        if (!closing && sessionId.value) {
             initWebSocket(wsEndpoint, wsArgs);
-        },
-        forRevalidation ? 0 : reconnectDelay,
-    );
-    if (!forRevalidation) {
-        reconnectDelay = Math.min(reconnectDelay * 2, 8000);
+        }
+        return;
     }
+    reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        if (closing || !sessionId.value) return;
+        initWebSocket(wsEndpoint, wsArgs);
+    }, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, 8000);
 };
 
 const stopReconnect = () => {
@@ -595,6 +603,13 @@ function sendMsg(data: string, line: string = '') {
 
 function onTermData(data: string) {
     if (!data) return;
+    if (expired) {
+        if (isEnterInputData(data)) {
+            expired = false;
+            emit('reconnect');
+        }
+        return;
+    }
     if (aiNotice.value.loading) return;
     sendMsg(data, isEnterInputData(data) ? getCurrentTerminalLine() : '');
 }
@@ -661,6 +676,7 @@ defineExpose({
     getLatency: () => latency.value,
     // re-fit after the element was moved back into a visible container
     refit: () => changeTerminalSize(),
+    focus: () => term.value?.focus(),
 });
 
 onBeforeUnmount(() => {

@@ -922,4 +922,3 @@ func (w WebsiteSSLService) SyncForRestart() error {
 	}
 	return nil
 }
-

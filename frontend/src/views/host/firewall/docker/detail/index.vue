@@ -48,14 +48,14 @@
                     v-for="group in filteredPortGroups"
                     :key="group.key"
                     class="port-detail-card"
-                    :class="{ 'is-selected': selectedGroupKeys.includes(group.key) }"
+                    :class="{ 'is-selected': selectedGroupKeys.has(group.key) }"
                     shadow="never"
                     @click="toggleSelection(group.key)"
                 >
                     <div class="port-card-header">
                         <div class="port-card-title">
                             <el-checkbox
-                                :model-value="selectedGroupKeys.includes(group.key)"
+                                :model-value="selectedGroupKeys.has(group.key)"
                                 @click.stop
                                 @change="(checked: boolean) => changeSelection(group.key, checked)"
                             />
@@ -95,12 +95,6 @@
                             </span>
                         </el-tooltip>
                     </div>
-                    <div v-if="group.endpoint.description" class="port-card-field">
-                        <span class="port-card-label">{{ $t('commons.table.description') }}</span>
-                        <el-tooltip :content="group.endpoint.description" placement="top" :show-after="400">
-                            <span class="port-card-value">{{ group.endpoint.description }}</span>
-                        </el-tooltip>
-                    </div>
                     <div v-if="group.endpoint.policyUUID && !group.endpoint.effective" class="port-card-field">
                         <span class="port-card-label">{{ $t('commons.table.message') }}</span>
                         <el-tooltip :content="statusMessage(group.endpoint)" placement="top" :show-after="400">
@@ -123,7 +117,7 @@
                 :title="$t('firewall.dockerGuardMixedFamilyHelper')"
             />
             <el-alert
-                v-if="hasInconsistentConfig"
+                v-if="!policyConfigConsistent"
                 class="mixed-family-alert"
                 type="warning"
                 :closable="false"
@@ -160,9 +154,6 @@
                     {{ $t('commons.button.add') }}
                 </el-button>
             </el-form-item>
-            <el-form-item :label="$t('commons.table.description')">
-                <el-input v-model="form.description" type="textarea" :rows="3" />
-            </el-form-item>
         </el-form>
         <template #footer>
             <el-button @click="policyVisible = false">{{ $t('commons.button.cancel') }}</el-button>
@@ -188,7 +179,12 @@ import {
     dockerGuardManagementTarget,
     isValidDockerGuardSource,
 } from '@/views/host/firewall/docker/model';
-import { formatHostAddress, formatHostAddressList, splitTagValues } from '@/views/host/firewall/utils/validation';
+import {
+    FIREWALL_BATCH_LIMIT,
+    formatHostAddress,
+    formatHostAddressList,
+    splitTagValues,
+} from '@/views/host/firewall/utils/validation';
 
 const props = defineProps<{ base: Firewall.DockerGuardBase; containers: Firewall.DockerGuardContainer[] }>();
 const emit = defineEmits<{ search: []; created: [taskID: string] }>();
@@ -197,17 +193,16 @@ const drawerVisible = ref(false);
 const policyVisible = ref(false);
 const savingPolicy = ref(false);
 const activeContainerKey = ref('');
-const selectedGroupKeys = ref<string[]>([]);
+const selectedGroupKeys = ref(new Set<string>());
 const policyEndpoints = ref<Firewall.DockerGuardEndpoint[]>([]);
 const familyFilter = ref<'all' | Firewall.DockerGuardEndpoint['family']>('all');
 const formRef = ref<FormInstance>();
 const sourceAddressRefs = ref<Array<{ focus: () => void }>>([]);
-type PolicyMode = Firewall.DockerGuardPolicy['mode'];
-type PolicyForm = Pick<Firewall.DockerGuardPolicy, 'sources' | 'description'> & { mode: PolicyMode | '' };
+type PolicyMode = Extract<Firewall.DockerGuardPolicy['mode'], 'deny_sources' | 'allow_sources' | 'deny_all'>;
+type PolicyForm = Pick<Firewall.DockerGuardPolicy, 'sources'> & { mode: PolicyMode | '' };
 const form = reactive<PolicyForm>({
     mode: 'deny_sources',
     sources: [''],
-    description: '',
 });
 
 const activeContainer = computed(() => props.containers.find((row) => row.key === activeContainerKey.value));
@@ -219,14 +214,14 @@ const filteredPortGroups = computed(() =>
 );
 const selectedEndpoints = computed(() =>
     filteredPortGroups.value
-        .filter((group) => selectedGroupKeys.value.includes(group.key))
+        .filter((group) => selectedGroupKeys.value.has(group.key))
         .flatMap((group) => group.endpoints),
 );
 const allSelected = computed(
-    () => filteredPortGroups.value.length > 0 && selectedGroupKeys.value.length === filteredPortGroups.value.length,
+    () => filteredPortGroups.value.length > 0 && selectedGroupKeys.value.size === filteredPortGroups.value.length,
 );
 const selectionIndeterminate = computed(
-    () => selectedGroupKeys.value.length > 0 && selectedGroupKeys.value.length < filteredPortGroups.value.length,
+    () => selectedGroupKeys.value.size > 0 && selectedGroupKeys.value.size < filteredPortGroups.value.length,
 );
 const hasMixedFamilies = computed(() => new Set(policyEndpoints.value.map((endpoint) => endpoint.family)).size > 1);
 const normalizeSources = (sources: string[]) =>
@@ -237,16 +232,6 @@ const policyConfigConsistent = computed(() => {
     const first = policyEndpoints.value[0];
     return !first || policyEndpoints.value.every((endpoint) => policyConfigKey(endpoint) === policyConfigKey(first));
 });
-const descriptionConfigConsistent = computed(() => {
-    const first = policyEndpoints.value[0];
-    return (
-        !first ||
-        policyEndpoints.value.every(
-            (endpoint) => (endpoint.description || '').trim() === (first.description || '').trim(),
-        )
-    );
-});
-const hasInconsistentConfig = computed(() => !policyConfigConsistent.value || !descriptionConfigConsistent.value);
 const policyUUIDs = (endpoints: Firewall.DockerGuardEndpoint[]) => [
     ...new Set(endpoints.map((endpoint) => endpoint.policyUUID).filter(Boolean) as string[]),
 ];
@@ -259,7 +244,7 @@ const statusMessage = (endpoint: Firewall.DockerGuardEndpoint) =>
 type ValidationCallback = (error?: Error) => void;
 const validateSources = (_rule: unknown, value: string[], callback: ValidationCallback) => {
     const sources = splitTagValues(value || []);
-    if ((form.mode === 'deny_sources' || form.mode === 'allow_sources') && sources.length === 0) {
+    if (['deny_sources', 'allow_sources'].includes(form.mode) && sources.length === 0) {
         callback(new Error(i18n.global.t('commons.rule.requiredInput')));
         return;
     }
@@ -280,23 +265,25 @@ const rules = reactive<FormRules>({
 
 const acceptParams = (container: Firewall.DockerGuardContainer) => {
     activeContainerKey.value = container.key;
-    familyFilter.value = 'all';
-    selectedGroupKeys.value = [];
+    familyFilter.value = props.base.ipv6Enabled === false ? 'ipv4' : 'all';
+    selectedGroupKeys.value.clear();
     drawerVisible.value = true;
 };
 const changeFamilyFilter = () => {
-    selectedGroupKeys.value = [];
+    selectedGroupKeys.value.clear();
 };
 const changeAllSelection = (checked: boolean) => {
-    selectedGroupKeys.value = checked ? filteredPortGroups.value.map((group) => group.key) : [];
+    selectedGroupKeys.value = new Set(checked ? filteredPortGroups.value.map((group) => group.key) : []);
 };
 const changeSelection = (key: string, checked: boolean) => {
-    selectedGroupKeys.value = checked
-        ? [...selectedGroupKeys.value, key]
-        : selectedGroupKeys.value.filter((item) => item !== key);
+    if (checked) {
+        selectedGroupKeys.value.add(key);
+    } else {
+        selectedGroupKeys.value.delete(key);
+    }
 };
 const toggleSelection = (key: string) => {
-    changeSelection(key, !selectedGroupKeys.value.includes(key));
+    changeSelection(key, !selectedGroupKeys.value.has(key));
 };
 const openPolicy = (endpoints: Firewall.DockerGuardEndpoint[]) => {
     if (!endpoints.length) return;
@@ -319,8 +306,12 @@ const openPolicy = (endpoints: Firewall.DockerGuardEndpoint[]) => {
     }
     policyEndpoints.value = endpoints;
     const first = endpoints[0];
-    form.mode = hasMixedFamilies.value ? 'deny_all' : policyConfigConsistent.value ? first.mode || 'deny_sources' : '';
-    form.description = descriptionConfigConsistent.value ? (first.description || '').trim() : '';
+    const mode = first.mode || 'deny_sources';
+    form.mode = hasMixedFamilies.value
+        ? 'deny_all'
+        : policyConfigConsistent.value && (mode === 'deny_sources' || mode === 'allow_sources' || mode === 'deny_all')
+          ? mode
+          : '';
     form.sources =
         policyConfigConsistent.value && first.sources?.length
             ? first.sources.map((source) => formatHostAddress(source, first.family))
@@ -350,6 +341,10 @@ const submitPolicy = async () => {
     if (!valid || !form.mode) return;
     const mode = form.mode;
     const sources = mode === 'deny_all' ? [] : splitTagValues(form.sources);
+    if (policyEndpoints.value.length > FIREWALL_BATCH_LIMIT) {
+        MsgError(i18n.global.t('firewall.batchLimit', [FIREWALL_BATCH_LIMIT]));
+        return;
+    }
     savingPolicy.value = true;
     try {
         const result = (
@@ -361,7 +356,6 @@ const submitPolicy = async () => {
                     protocol,
                     mode,
                     sources,
-                    description: form.description,
                 })),
             })
         ).data;
@@ -371,7 +365,7 @@ const submitPolicy = async () => {
         }
         policyVisible.value = false;
         drawerVisible.value = false;
-        selectedGroupKeys.value = [];
+        selectedGroupKeys.value.clear();
         emit('created', result.taskID);
     } catch (error) {
         MsgError(
@@ -404,7 +398,7 @@ const remove = async (endpoints: Firewall.DockerGuardEndpoint[], batch: boolean)
             MsgError(i18n.global.t('commons.msg.operationFailed'));
             return;
         }
-        selectedGroupKeys.value = [];
+        selectedGroupKeys.value.clear();
         drawerVisible.value = false;
         emit('created', result.taskID);
     } catch (error) {
@@ -429,9 +423,13 @@ const protectionSummary = (row: Firewall.DockerGuardEndpoint) => {
         if (target === 'needs_diagnosis') return dockerGuardEndpointManagementMessage(row);
         return i18n.global.t('firewall.dockerGuardUnprotected');
     }
-    let summary = i18n.global.t('firewall.denyAll');
+    let summary = i18n.global.t(row.mode ? 'firewall.denyAll' : 'firewall.accept');
     if (row.mode === 'deny_sources') {
         summary = `${i18n.global.t('firewall.deny')}: ${formatHostAddressList(row.sources, row.family)}`;
+    } else if (row.mode === 'accept_all') {
+        summary = i18n.global.t('firewall.acceptAll');
+    } else if (row.mode === 'accept_sources') {
+        summary = `${i18n.global.t('firewall.acceptSources')}: ${formatHostAddressList(row.sources, row.family)}`;
     } else if (row.mode === 'allow_sources' && row.sources.length) {
         summary = `${i18n.global.t('firewall.allow')}: ${formatHostAddressList(row.sources, row.family)}`;
     }

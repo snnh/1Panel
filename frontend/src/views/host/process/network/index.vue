@@ -86,6 +86,8 @@ const statusOptions = [
 const isCompactTable = useMediaQuery('(max-width: 1024px)');
 const { isMobile } = useGlobalStore();
 const processStore = ProcessStore();
+processStore.restoreSearchState();
+onActivated(() => processStore.restoreSearchState());
 
 const quickSearchName = (name: string) => {
     processStore.netSearch.processID = undefined;

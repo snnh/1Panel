@@ -60,6 +60,7 @@
         <template #main>
             <ComplexTable
                 :data="logs"
+                :cache-pagination="false"
                 :pagination-config="paginationConfig"
                 @row-click="openDetail"
                 :heightDiff="320"
@@ -126,6 +127,8 @@
 </template>
 
 <script setup lang="ts">
+import { panelCacheKey, writePanelCache, readCachedPageSize } from '@/utils/panel-cache';
+import { useSearchState } from '@/utils/search-reset';
 import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { Log } from '@/api/interface/log';
 import { getSystemLogStatus, listRunningServices, readSystemLogs } from '@/api/modules/log';
@@ -137,6 +140,7 @@ const loading = ref(false);
 const viewMode = ref<'table' | 'card'>('table');
 const watching = ref(false);
 const keyword = ref('');
+useSearchState('log/host-system/index', { keyword }, { onRevisit: () => scheduleFilterSearch() });
 const priority = ref('');
 const service = ref('');
 const services = ref<string[]>([]);
@@ -213,7 +217,7 @@ const loadPreviousPage = () => {
 };
 
 const changePageSize = () => {
-    localStorage.setItem(paginationConfig.cacheSizeKey, String(paginationConfig.pageSize));
+    writePanelCache('pagination', panelCacheKey(`size:${paginationConfig.cacheSizeKey}`), paginationConfig.pageSize);
     resetAndLoadLogs();
 };
 
@@ -282,7 +286,7 @@ const priorityType = (value: string) => {
 };
 
 onMounted(async () => {
-    const cachedPageSize = Number(localStorage.getItem(paginationConfig.cacheSizeKey));
+    const cachedPageSize = readCachedPageSize(paginationConfig.cacheSizeKey);
     if (pageSizes.includes(cachedPageSize)) {
         paginationConfig.pageSize = cachedPageSize;
     }
@@ -293,11 +297,13 @@ onUnmounted(() => {
     if (filterTimer) clearTimeout(filterTimer);
 });
 
-watch([keyword, priority, service], () => {
+const scheduleFilterSearch = () => {
     requestID++;
     if (filterTimer) clearTimeout(filterTimer);
     filterTimer = setTimeout(resetAndLoadLogs, 300);
-});
+};
+
+watch([keyword, priority, service], scheduleFilterSearch);
 </script>
 
 <style scoped lang="scss">

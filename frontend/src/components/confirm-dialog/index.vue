@@ -1,7 +1,8 @@
 <template>
-    <DialogPro v-model="submitVisible" :title="header" size="mini">
+    <DialogPro v-model="submitVisible" :title="header" size="mini" @close="onCancel">
         <div>
             <span v-if="operationInfo" class="operation-info">{{ operationInfo }}</span>
+            <slot />
             <div :style="{ 'margin-top': operationInfo ? '10px' : '0px' }">
                 <span style="font-size: 12px">{{ $t('commons.msg.operateConfirm') }}</span>
                 <span style="font-size: 12px; color: red; font-weight: 500">'{{ submitInputInfo }}'</span>

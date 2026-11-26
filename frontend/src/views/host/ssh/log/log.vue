@@ -26,7 +26,13 @@
             </template>
 
             <template #main>
-                <ComplexTable :pagination-config="paginationConfig" :data="data" @search="search" :heightDiff="400">
+                <ComplexTable
+                    :cache-pagination="false"
+                    :pagination-config="paginationConfig"
+                    :data="data"
+                    @search="search"
+                    :heightDiff="400"
+                >
                     <el-table-column min-width="80" :label="$t('logs.loginIP')" prop="address" />
                     <el-table-column min-width="60" :label="$t('ssh.belong')" prop="area" />
                     <el-table-column min-width="60" :label="$t('commons.table.port')" prop="port" />
@@ -42,7 +48,12 @@
                                 <el-tag type="success">{{ $t('commons.status.success') }}</el-tag>
                             </div>
                             <div v-else>
-                                <el-tooltip class="box-item" effect="dark" :content="row.message" placement="top-start">
+                                <el-tooltip
+                                    class="box-item"
+                                    effect="dark"
+                                    :content="row.message"
+                                    v-bind="TABLE_TOOLTIP_OPTIONS"
+                                >
                                     <el-tag type="danger">{{ $t('commons.status.failed') }}</el-tag>
                                 </el-tooltip>
                             </div>
@@ -51,7 +62,7 @@
                     <el-table-column
                         prop="date"
                         :label="$t('commons.table.date')"
-                        :formatter="dateFormat"
+                        :formatter="dateFormatServerTimezone"
                         show-overflow-tooltip
                     />
                 </ComplexTable>
@@ -93,10 +104,12 @@
 </template>
 
 <script setup lang="ts">
+import { TABLE_TOOLTIP_OPTIONS } from '@/components/table/shared';
+import { useSearchState } from '@/utils/search-reset';
 import ConfirmDialog from '@/components/confirm-dialog/index.vue';
-import { dateFormat } from '@/utils/date';
+import { dateFormatServerTimezone } from '@/utils/date';
 import { downloadFile } from '@/utils/file';
-import { onMounted, reactive, ref } from 'vue';
+import { toRef, onMounted, reactive, ref } from 'vue';
 import { cleanSSHLogs, exportSSHLogs, loadSSHLogs } from '@/api/modules/host';
 import i18n from '@/lang';
 import { MsgSuccess } from '@/utils/message';
@@ -105,9 +118,8 @@ const loading = ref();
 const data = ref();
 const confirmDialogRef = ref();
 const paginationConfig = reactive({
-    cacheSizeKey: 'ssh-log-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('ssh-log-page-size')) || 20,
+    pageSize: 20,
     total: 0,
 });
 
@@ -117,6 +129,11 @@ const exportConfig = reactive({
     status: 'All',
 });
 const searchInfo = ref();
+useSearchState(
+    'host/ssh/log/log',
+    { search: searchInfo, page: toRef(paginationConfig, 'currentPage'), pageSize: toRef(paginationConfig, 'pageSize') },
+    { onRevisit: () => search() },
+);
 const searchStatus = ref('All');
 
 const search = async () => {

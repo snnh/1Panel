@@ -1,6 +1,17 @@
 import { CommonModel, ReqPage } from '.';
 
 export namespace Host {
+    export interface PasswordlessConfig {
+        addr: string;
+        port: number;
+        user: string;
+        authMode: string;
+        password?: string;
+        privateKey?: string;
+        passPhrase?: string;
+        useProxy?: boolean;
+    }
+
     export interface HostTree {
         id: number;
         label: string;
@@ -41,6 +52,8 @@ export namespace Host {
         description: string;
     }
     export interface HostConnTest {
+        configurePasswordless?: boolean;
+        bootstrapAuth?: string;
         isLocal: boolean;
         addr: string;
         port: number;
@@ -65,6 +78,9 @@ export namespace Host {
     }
 
     export interface MonitorSetting {
+        gpuMonitorStatus: string;
+        gpuMonitorStoreDays: string;
+        gpuMonitorInterval: string;
         defaultNetwork: string;
         defaultIO: string;
         monitorStatus: string;

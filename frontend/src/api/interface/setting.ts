@@ -41,6 +41,7 @@ export namespace Setting {
         theme: string;
         menuTabs: string;
         menuAccordion: string;
+        panelCache: string;
         language: string;
         docSource: string;
 
@@ -86,6 +87,7 @@ export namespace Setting {
         theme: string;
         menuTabs: string;
         menuAccordion: string;
+        panelCache: string;
         language: string;
         hideMenu: string;
         docSource: string;
@@ -95,6 +97,7 @@ export namespace Setting {
         complexityVerification: string;
         noAuthSetting: string;
         proxyType: string;
+        proxyEnabled: boolean;
 
         scriptSync: string;
         dashboardMemoVisible: string;

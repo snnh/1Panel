@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/1Panel-dev/1Panel/agent/app/repo"
+	"github.com/compose-spec/compose-go/v2/dotenv"
 	"github.com/subosito/gotenv"
 
 	"github.com/1Panel-dev/1Panel/agent/app/task"
@@ -132,11 +133,9 @@ func (u *BackupService) AppRecover(req dto.CommonRecover) error {
 	if !fileOp.Stat(req.File) {
 		return buserr.WithName("ErrFileNotFound", req.File)
 	}
-	if _, err := compose.Down(install.GetComposePath()); err != nil {
-		return err
-	}
 	if err := handleAppRecover(&install, nil, req.File, false, req.Secret, req.TaskID); err != nil {
 		global.LOG.Errorf("recover app %s failed, err: %v", req.DetailName, err)
+		return err
 	}
 	return nil
 }
@@ -199,10 +198,18 @@ func handleAppBackup(install *model.AppInstall, parentTask *task.Task, recordID 
 	return nil
 }
 
-func handleAppRecover(install *model.AppInstall, parentTask *task.Task, recoverFile string, isRollback bool, secret, taskID string) error {
+func handleAppRecover(install *model.AppInstall, parentTask *task.Task, recoverFile string, isRollback bool, secret, taskID string, startAfterRecover ...bool) error {
+	startAfter := len(startAfterRecover) == 0 || startAfterRecover[0]
+	preparedPath, cleanup := recoverFile, func() {}
+	if parentTask == nil && !isRollback {
+		if _, err := compose.Down(install.GetComposePath()); err != nil {
+			cleanup()
+			return err
+		}
+	}
 	var (
-		err          error
 		recoverTask  *task.Task
+		err          error
 		isOk         = false
 		rollbackFile string
 	)
@@ -210,11 +217,13 @@ func handleAppRecover(install *model.AppInstall, parentTask *task.Task, recoverF
 	if parentTask == nil {
 		recoverTask, err = task.NewTaskWithOps(install.Name, task.TaskRecover, task.TaskScopeBackup, taskID, install.ID)
 		if err != nil {
+			cleanup()
 			return err
 		}
 	}
 
 	recoverApp := func(t *task.Task) error {
+		defer cleanup()
 		fileOp := files.NewFileOp()
 		if !isRollback {
 			rollbackFile = path.Join(global.Dir.TmpDir, fmt.Sprintf("app/%s_%s.tar.gz", install.Name, time.Now().Format(constant.DateTimeSlimLayout)))
@@ -223,20 +232,26 @@ func handleAppRecover(install *model.AppInstall, parentTask *task.Task, recoverF
 			}
 		}
 
-		if err := fileOp.TarGzExtractPro(recoverFile, path.Dir(recoverFile), secret); err != nil {
-			return err
+		tmpPath := preparedPath
+		if tmpPath == "" {
+			if err := fileOp.TarGzExtractPro(recoverFile, path.Dir(recoverFile), secret); err != nil {
+				return err
+			}
+			tmpPath = strings.ReplaceAll(recoverFile, ".tar.gz", "")
 		}
-		tmpPath := strings.ReplaceAll(recoverFile, ".tar.gz", "")
 		if err := fileOp.TarGzExtractPro(tmpPath+"/app.tar.gz", tmpPath, ""); err != nil {
 			return err
 		}
 		defer func() {
+			defer os.RemoveAll(tmpPath)
+			if !startAfter {
+				return
+			}
 			if isRollback {
 				_, _ = compose.UpWithoutBuild(install.GetComposePath())
 			} else {
 				_, _ = compose.Up(install.GetComposePath())
 			}
-			_ = os.RemoveAll(strings.ReplaceAll(recoverFile, ".tar.gz", ""))
 		}()
 
 		if !fileOp.Stat(tmpPath+"/app.json") || !fileOp.Stat(tmpPath+"/app.tar.gz") {
@@ -337,8 +352,12 @@ func handleAppRecover(install *model.AppInstall, parentTask *task.Task, recoverF
 
 		appDir := install.GetPath()
 		backPath := fmt.Sprintf("%s_bak", appDir)
-		_ = fileOp.Rename(appDir, backPath)
-		_ = fileOp.CreateDir(appDir, constant.DirPerm)
+		if err := fileOp.Rename(appDir, backPath); err != nil && !startAfter {
+			return err
+		}
+		if err := fileOp.CreateDir(appDir, constant.DirPerm); err != nil && !startAfter {
+			return err
+		}
 
 		deCompressName := i18n.GetWithName("DeCompressFile", "app.tar.gz")
 		t.LogStart(deCompressName)
@@ -361,6 +380,10 @@ func handleAppRecover(install *model.AppInstall, parentTask *task.Task, recoverF
 			_, _ = file.WriteString(mergedEnvContent)
 		}
 
+		// The upgrade transaction verifies readiness before saving its restored install.
+		if !startAfter {
+			return nil
+		}
 		backupInstall.ID = install.ID
 		backupInstall.Status = constant.StatusRunning
 		backupInstall.AppId = install.AppId
@@ -397,6 +420,7 @@ func handleAppRecover(install *model.AppInstall, parentTask *task.Task, recoverF
 	}
 	recoverTask.AddSubTask(task.GetTaskName(install.Name, task.TaskRecover, task.TaskScopeBackup), recoverApp, rollBackApp)
 	go func() {
+		defer cleanup()
 		_ = recoverTask.Execute()
 	}()
 	return nil
@@ -510,27 +534,58 @@ func ensureMysqlDBUser(mysqlService IMysqlService, database model.Database, dbIn
 
 func reCreatePostgresqlDB(dbID uint, database model.Database, envMap map[string]interface{}) (*model.DatabasePostgresql, error) {
 	postgresqlService := NewIPostgresqlService()
-	_ = postgresqlService.Delete(context.Background(), dto.PostgresqlDBDelete{
+	dbInfo := getDBCreateInfoFromEnv(envMap, "UTF8")
+	users, err := postgresqlService.ListUsers(dto.PostgresqlUserSearch{Database: database.Name})
+	if err != nil {
+		return nil, err
+	}
+	existingUser := false
+	for _, user := range users {
+		if user.Username != dbInfo.User {
+			continue
+		}
+		if user.Password == "" {
+			return nil, buserr.New("ErrDbUserNotValid")
+		}
+		dbInfo.Password = user.Password
+		existingUser = true
+		break
+	}
+	if err := postgresqlService.Delete(context.Background(), dto.PostgresqlDBDelete{
 		ID:           dbID,
 		Type:         database.Type,
 		Database:     database.Name,
 		DeleteBackup: false,
-		ForceDelete:  true,
-	})
+		ForceDelete:  false,
+	}); err != nil {
+		return nil, err
+	}
 
-	dbInfo := getDBCreateInfoFromEnv(envMap, "UTF8")
 	createDB, err := postgresqlService.Create(context.Background(), dto.PostgresqlDBCreate{
-		Name:      dbInfo.Name,
-		From:      database.From,
-		Database:  database.Name,
-		Format:    dbInfo.Format,
-		Username:  dbInfo.User,
-		Password:  dbInfo.Password,
-		SuperUser: true,
+		ExistingUser: existingUser,
+		Name:         dbInfo.Name,
+		From:         database.From,
+		Database:     database.Name,
+		Format:       dbInfo.Format,
+		Username:     dbInfo.User,
+		Password:     dbInfo.Password,
+		SuperUser:    true,
 	})
 	if err != nil {
 		return nil, err
 	}
+	oldPassword, _ := envMap["PANEL_DB_USER_PASSWORD"].(string)
+	if oldPassword != "" && oldPassword != dbInfo.Password {
+		if datasource, ok := envMap["CASDOOR_DATASOURCE_NAME"].(string); ok {
+			escape := strings.NewReplacer(`\`, `\\`, "'", `\'`)
+			password := "password='" + escape.Replace(dbInfo.Password) + "'"
+			envMap["CASDOOR_DATASOURCE_NAME"] = strings.NewReplacer(
+				"password='"+escape.Replace(oldPassword)+"'", password,
+				"password="+oldPassword, password,
+			).Replace(datasource)
+		}
+	}
+	envMap["PANEL_DB_USER_PASSWORD"] = dbInfo.Password
 	updateCronjobsDBRef(dbID, createDB.ID)
 	return createDB, nil
 }
@@ -566,11 +621,12 @@ func updateCronjobsDBRef(oldDBID, newDBID uint) {
 }
 
 func buildRecoverEnv(appEnv string, backupEnvMap, installedEnvMap map[string]interface{}) (string, string, error) {
+	var appEnvMap map[string]interface{}
+	if err := json.Unmarshal([]byte(appEnv), &appEnvMap); err != nil {
+		return "", "", err
+	}
 	currentHostVal, hasCurrentHost := installedEnvMap["PANEL_DB_HOST"]
 	if hasCurrentHost && fmt.Sprintf("%v", currentHostVal) != "" {
-		backupHost := fmt.Sprintf("\"PANEL_DB_HOST\":\"%v\"", backupEnvMap["PANEL_DB_HOST"])
-		currentHost := fmt.Sprintf("\"PANEL_DB_HOST\":\"%v\"", currentHostVal)
-		appEnv = strings.ReplaceAll(appEnv, backupHost, currentHost)
 		if _, ok := backupEnvMap["CASDOOR_DATASOURCE_NAME"]; ok {
 			backupEnvMap["CASDOOR_DATASOURCE_NAME"] = strings.ReplaceAll(
 				fmt.Sprintf("%v", backupEnvMap["CASDOOR_DATASOURCE_NAME"]),
@@ -580,37 +636,45 @@ func buildRecoverEnv(appEnv string, backupEnvMap, installedEnvMap map[string]int
 		}
 		backupEnvMap["PANEL_DB_HOST"] = currentHostVal
 	}
+	if appEnvMap == nil {
+		return "", "", buserr.New("ErrInvalidParams")
+	}
+	for _, key := range []string{"PANEL_DB_HOST", "PANEL_DB_USER_PASSWORD", "CASDOOR_DATASOURCE_NAME"} {
+		if value, ok := backupEnvMap[key]; ok {
+			appEnvMap[key] = value
+		}
+	}
+	mergedAppEnv, err := json.Marshal(appEnvMap)
+	if err != nil {
+		return "", "", err
+	}
+	appEnv = string(mergedAppEnv)
 	newEnvMap := make(map[string]string, len(backupEnvMap))
-	handleMap(backupEnvMap, newEnvMap)
+	MergeAppEnvironment(backupEnvMap, newEnvMap)
 	mergedEnvContent, err := gotenv.Marshal(newEnvMap)
 	if err != nil {
 		return appEnv, "", err
 	}
-	return appEnv, mergedEnvContent, nil
+	lines := strings.Split(mergedEnvContent, "\n")
+	for i, line := range lines {
+		for _, key := range []string{"PANEL_DB_USER_PASSWORD", "CASDOOR_DATASOURCE_NAME"} {
+			if strings.HasPrefix(line, key+"=") {
+				lines[i] = fmt.Sprintf("%s=%q", key, strings.ReplaceAll(newEnvMap[key], "$", "$$"))
+				break
+			}
+		}
+	}
+	return appEnv, strings.Join(lines, "\n"), nil
 }
 
 func getEnvMapByPath(envPath string) (map[string]interface{}, error) {
-	envMap := make(map[string]interface{})
-	envFile, err := os.ReadFile(envPath)
+	values, err := dotenv.ReadWithLookup(func(string) (string, bool) { return "", false }, envPath)
 	if err != nil {
-		return envMap, err
+		return nil, err
 	}
-	lines := strings.Split(string(envFile), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
-			value := strings.TrimSpace(parts[1])
-			if len(value) >= 2 {
-				if (value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'') {
-					value = value[1 : len(value)-1]
-				}
-			}
-			envMap[parts[0]] = value
-		}
+	envMap := make(map[string]interface{}, len(values))
+	for key, value := range values {
+		envMap[key] = value
 	}
 	return envMap, nil
 }

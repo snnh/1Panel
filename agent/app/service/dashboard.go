@@ -47,6 +47,11 @@ type IDashboardService interface {
 	ChangeShow(req dto.SettingUpdate) error
 	ListLauncherOption(filter string) ([]dto.LauncherOption, error)
 	Restart(operation string) error
+
+	ListQuickDirectories() ([]model.QuickDirectory, error)
+	CreateQuickDirectory(req dto.QuickDirectoryCreate) (*model.QuickDirectory, error)
+	UpdateQuickDirectory(req dto.QuickDirectoryUpdate) (*model.QuickDirectory, error)
+	DeleteQuickDirectory(req dto.QuickDirectoryDelete) error
 }
 
 func NewIDashboardService() IDashboardService {
@@ -453,7 +458,7 @@ type diskInfo struct {
 	Device string
 }
 
-func loadDiskInfo() []dto.DiskInfo {
+func loadDiskInfo(_ ...bool) []dto.DiskInfo {
 	var datas []dto.DiskInfo
 	cmdMgr := cmd.NewCommandMgr(cmd.WithTimeout(2 * time.Second))
 	format := `NR>1 && !/tmpfs|snap\/core|udev/ {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6, $7}`

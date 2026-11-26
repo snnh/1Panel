@@ -32,11 +32,13 @@ import (
 type MonitorService struct {
 	DiskIO chan ([]disk.IOCountersStat)
 	NetIO  chan ([]net.IOCountersStat)
+	ctx    context.Context
 }
 
 var (
-	monitorCancel context.CancelFunc
-	hostSysPath   = loadHostSysPath()
+	monitorSettingMutex sync.Mutex
+	monitorCancel       context.CancelFunc
+	hostSysPath         = loadHostSysPath()
 
 	blockDevicePartitionCache sync.Map
 )
@@ -46,7 +48,10 @@ type IMonitorService interface {
 	LoadMonitorData(req dto.MonitorSearch) ([]dto.MonitorData, error)
 	LoadSetting() (*dto.MonitorSetting, error)
 	UpdateSetting(key, value string) error
-	CleanData() error
+	CleanData(monitorType string) error
+
+	LoadIOOptions() []string
+	LoadNetworkOptions() []string
 
 	saveIODataToDB(ctx context.Context, interval float64)
 	saveNetDataToDB(ctx context.Context, interval float64)
@@ -56,6 +61,7 @@ func NewIMonitorService() IMonitorService {
 	return &MonitorService{
 		DiskIO: make(chan []disk.IOCountersStat, 2),
 		NetIO:  make(chan []net.IOCountersStat, 2),
+		ctx:    context.Background(),
 	}
 }
 
@@ -81,7 +87,7 @@ func (m *MonitorService) LoadMonitorData(req dto.MonitorSearch) ([]dto.MonitorDa
 				base.TopCPUItems = processes
 				base.TopCPU = ""
 			}
-			if req.Param == "all" || req.Param == "mem" {
+			if req.Param == "all" || req.Param == "memory" {
 				var processes []dto.Process
 				_ = json.Unmarshal([]byte(base.TopMem), &processes)
 				base.TopMemItems = processes
@@ -92,7 +98,11 @@ func (m *MonitorService) LoadMonitorData(req dto.MonitorSearch) ([]dto.MonitorDa
 		data = append(data, itemData)
 	}
 	if req.Param == "all" || req.Param == "io" {
-		bases, err := monitorRepo.GetIO(repo.WithByName(req.IO), repo.WithByCreatedAt(req.StartTime, req.EndTime))
+		ioOpts := []repo.DBOption{repo.WithByCreatedAt(req.StartTime, req.EndTime)}
+		if len(req.IO) != 0 {
+			ioOpts = append(ioOpts, repo.WithByName(req.IO))
+		}
+		bases, err := monitorRepo.GetIO(ioOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +116,11 @@ func (m *MonitorService) LoadMonitorData(req dto.MonitorSearch) ([]dto.MonitorDa
 		data = append(data, itemData)
 	}
 	if req.Param == "all" || req.Param == "network" {
-		bases, err := monitorRepo.GetNetwork(repo.WithByName(req.Network), repo.WithByCreatedAt(req.StartTime, req.EndTime))
+		netOpts := []repo.DBOption{repo.WithByCreatedAt(req.StartTime, req.EndTime)}
+		if len(req.Network) != 0 {
+			netOpts = append(netOpts, repo.WithByName(req.Network))
+		}
+		bases, err := monitorRepo.GetNetwork(netOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -120,6 +134,37 @@ func (m *MonitorService) LoadMonitorData(req dto.MonitorSearch) ([]dto.MonitorDa
 		data = append(data, itemData)
 	}
 	return data, nil
+}
+
+func (m *MonitorService) LoadIOOptions() []string {
+	optionSet := make(map[string]struct{})
+	if diskStat, err := disk.IOCounters(); err == nil {
+		for _, item := range diskStat {
+			optionSet[item.Name] = struct{}{}
+		}
+	}
+	// union with names recorded in the monitor db so removed devices stay selectable
+	if names, err := monitorRepo.GetIONames(); err == nil {
+		for _, name := range names {
+			optionSet[name] = struct{}{}
+		}
+	}
+	return sortedMonitorOptions(optionSet)
+}
+
+func (m *MonitorService) LoadNetworkOptions() []string {
+	optionSet := make(map[string]struct{})
+	if netStat, err := net.IOCounters(true); err == nil {
+		for _, item := range netStat {
+			optionSet[item.Name] = struct{}{}
+		}
+	}
+	if names, err := monitorRepo.GetNetworkNames(); err == nil {
+		for _, name := range names {
+			optionSet[name] = struct{}{}
+		}
+	}
+	return sortedMonitorOptions(optionSet)
 }
 
 func (m *MonitorService) LoadSetting() (*dto.MonitorSetting, error) {
@@ -143,9 +188,27 @@ func (m *MonitorService) LoadSetting() (*dto.MonitorSetting, error) {
 }
 
 func (m *MonitorService) UpdateSetting(key, value string) error {
+	monitorSettingMutex.Lock()
+	defer monitorSettingMutex.Unlock()
 	switch key {
 	case "MonitorStatus":
-		if value == constant.StatusEnable && global.MonitorCronID == 0 {
+		if value != constant.StatusEnable && value != constant.StatusDisable {
+			return fmt.Errorf("invalid monitoring status")
+		}
+	case "MonitorInterval":
+		interval, err := strconv.Atoi(value)
+		if err != nil || interval < 10 || interval > 43200 {
+			return fmt.Errorf("monitoring interval must be between 10 and 43200 seconds")
+		}
+	case "MonitorStoreDays":
+		days, err := strconv.Atoi(value)
+		if err != nil || days < 1 {
+			return fmt.Errorf("monitoring retention must be a positive integer")
+		}
+	}
+	switch key {
+	case "MonitorStatus":
+		if value == constant.StatusEnable && monitorCancel == nil {
 			interval, err := settingRepo.Get(settingRepo.WithByKey("MonitorInterval"))
 			if err != nil {
 				return err
@@ -154,8 +217,9 @@ func (m *MonitorService) UpdateSetting(key, value string) error {
 				return err
 			}
 		}
-		if value == constant.StatusDisable && global.MonitorCronID != 0 {
+		if value == constant.StatusDisable && monitorCancel != nil {
 			monitorCancel()
+			monitorCancel = nil
 			global.Cron.Remove(cron.EntryID(global.MonitorCronID))
 			global.MonitorCronID = 0
 		}
@@ -164,7 +228,7 @@ func (m *MonitorService) UpdateSetting(key, value string) error {
 		if err != nil {
 			return err
 		}
-		if status.Value == constant.StatusEnable && global.MonitorCronID != 0 {
+		if status.Value == constant.StatusEnable && monitorCancel != nil {
 			if err := StartMonitor(true, value); err != nil {
 				return err
 			}
@@ -173,20 +237,19 @@ func (m *MonitorService) UpdateSetting(key, value string) error {
 	return settingRepo.Update(key, value)
 }
 
-func (m *MonitorService) CleanData() error {
-	if err := global.MonitorDB.Exec("DELETE FROM monitor_bases").Error; err != nil {
-		return err
+func (m *MonitorService) CleanData(monitorType string) error {
+	switch monitorType {
+	case "host":
+		return monitorRepo.CleanHost()
+	default:
+		return fmt.Errorf("unsupported monitoring cleanup type: %s", monitorType)
 	}
-	if err := global.MonitorDB.Exec("DELETE FROM monitor_ios").Error; err != nil {
-		return err
-	}
-	if err := global.MonitorDB.Exec("DELETE FROM monitor_networks").Error; err != nil {
-		return err
-	}
-	return nil
 }
 
 func (m *MonitorService) Run() {
+	if m.ctx.Err() != nil {
+		return
+	}
 	var itemModel model.MonitorBase
 	totalPercent, _ := cpu.Percent(3*time.Second, false)
 	if len(totalPercent) == 1 {
@@ -235,26 +298,31 @@ func (m *MonitorService) Run() {
 }
 
 func (m *MonitorService) loadDiskIO() {
-	ioStat, _ := disk.IOCounters()
+	ioStat, _ := disk.IOCountersWithContext(m.ctx)
 	var diskIOList []disk.IOCountersStat
 	for _, io := range ioStat {
 		diskIOList = append(diskIOList, io)
 	}
 	diskIOList = append(diskIOList, sumDiskIOCounters(ioStat))
-	m.DiskIO <- diskIOList
+	select {
+	case <-m.ctx.Done():
+	case m.DiskIO <- diskIOList:
+	}
 }
 
 func (m *MonitorService) loadNetIO() {
-	netStat, _ := net.IOCounters(true)
-	netStatAll, _ := net.IOCounters(false)
+	netStat, _ := net.IOCountersWithContext(m.ctx, true)
+	netStatAll, _ := net.IOCountersWithContext(m.ctx, false)
 	var netList []net.IOCountersStat
 	netList = append(netList, netStat...)
 	netList = append(netList, netStatAll...)
-	m.NetIO <- netList
+	select {
+	case <-m.ctx.Done():
+	case m.NetIO <- netList:
+	}
 }
 
 func (m *MonitorService) saveIODataToDB(ctx context.Context, interval float64) {
-	defer close(m.DiskIO)
 	for {
 		select {
 		case <-ctx.Done():
@@ -304,14 +372,17 @@ func (m *MonitorService) saveIODataToDB(ctx context.Context, interval float64) {
 					}
 				}
 				_ = monitorRepo.BatchCreateMonitorIO(ioList)
-				m.DiskIO <- ioStat2
+				select {
+				case <-ctx.Done():
+					return
+				case m.DiskIO <- ioStat2:
+				}
 			}
 		}
 	}
 }
 
 func (m *MonitorService) saveNetDataToDB(ctx context.Context, interval float64) {
-	defer close(m.NetIO)
 	for {
 		select {
 		case <-ctx.Done():
@@ -341,7 +412,11 @@ func (m *MonitorService) saveNetDataToDB(ctx context.Context, interval float64) 
 				}
 
 				_ = monitorRepo.BatchCreateMonitorNet(netList)
-				m.NetIO <- netStat2
+				select {
+				case <-ctx.Done():
+					return
+				case m.NetIO <- netStat2:
+				}
 			}
 		}
 	}
@@ -450,27 +525,38 @@ func loadTopMem() []dto.Process {
 }
 
 func StartMonitor(removeBefore bool, interval string) error {
+	intervalItem, err := strconv.Atoi(interval)
+	if err != nil || intervalItem < 10 || intervalItem > 43200 {
+		return fmt.Errorf("invalid host monitoring interval: %s", interval)
+	}
 	if removeBefore {
 		monitorCancel()
 		global.Cron.Remove(cron.EntryID(global.MonitorCronID))
 	}
-	intervalItem, err := strconv.Atoi(interval)
-	if err != nil {
-		return err
-	}
-
-	service := NewIMonitorService()
 	ctx, cancel := context.WithCancel(context.Background())
-	monitorCancel = cancel
+	service := &MonitorService{
+		DiskIO: make(chan []disk.IOCountersStat, 2),
+		NetIO:  make(chan []net.IOCountersStat, 2),
+		ctx:    ctx,
+	}
 	now := time.Now()
 	nextMinute := now.Truncate(time.Minute).Add(time.Minute)
-	time.AfterFunc(time.Until(nextMinute), func() {
+	timer := time.AfterFunc(time.Until(nextMinute), func() {
+		monitorSettingMutex.Lock()
+		defer monitorSettingMutex.Unlock()
+		if ctx.Err() != nil {
+			return
+		}
 		monitorID, err := global.Cron.AddJob(fmt.Sprintf("@every %ss", interval), service)
 		if err != nil {
 			return
 		}
 		global.MonitorCronID = monitorID
 	})
+	monitorCancel = func() {
+		cancel()
+		timer.Stop()
+	}
 
 	service.Run()
 
@@ -520,4 +606,15 @@ func loadHostSysPath() string {
 		return "/sys"
 	}
 	return hostSys
+}
+
+func sortedMonitorOptions(optionSet map[string]struct{}) []string {
+	options := make([]string, 0, len(optionSet))
+	for name := range optionSet {
+		if len(name) != 0 && name != "all" {
+			options = append(options, name)
+		}
+	}
+	sort.Strings(options)
+	return append([]string{"all"}, options...)
 }

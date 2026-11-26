@@ -81,6 +81,7 @@ func RunScriptContext(ctx context.Context, script string) error {
 	return runScriptFile(script, func(file string) error {
 		return cmd.NewCommandMgr(
 			cmd.WithContext(ctx),
+			cmd.WithEnv("LC_ALL=C"),
 			cmd.WithTimeout(60*time.Second),
 		).RunWithOptionalSudo("nft", "-f", file)
 	})
@@ -169,21 +170,60 @@ func hasBaseChainBinding(output string) bool {
 }
 
 func loadFamilyInitStatus(family filter.Family) (bool, bool, error) {
-	for _, chain := range BasicChains() {
-		if _, exists, err := readNftObject(run, "list", "chain", TableFamily(family), TableName, chain); err != nil || !exists {
-			return false, false, err
-		}
-	}
-	stdout, exists, err := readNftObject(run, "list", "chain", TableFamily(family), TableName, InputChain)
+	initialized, bound, _, err := LoadFamilyState(family)
+	return initialized, bound, err
+}
+
+func LoadFamilyState(family filter.Family) (bool, bool, bool, error) {
+	output, exists, err := ReadTable(run, TableFamily(family), TableName)
 	if err != nil || !exists {
-		return false, false, err
+		return false, false, false, err
 	}
-	for _, chain := range BasicChains() {
-		if !strings.Contains(stdout, "jump "+chain) {
-			return true, false, nil
+	chains := ParseTableChains(output)
+	count := 0
+	for _, chain := range append(BasicChains(), InputChain) {
+		if _, ok := chains[chain]; ok {
+			count++
 		}
 	}
-	return true, true, nil
+	if count != len(BasicChains())+1 {
+		return false, false, count > 0, nil
+	}
+	input, exists := chains[InputChain]
+	if !exists {
+		return false, false, false, nil
+	}
+	for _, chain := range BasicChains() {
+		if !strings.Contains(input, "jump "+chain) {
+			return true, false, false, nil
+		}
+	}
+	return true, !TableDormant(output), false, nil
+}
+
+func ReadTable(run func(...string) (string, error), family, table string) (string, bool, error) {
+	return readNftObject(run, "-a", "list", "table", family, table)
+}
+
+func ParseTableChains(output string) map[string]string {
+	chains := make(map[string]string)
+	lines := strings.Split(output, "\n")
+	name, indent, start := "", "", 0
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if name == "" {
+			fields := strings.Fields(trimmed)
+			if len(fields) >= 3 && fields[0] == "chain" && fields[2] == "{" {
+				name, indent, start = fields[1], line[:len(line)-len(strings.TrimLeft(line, " \t"))], index
+			}
+			continue
+		}
+		if strings.HasPrefix(line, indent+"}") {
+			chains[name] = strings.Join(lines[start:index+1], "\n")
+			name = ""
+		}
+	}
+	return chains
 }
 
 var ErrChainNotFound = errors.New("nftables chain is not initialized")
@@ -197,4 +237,34 @@ func ReadChain(run func(...string) (string, error), family, table, chain string)
 		return "", ErrChainNotFound
 	}
 	return output, nil
+}
+
+func TableDormant(output string) bool {
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(strings.TrimSuffix(strings.TrimSpace(line), ";"))
+		if len(fields) > 0 && fields[0] == "chain" {
+			break
+		}
+		if len(fields) > 1 && fields[0] == "flags" {
+			for _, flag := range strings.Split(strings.Join(fields[1:], ""), ",") {
+				if flag == "dormant" {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func SetTableDormant(ctx context.Context, family, table string) error {
+	manager := cmd.NewCommandMgr(cmd.WithContext(ctx), cmd.WithTimeout(60*time.Second))
+	output, exists, err := ReadTable(func(args ...string) (string, error) { return manager.RunWithOptionalSudoAndStdout("nft", args...) }, family, table)
+	if err != nil || !exists || TableDormant(output) {
+		return err
+	}
+	script, err := buildBatchScript([]string{"add", "table", family, table, "{", "flags", "dormant", ";", "}"})
+	if err != nil {
+		return err
+	}
+	return RunScriptContext(ctx, script)
 }

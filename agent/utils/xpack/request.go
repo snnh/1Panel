@@ -12,8 +12,13 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/app/dto"
 )
 
+var requestTransport *http.Transport
+
 // LoadRequestTransport returns the shared transport used for outbound requests.
 func LoadRequestTransport() *http.Transport {
+	if requestTransport != nil {
+		return requestTransport
+	}
 	return &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		DialContext: (&net.Dialer{
@@ -30,4 +35,13 @@ func LoadRequestTransport() *http.Transport {
 // agent. Callers fall back to the local node name and address.
 func GetAgentInfo() (*dto.AgentInfo, error) {
 	return nil, nil
+}
+
+// SetRequestTransport replaces the transport used for outbound requests and
+// returns a function restoring the previous one. It exists for tests that need
+// to redirect requests to a local server.
+func SetRequestTransport(transport *http.Transport) func() {
+	previous := requestTransport
+	requestTransport = transport
+	return func() { requestTransport = previous }
 }

@@ -2,7 +2,7 @@
     <div>
         <DrawerPro
             v-model="open"
-            :header="$t('monitor.runtimeDiagnostics')"
+            :header="`${$t('monitor.runtimeDiagnostics')} - 1panel-${target}`"
             size="large"
             :confirm-before-close="captureLoading"
             @before-close="handleBeforeClose"
@@ -142,11 +142,13 @@ import {
     loadRuntimeGoroutines,
     RuntimeProfileDownloadError,
 } from '@/api/modules/host';
+import type { RuntimeDiagnosticsTarget } from '@/api/modules/host';
 import { Host } from '@/api/interface/host';
 import { computeSize } from '@/utils/size';
 import i18n from '@/lang';
 import { MsgError, MsgSuccess } from '@/utils/message';
 
+const target = ref<RuntimeDiagnosticsTarget>('agent');
 const open = ref(false);
 const captureLoading = ref(false);
 const goroutineLoading = ref(false);
@@ -221,14 +223,14 @@ const summaryCards = computed(() => [
 ]);
 
 const loadSummary = async () => {
-    const res = await loadRuntimeDiagnosticsSummary();
+    const res = await loadRuntimeDiagnosticsSummary(undefined, target.value);
     Object.assign(summary, res.data);
 };
 
 const loadGoroutines = async () => {
     goroutineLoading.value = true;
     try {
-        const res = await loadRuntimeGoroutines();
+        const res = await loadRuntimeGoroutines(undefined, target.value);
         Object.assign(goroutineSnapshot, res.data);
     } finally {
         goroutineLoading.value = false;
@@ -243,11 +245,11 @@ const showGoroutineStack = (row: Host.RuntimeGoroutineGroup) => {
 const captureProfile = async () => {
     captureLoading.value = true;
     try {
-        const data = await createRuntimeProfile(captureForm);
+        const data = await createRuntimeProfile(captureForm, undefined, target.value);
         const url = window.URL.createObjectURL(data);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${captureForm.type}-${Date.now()}.pb.gz`;
+        link.download = `${target.value}-${captureForm.type}-${Date.now()}.pb.gz`;
         link.click();
         window.URL.revokeObjectURL(url);
         MsgSuccess(i18n.global.t('monitor.captureSuccess'));
@@ -261,7 +263,8 @@ const captureProfile = async () => {
     }
 };
 
-const acceptParams = () => {
+const acceptParams = (process: RuntimeDiagnosticsTarget = 'agent') => {
+    target.value = process;
     open.value = true;
     Promise.all([loadSummary(), loadGoroutines()]);
 };

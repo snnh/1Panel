@@ -243,6 +243,16 @@ func loadTerminalIdentity(c *gin.Context) (terminal.Identity, bool) {
 		UserID:        strings.TrimSpace(c.GetHeader(terminal.HeaderUserID)),
 		AuthSessionID: strings.TrimSpace(c.GetHeader(terminal.HeaderAuthSessionID)),
 	}
+	if value := c.GetHeader(terminal.HeaderAuthLeaseUntil); value != "" {
+		millis, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || millis <= 0 {
+			return terminal.Identity{}, false
+		}
+		identity.AuthLeaseUntil = time.UnixMilli(millis)
+		if maximum := time.Now().Add(90 * time.Second); identity.AuthLeaseUntil.After(maximum) {
+			identity.AuthLeaseUntil = maximum
+		}
+	}
 	return identity, identity.Valid()
 }
 
@@ -287,6 +297,8 @@ func loadContainerTerminalCommand(c *gin.Context) (*terminal.LocalCommand, error
 	switch source {
 	case "redis", "redis-cluster":
 		initCmd, err = loadRedisInitCmd(c, source)
+	case "ollama":
+		initCmd, err = loadOllamaInitCmd(c)
 	case "container":
 		initCmd, err = loadContainerInitCmd(c)
 	case "database":
@@ -326,6 +338,19 @@ func loadRedisInitCmd(c *gin.Context, redisType string) ([]string, error) {
 		}
 	}
 	return commands, nil
+}
+
+func loadOllamaInitCmd(c *gin.Context) ([]string, error) {
+	name := c.Query("name")
+	if cmd.CheckIllegal(name) {
+		return nil, fmt.Errorf("ollama model %s contains illegal characters", name)
+	}
+	ollamaInfo, err := appInstallService.LoadConnInfo(dto.OperationWithNameAndType{Name: "", Type: "ollama"})
+	if err != nil {
+		return nil, fmt.Errorf("no such app in db, err: %v", err)
+	}
+	containerName := ollamaInfo.ContainerName
+	return []string{"exec", "-it", containerName, "ollama", "run", name}, nil
 }
 
 func loadContainerInitCmd(c *gin.Context) ([]string, error) {

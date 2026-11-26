@@ -1,16 +1,26 @@
 import http from '@/api';
+import type { AxiosRequestConfig } from 'axios';
 import { ResPage, SearchWithPage } from '../interface';
 import { Container } from '../interface/container';
 import { TimeoutEnum } from '@/enums/http-enum';
 
-export const searchContainer = (params: Container.ContainerSearch) => {
-    return http.post<ResPage<Container.ContainerInfo>>(`/containers/search`, params, TimeoutEnum.T_40S, undefined);
+export const searchContainer = (params: Container.ContainerSearch, currentNode?: string, signal?: AbortSignal) => {
+    return http.postWithConfig<ResPage<Container.ContainerInfo>>(`/containers/search`, params, {
+        timeout: TimeoutEnum.T_40S,
+        headers: currentNode ? { CurrentNode: currentNode } : undefined,
+        signal,
+    });
 };
 export const listContainer = () => {
     return http.post<Array<Container.ContainerOption>>(`/containers/list`, {});
 };
-export const listContainerByImage = (image: string) => {
-    return http.post<Array<Container.ContainerOption>>(`/containers/list/byimage`, { name: image });
+export const listContainerByImage = (image: string, node?: string) => {
+    return http.post<Array<Container.ContainerOption>>(
+        `/containers/list/byimage`,
+        { name: image },
+        undefined,
+        node ? { CurrentNode: node } : undefined,
+    );
 };
 export const loadContainerUsers = (name: string) => {
     return http.post<Array<string>>(`/containers/users`, { name: name });
@@ -18,10 +28,11 @@ export const loadContainerUsers = (name: string) => {
 export const listContainerFiles = (params: Container.ContainerFileReq) => {
     return http.post<Array<Container.ContainerFileInfo>>(`/containers/files/search`, params, TimeoutEnum.T_40S);
 };
-export const uploadContainerFile = (params: FormData) => {
+export const uploadContainerFile = (params: FormData, config?: AxiosRequestConfig & { skipErrorMessage?: boolean }) => {
     return http.upload(`/containers/files/upload`, params, {
-        headers: { 'Content-Type': 'multipart/form-data' },
         timeout: TimeoutEnum.T_5M,
+        ...config,
+        headers: { 'Content-Type': 'multipart/form-data', ...config?.headers },
     });
 };
 export const getContainerFileContent = (params: Container.ContainerFileReq) => {
@@ -39,8 +50,11 @@ export const downloadContainerFile = (params: { containerID: string; path: strin
         timeout: TimeoutEnum.T_40S,
     });
 };
-export const loadContainerStatus = () => {
-    return http.get<Container.ContainerStatus>(`/containers/status`, {}, {});
+export const loadContainerStatus = (currentNode?: string, containersOnly = false, signal?: AbortSignal) => {
+    return http.get<Container.ContainerStatus>(`/containers/status`, containersOnly ? { containersOnly: true } : {}, {
+        headers: currentNode ? { CurrentNode: currentNode } : undefined,
+        signal,
+    });
 };
 export const loadResourceLimit = () => {
     return http.get<Container.ResourceLimit>(`/containers/limit`);
@@ -51,8 +65,8 @@ export const createContainer = (params: Container.ContainerHelper) => {
 export const updateContainer = (params: Container.ContainerHelper) => {
     return http.post(`/containers/update`, params, TimeoutEnum.T_10M);
 };
-export const upgradeContainer = (params: Container.ContainerUpgrade) => {
-    return http.post(`/containers/upgrade`, params, TimeoutEnum.T_10M);
+export const upgradeContainer = (params: Container.ContainerUpgrade, node?: string) => {
+    return http.post(`/containers/upgrade`, params, TimeoutEnum.T_10M, node ? { CurrentNode: node } : undefined);
 };
 export const commitContainer = (params: Container.ContainerCommit) => {
     return http.post(`/containers/commit`, params);
@@ -60,24 +74,36 @@ export const commitContainer = (params: Container.ContainerCommit) => {
 export const loadContainerInfo = (name: string) => {
     return http.post<Container.ContainerHelper>(`/containers/info`, { name: name });
 };
-export const cleanComposeLog = (composeName: string, composePath: string) => {
-    const params = '';
+export const cleanComposeLog = (composeName: string, composePath: string, operateNode?: string) => {
+    const params = operateNode ? `?operateNode=${operateNode}` : '';
     return http.post(
         `/containers/compose/clean/log${params}`,
         { name: composeName, path: composePath },
         TimeoutEnum.T_60S,
     );
 };
-export const cleanContainerLog = (containerName: string) => {
-    const params = '';
+export const cleanContainerLog = (containerName: string, operateNode?: string) => {
+    const params = operateNode ? `?operateNode=${operateNode}` : '';
     return http.post(`/containers/clean/log${params}`, { name: containerName }, TimeoutEnum.T_60S);
 };
-export const containerItemStats = (containerID: string) => {
+export const containerItemStats = (containerID: string, currentNode?: string) => {
     const timeout = containerID === 'system' ? TimeoutEnum.T_5M : TimeoutEnum.T_60S;
-    return http.post<Container.ContainerItemStats>(`/containers/item/stats`, { name: containerID }, timeout, undefined);
+    return http.post<Container.ContainerItemStats>(
+        `/containers/item/stats`,
+        { name: containerID },
+        timeout,
+        currentNode ? { CurrentNode: currentNode } : undefined,
+    );
 };
-export const containerListStats = () => {
-    return http.get<Array<Container.ContainerListStats>>(`/containers/list/stats`, {}, {});
+export const containerListStats = (
+    currentNode?: string,
+    ids?: string[],
+    config?: AxiosRequestConfig & { skipErrorMessage?: boolean },
+) => {
+    return http.get<Array<Container.ContainerListStats>>(`/containers/list/stats`, ids ? { ids: ids.join(',') } : {}, {
+        ...config,
+        headers: { ...config?.headers, ...(currentNode ? { CurrentNode: currentNode } : {}) },
+    });
 };
 export const containerStats = (id: string) => {
     return http.get<Container.ContainerStats>(`/containers/stats/${id}`);
@@ -95,16 +121,22 @@ export const inspect = (params: Container.ContainerInspect) => {
     return http.post<string>(`/containers/inspect`, params);
 };
 
-export const DownloadFile = (params: Container.ContainerLogInfo) => {
-    return http.download<BlobPart>('/containers/download/log', params, {
+export const DownloadFile = (params: Container.ContainerLogInfo, node?: string) => {
+    return http.download<Blob>('/containers/download/log', params, {
+        headers: node ? { CurrentNode: node } : undefined,
         responseType: 'blob',
         timeout: TimeoutEnum.T_5M,
     });
 };
 
 // image
-export const searchImage = (params: Container.ImageSearch) => {
-    return http.post<ResPage<Container.ImageInfo>>(`/containers/image/search`, params, TimeoutEnum.T_60S, undefined);
+export const searchImage = (params: Container.ImageSearch, currentNode?: string) => {
+    return http.post<ResPage<Container.ImageInfo>>(
+        `/containers/image/search`,
+        params,
+        TimeoutEnum.T_60S,
+        currentNode ? { CurrentNode: currentNode } : undefined,
+    );
 };
 export const listAllImage = () => {
     return http.get<Array<Container.ImageInfo>>(`/containers/image/all`);
@@ -121,8 +153,13 @@ export const imagePull = (params: Container.ImagePull) => {
 export const imagePush = (params: Container.ImagePush) => {
     return http.post<string>(`/containers/image/push`, params);
 };
-export const imageLoad = (params: Container.ImageLoad) => {
-    return http.post(`/containers/image/load`, params, TimeoutEnum.T_10M);
+export const imageLoad = (params: Container.ImageLoad, currentNode?: string) => {
+    return http.post(
+        `/containers/image/load`,
+        params,
+        TimeoutEnum.T_10M,
+        currentNode ? { CurrentNode: currentNode } : undefined,
+    );
 };
 export const imageSave = (params: Container.ImageSave) => {
     return http.post(`/containers/image/save`, params, TimeoutEnum.T_10M);
@@ -254,3 +291,48 @@ export const updateIpv6Option = (fixedCidrV6: string, ip6Tables: boolean, experi
 export const updateDaemonJsonByfile = (params: Container.DaemonJsonUpdateByFile) => {
     return http.post(`/containers/daemonjson/update/byfile`, params, TimeoutEnum.T_3M);
 };
+
+export interface RemoteImage {
+    name: string;
+    description: string;
+}
+export const searchRemoteImages = (
+    params: { query: string; page: number; pageSize: number },
+    node: string,
+    signal?: AbortSignal,
+) =>
+    http.postWithConfig<ResPage<RemoteImage> & { proxyRequired: boolean }>('/containers/image/remote/search', params, {
+        headers: { CurrentNode: node },
+        signal,
+        timeout: TimeoutEnum.T_40S,
+    });
+
+export interface ContainerImageCheckUpdateStatus {
+    taskID: string;
+    enabled: boolean;
+    running: boolean;
+    checked: number;
+    updates: number;
+    failed: number;
+    skipped: number;
+    error: string;
+    finishedAt: number;
+}
+export const getContainerImageCheckUpdateStatus = (node: string, signal?: AbortSignal) =>
+    http.get<ContainerImageCheckUpdateStatus>(
+        '/containers/image-updates',
+        {},
+        { headers: { CurrentNode: node }, signal },
+    );
+export const runContainerImageCheckUpdate = (node: string) =>
+    http.postWithConfig<ContainerImageCheckUpdateStatus>(
+        '/containers/image-updates/check',
+        {},
+        { headers: { CurrentNode: node } },
+    );
+export const setContainerImageCheckUpdateSchedule = (enabled: boolean, node: string) =>
+    http.postWithConfig<ContainerImageCheckUpdateStatus>(
+        '/containers/image-updates/schedule',
+        { enabled },
+        { headers: { CurrentNode: node } },
+    );

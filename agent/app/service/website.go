@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -80,6 +83,7 @@ type IWebsiteService interface {
 	GetWebsite(id uint) (response.WebsiteDTO, error)
 
 	ChangePHPVersion(req request.WebsitePHPVersionReq) error
+	BatchChangePHPVersion(req request.WebsiteBatchPHPVersionReq) ([]response.WebsiteBatchPHPVersionResult, error)
 	OperateCrossSiteAccess(req request.CrossSiteAccessOp) error
 	ExecComposer(req request.ExecComposerReq) error
 	ChangeGroup(group, newGroup uint) error
@@ -187,10 +191,14 @@ func (w WebsiteService) PageWebsite(req request.WebsiteSearch) (int64, []respons
 	if req.Type != "" {
 		opts = append(opts, websiteRepo.WithType(req.Type))
 	}
+	if req.RuntimeType != "" {
+		opts = append(opts, websiteRepo.WithRuntimeType(req.RuntimeType))
+	}
 	total, websites, err := websiteRepo.Page(req.Page, req.PageSize, opts...)
 	if err != nil {
 		return 0, nil, err
 	}
+	certificates := make(map[uint]*x509.Certificate)
 	for _, web := range websites {
 		var (
 			appName      string
@@ -214,25 +222,31 @@ func (w WebsiteService) PageWebsite(req request.WebsiteSearch) (int64, []respons
 		}
 		sitePath := GetSitePath(web, SiteDir)
 
+		cert, parsed := certificates[web.WebsiteSSLID]
+		if !parsed && web.Protocol == constant.ProtocolHTTPS && web.WebsiteSSLID != 0 {
+			cert, _ = parseCertificatePEM([]byte(web.WebsiteSSL.Pem))
+			certificates[web.WebsiteSSLID] = cert
+		}
 		siteDTO := response.WebsiteRes{
-			ID:            web.ID,
-			CreatedAt:     web.CreatedAt,
-			Protocol:      web.Protocol,
-			PrimaryDomain: web.PrimaryDomain,
-			Type:          web.Type,
-			Remark:        web.Remark,
-			Status:        web.Status,
-			Alias:         web.Alias,
-			AppName:       appName,
-			ExpireDate:    web.ExpireDate,
-			SSLExpireDate: web.WebsiteSSL.ExpireDate,
-			SSLStatus:     checkSSLStatus(web.WebsiteSSL.ExpireDate),
-			RuntimeName:   runtimeName,
-			SitePath:      sitePath,
-			AppInstallID:  appInstallID,
-			RuntimeType:   runtimeType,
-			Favorite:      web.Favorite,
-			IPV6:          web.IPV6,
+			SSLDomainMismatch: websiteCertificateDomainMismatch(web, cert),
+			ID:                web.ID,
+			CreatedAt:         web.CreatedAt,
+			Protocol:          web.Protocol,
+			PrimaryDomain:     web.PrimaryDomain,
+			Type:              web.Type,
+			Remark:            web.Remark,
+			Status:            web.Status,
+			Alias:             web.Alias,
+			AppName:           appName,
+			ExpireDate:        web.ExpireDate,
+			SSLExpireDate:     web.WebsiteSSL.ExpireDate,
+			SSLStatus:         checkSSLStatus(web.WebsiteSSL.ExpireDate),
+			RuntimeName:       runtimeName,
+			SitePath:          sitePath,
+			AppInstallID:      appInstallID,
+			RuntimeType:       runtimeType,
+			Favorite:          web.Favorite,
+			IPV6:              web.IPV6,
 		}
 
 		if siteDTO.Type == constant.Subsite {
@@ -278,7 +292,28 @@ func newWebsiteCreateHTTPSOp(sslID uint) request.WebsiteHTTPSOp {
 	}
 }
 
+func deploymentWebAddress(protocol string, domains []model.WebsiteDomain, httpPort, httpsPort int) string {
+	host := strings.Trim(domains[0].Domain, "[]")
+	port := domains[0].Port
+	standardPort := 80
+	if protocol == constant.ProtocolHTTPS {
+		standardPort = 443
+		plan := buildWebsiteTLSPlan(domains, httpPort, httpsPort)
+		if !slices.Contains(plan.httpsPorts, port) {
+			port = plan.redirectPort
+		}
+	}
+	if port != standardPort {
+		host = net.JoinHostPort(host, strconv.Itoa(port))
+	} else if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	return strings.ToLower(protocol) + "://" + host
+}
+
 func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) {
+	websiteListenMutation.Lock()
+	defer websiteListenMutation.Unlock()
 	alias := create.Alias
 	if alias == "default" {
 		return buserr.New("ErrDefaultAlias")
@@ -327,6 +362,7 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 		runtime       *model.Runtime
 		primaryDomain string
 		initialSSL    *websiteInitialSSL
+		firewallPorts []int
 	)
 	if website.Type == constant.Stream {
 		if create.StreamConfig.StreamPorts == "" {
@@ -347,6 +383,7 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 		if err != nil {
 			return err
 		}
+		firewallPorts = selectedWebsiteFirewallPorts(create.Domains, defaultHttpPort)
 		primaryDomain = domains[0].Domain
 		if domains[0].Port != defaultHttpPort {
 			primaryDomain = fmt.Sprintf("%s:%v", domains[0].Domain, domains[0].Port)
@@ -375,6 +412,11 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 			website.WebsiteSSLID = websiteSSL.ID
 			website.HttpConfig = sslReq.HttpConfig
 			initialSSL = &websiteInitialSSL{certificate: *websiteSSL, request: sslReq}
+		}
+		candidate := *website
+		candidate.Domains = domains
+		if err = checkWebsiteListenConflict(candidate, defaultHttpPort, nginxInstall.HttpsPort); err != nil {
+			return err
 		}
 	}
 
@@ -443,9 +485,6 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 				req     request.AppInstallCreate
 				install *model.AppInstall
 			)
-			if _, err := appDetailRepo.GetFirst(repo.WithByID(create.AppInstall.AppDetailId)); err != nil {
-				return err
-			}
 			req.Name = create.AppInstall.Name
 			req.AppDetailId = create.AppInstall.AppDetailId
 			req.Params = create.AppInstall.Params
@@ -518,10 +557,8 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 		website.SiteDir = create.SiteDir
 	}
 
+	createdFiles := &websiteCreateFiles{}
 	configNginx := func(t *task.Task) error {
-		if err = configDefaultNginx(website, domains, appInstall, runtime, create.StreamConfig, initialSSL); err != nil {
-			return err
-		}
 		if create.Type == constant.Static && create.TemplateOutputID > 0 {
 			templateOutput, err := websiteTemplateOutputRepo.GetFirst(repo.WithByID(create.TemplateOutputID))
 			if err != nil {
@@ -533,20 +570,36 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 			if _, err := os.Stat(templateOutput.OutputPath); err != nil {
 				return buserr.New("ErrFileNotFound")
 			}
-			if err := copyDir(templateOutput.OutputPath, GetSitePath(*website, SiteIndexDir)); err != nil {
+			if err := createdFiles.copyTemplate(templateOutput.OutputPath, GetSitePath(*website, SiteIndexDir)); err != nil {
 				return err
 			}
 		}
+		if err = configDefaultNginx(website, domains, appInstall, runtime, create.StreamConfig, initialSSL, createdFiles); err != nil {
+			return err
+		}
 		if website.Type != constant.Stream {
+			if err = createWafConfig(website, domains, createdFiles); err != nil {
+				return err
+			}
 			if create.Type == constant.Runtime {
 				runtime, err = runtimeRepo.GetFirst(context.Background(), repo.WithByID(create.RuntimeID))
 				if err != nil {
 					return err
 				}
 				if runtime.Type == constant.RuntimePHP && runtime.Resource == constant.ResourceAppstore {
-					createOpenBasedirConfig(website)
+					if err := createdFiles.write(path.Join(GetSitePath(*website, SiteIndexDir), ".user.ini"), []byte(fmt.Sprintf("open_basedir=/www/sites/%s/index:/tmp/", website.Alias)), 0644, true); err != nil {
+						return err
+					}
 				}
 			}
+		}
+
+		// Apply the site only after all Nginx, WAF, and PHP configuration is ready.
+		if err := opNginx(nginxInstall.ContainerName, constant.NginxCheck); err != nil {
+			return err
+		}
+		if err := opNginx(nginxInstall.ContainerName, constant.NginxReload); err != nil {
+			return err
 		}
 
 		tx, ctx := helper.GetTxAndContext()
@@ -564,12 +617,28 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 			}
 		}
 
-		tx.Commit()
+		if website.Type == constant.Deployment {
+			address := deploymentWebAddress(website.Protocol, domains, defaultHttpPort, nginxInstall.HttpsPort)
+			if err := tx.Model(&model.AppInstall{}).
+				Where("id = ? AND (web_ui IS NULL OR web_ui = '')", website.AppInstallID).
+				Update("web_ui", address).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Commit().Error; err != nil {
+			return err
+		}
 		return nil
 	}
 
 	deleteWebsite := func(t *task.Task) {
-		_ = deleteWebsiteFolder(website)
+		if rollbackErr := createdFiles.rollback(); rollbackErr != nil {
+			t.Log(fmt.Sprintf("website file rollback: %v", rollbackErr))
+		}
+		if reloadErr := opNginx(nginxInstall.ContainerName, constant.NginxReload); reloadErr != nil {
+			t.Log(fmt.Sprintf("reload OpenResty after rollback: %v", reloadErr))
+		}
 	}
 
 	createTask.AddSubTask(i18n.GetMsgByKey("ConfigOpenresty"), configNginx, deleteWebsite)
@@ -587,10 +656,31 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 		createTask.AddSubTaskWithIgnoreErr(i18n.GetWithName("ConfigFTP", create.FtpUser), createFtpUser)
 	}
 
+	if len(firewallPorts) > 0 {
+		step := fmt.Sprintf("%s (TCP %v)", i18n.GetMsgByKey("FirewallCreateRulesStep"), firewallPorts)
+		createTask.AddSubTaskWithIgnoreErr(step, func(_ *task.Task) error {
+			return ensureFirewallPorts(firewallPorts)
+		})
+	}
 	if err := createTask.Execute(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func selectedWebsiteFirewallPorts(domains []request.WebsiteDomain, defaultPort int) []int {
+	var ports []int
+	for _, domain := range domains {
+		if domain.AllowFirewall && domain.Domain != "" {
+			port := domain.Port
+			if port == 0 {
+				port = defaultPort
+			}
+			ports = append(ports, port)
+		}
+	}
+	slices.Sort(ports)
+	return slices.Compact(ports)
 }
 
 func (w WebsiteService) OpWebsite(req request.WebsiteOp) error {
@@ -761,6 +851,12 @@ func (w WebsiteService) DeleteWebsite(req request.WebsiteDelete) error {
 		return err
 	}
 
+	if website.Type != constant.Stream {
+		if err = delWafConfig(website, req.ForceDelete); err != nil {
+			return err
+		}
+	}
+
 	if checkIsLinkApp(website) && req.DeleteApp {
 		appInstall, _ := appInstallRepo.GetFirst(repo.WithByID(website.AppInstallID))
 		if appInstall.ID > 0 {
@@ -907,6 +1003,20 @@ func (w WebsiteService) GetWebsiteHTTPS(websiteId uint) (response.WebsiteHTTPS, 
 		res        response.WebsiteHTTPS
 		httpsPorts []string
 	)
+	globalRedirectPort, err := getGlobalHTTPSRedirectPort()
+	if err != nil {
+		return response.WebsiteHTTPS{}, err
+	}
+	res.GlobalRedirectPort = globalRedirectPort
+	redirectState, err := getWebsiteHTTPSRedirectState(website)
+	if err != nil {
+		return response.WebsiteHTTPS{}, err
+	}
+	if redirectState.Port > 0 {
+		port := redirectState.Port
+		res.SiteRedirectPort = &port
+	}
+	res.RedirectPortManaged = redirectState.Managed
 
 	httpsPortsMap := getHttpsPort(websiteId)
 	for port := range httpsPortsMap {
@@ -932,11 +1042,16 @@ func (w WebsiteService) GetWebsiteHTTPS(websiteId uint) (response.WebsiteHTTPS, 
 	if err != nil {
 		return res, err
 	}
+	applyWebsiteHTTPSParams(&res, params)
+	return res, nil
+}
+
+func applyWebsiteHTTPSParams(res *response.WebsiteHTTPS, params []response.NginxParam) {
 	for _, p := range params {
 		if p.Name == "ssl_protocols" {
 			res.SSLProtocol = p.Params
 		}
-		if p.Name == "ssl_ciphers" {
+		if p.Name == "ssl_ciphers" && len(p.Params) > 0 {
 			res.Algorithm = p.Params[0]
 		}
 		if p.Name == "add_header" && len(p.Params) > 0 {
@@ -954,10 +1069,11 @@ func (w WebsiteService) GetWebsiteHTTPS(websiteId uint) (response.WebsiteHTTPS, 
 			}
 		}
 	}
-	return res, nil
 }
 
 func (w WebsiteService) OpWebsiteHTTPS(ctx context.Context, req request.WebsiteHTTPSOp) (*response.WebsiteHTTPS, error) {
+	websiteListenMutation.Lock()
+	defer websiteListenMutation.Unlock()
 	website, err := websiteRepo.GetFirst(repo.WithByID(req.WebsiteID))
 	if err != nil {
 		return nil, err
@@ -966,6 +1082,18 @@ func (w WebsiteService) OpWebsiteHTTPS(ctx context.Context, req request.WebsiteH
 		res        response.WebsiteHTTPS
 		websiteSSL model.WebsiteSSL
 	)
+	nginxInstall, err := getAppInstallByKey(constant.AppOpenresty)
+	if err != nil {
+		return nil, err
+	}
+	candidate := website
+	candidate.Protocol, candidate.HttpConfig = constant.ProtocolHTTP, req.HttpConfig
+	if req.Enable {
+		candidate.Protocol = constant.ProtocolHTTPS
+	}
+	if err = checkWebsiteListenConflict(candidate, nginxInstall.HttpPort, nginxInstall.HttpsPort); err != nil {
+		return nil, err
+	}
 	if err = ChangeHSTSConfig(req.Hsts, req.HstsIncludeSubDomains, req.Http3, website); err != nil {
 		return nil, err
 	}
@@ -1284,11 +1412,12 @@ func (w WebsiteService) ChangeDefaultServer(id uint) error {
 	return websiteRepo.Save(context.Background(), &website)
 }
 
-func (w WebsiteService) ChangePHPVersion(req request.WebsitePHPVersionReq) error {
+func (w WebsiteService) ChangePHPVersion(req request.WebsitePHPVersionReq) (err error) {
 	website, err := websiteRepo.GetFirst(repo.WithByID(req.WebsiteID))
 	if err != nil {
 		return err
 	}
+	wasPHP := website.Type == constant.Runtime
 	if website.Type == constant.Runtime {
 		oldRuntime, err := runtimeRepo.GetFirst(context.Background(), repo.WithByID(website.RuntimeID))
 		if err != nil {
@@ -1297,35 +1426,9 @@ func (w WebsiteService) ChangePHPVersion(req request.WebsitePHPVersionReq) error
 		if oldRuntime.Resource == constant.ResourceLocal {
 			return buserr.New("ErrPHPResource")
 		}
-		client, err := docker.NewDockerClient()
-		if err != nil {
-			return err
-		}
-		defer client.Close()
-		if !checkImageLike(client, oldRuntime.Image) {
-			return buserr.WithName("ErrImageNotExist", oldRuntime.Name)
-		}
 	}
-	configPath := GetSitePath(website, SiteConf)
-	nginxContent, err := files.NewFileOp().GetContent(configPath)
-	if err != nil {
-		return err
-	}
-	config, err := parser.NewStringParser(string(nginxContent)).Parse()
-	if err != nil {
-		return err
-	}
-	servers := config.FindServers()
-	if len(servers) == 0 {
-		return errors.New("nginx config is not valid")
-	}
-	server := servers[0]
-	fileOp := files.NewFileOp()
-	indexPHPPath := path.Join(GetSitePath(website, SiteIndexDir), "index.php")
-	indexHtmlPath := path.Join(GetSitePath(website, SiteIndexDir), "index.html")
+
 	if req.RuntimeID > 0 {
-		server.UpdateDirective("index", []string{"index.php index.html index.htm default.php default.htm default.html"})
-		server.RemoveDirective("location", []string{"~", "[^/]\\.php(/|$)"})
 		runtime, err := runtimeRepo.GetFirst(context.Background(), repo.WithByID(req.RuntimeID))
 		if err != nil {
 			return err
@@ -1333,38 +1436,178 @@ func (w WebsiteService) ChangePHPVersion(req request.WebsitePHPVersionReq) error
 		if runtime.Resource == constant.ResourceLocal {
 			return buserr.New("ErrPHPResource")
 		}
-		website.RuntimeID = req.RuntimeID
-		website.AppInstallID = 0
-		phpProxy := fmt.Sprintf("127.0.0.1:%s", runtime.Port)
-		website.Proxy = phpProxy
-		server.UpdatePHPProxy([]string{website.Proxy}, "")
-		website.Type = constant.Runtime
-		if !fileOp.Stat(indexPHPPath) {
-			_ = fileOp.WriteFile(indexPHPPath, strings.NewReader(string(nginx_conf.IndexPHP)), constant.FilePerm)
+		if runtime.Type != constant.RuntimePHP {
+			return fmt.Errorf("target runtime must be PHP")
 		}
+		client, err := docker.NewDockerClient()
+		if err != nil {
+			return err
+		}
+		defer client.Close()
+		if err := validateWebsitePHPImage(context.Background(), client, runtime.Image, runtime.Name); err != nil {
+			return err
+		}
+		website.RuntimeID = runtime.ID
+		website.AppInstallID = 0
+		website.Proxy = fmt.Sprintf("127.0.0.1:%s", runtime.Port)
+		website.Type = constant.Runtime
 	} else {
-		server.UpdateDirective("index", []string{"index.html index.php index.htm default.php default.htm default.html"})
 		website.RuntimeID = 0
 		website.Type = constant.Static
 		website.Proxy = ""
-		server.RemoveDirective("location", []string{"~", "[^/]\\.php(/|$)"})
-		if !fileOp.Stat(indexHtmlPath) {
-			_ = fileOp.WriteFile(indexHtmlPath, strings.NewReader(string(nginx_conf.Index)), constant.FilePerm)
+	}
+
+	subsites, err := websiteRepo.List(websiteRepo.WithParentID(website.ID), websiteRepo.WithType(constant.Subsite))
+	if err != nil {
+		return err
+	}
+	websites := append([]model.Website{website}, subsites...)
+	configs := make([]*components.Config, 0, len(websites))
+	oldContents := make(map[string][]byte, len(websites))
+	fileOp := files.NewFileOp()
+	for i := range websites {
+		site := &websites[i]
+		if i > 0 {
+			site.RuntimeID = website.RuntimeID
+			site.Proxy = website.Proxy
+		}
+		configPath := GetSitePath(*site, SiteConf)
+		content, err := fileOp.GetContent(configPath)
+		if err != nil {
+			return err
+		}
+		config, err := parser.NewStringParser(string(content)).Parse()
+		if err != nil {
+			return err
+		}
+		servers := config.FindServers()
+		if len(servers) == 0 {
+			return errors.New("nginx config is not valid")
+		}
+		server := servers[0]
+		if i == 0 || wasPHP != (req.RuntimeID > 0) {
+			if req.RuntimeID > 0 {
+				server.UpdateDirective("index", []string{"index.php index.html index.htm default.php default.htm default.html"})
+			} else {
+				server.UpdateDirective("index", []string{"index.html index.php index.htm default.php default.htm default.html"})
+			}
+		}
+		phpEnabled := req.RuntimeID > 0 && (site.Status != constant.WebStopped || server.HasStopPage())
+		if phpEnabled {
+			updated := false
+			for _, location := range server.FindDirectives("location") {
+				if strings.Join(location.GetParameters(), " ") == phpLocationMatch && location.GetBlock() != nil {
+					location.GetBlock().UpdateDirective("fastcgi_pass", []string{site.Proxy})
+					updated = true
+				}
+			}
+			if !updated {
+				server.UpdatePHPProxy([]string{site.Proxy}, "")
+			}
+		} else {
+			server.RemoveDirective("location", []string{"~", "[^/]\\.php(/|$)"})
+		}
+		config.FilePath = configPath
+		configs = append(configs, config)
+		oldContents[configPath] = content
+
+		authConfigs, authOldContents, err := collectSyncedPathAuthConfigs(
+			fileOp,
+			GetSitePath(*site, SitePathAuthBasicDir),
+			phpEnabled,
+			site.Proxy,
+			server,
+		)
+		if err != nil {
+			return err
+		}
+		configs = append(configs, authConfigs...)
+		for authPath, authContent := range authOldContents {
+			oldContents[authPath] = authContent
 		}
 	}
 
-	config.FilePath = configPath
-	if err = nginx.WriteConfig(config, nginx.IndentedStyle); err != nil {
-		return err
-	}
 	nginxInstall, err := getAppInstallByKey(constant.AppOpenresty)
 	if err != nil {
 		return err
 	}
-	if err = nginxCheckAndReload(string(nginxContent), configPath, nginxInstall.ContainerName); err != nil {
+	tx, ctx := helper.GetTxAndContext()
+	if err = tx.Error; err != nil {
 		return err
 	}
-	return websiteRepo.Save(context.Background(), &website)
+	written := 0
+	reloadAttempted := false
+	defer func() {
+		if err == nil {
+			return
+		}
+		if rollbackErr := tx.Rollback().Error; rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			err = errors.Join(err, rollbackErr)
+		}
+		for _, config := range configs[:written] {
+			if restoreErr := fileOp.WriteFile(config.FilePath, strings.NewReader(string(oldContents[config.FilePath])), constant.FilePerm); restoreErr != nil {
+				err = errors.Join(err, fmt.Errorf("restore %s: %w", config.FilePath, restoreErr))
+			}
+		}
+		if reloadAttempted {
+			if checkErr := opNginx(nginxInstall.ContainerName, constant.NginxCheck); checkErr != nil {
+				err = errors.Join(err, fmt.Errorf("check restored nginx configuration: %w", checkErr))
+			} else if reloadErr := opNginx(nginxInstall.ContainerName, constant.NginxReload); reloadErr != nil {
+				err = errors.Join(err, fmt.Errorf("reload restored nginx configuration: %w", reloadErr))
+			}
+		}
+	}()
+	for i := range websites {
+		if err = websiteRepo.Save(ctx, &websites[i]); err != nil {
+			return err
+		}
+	}
+	for _, config := range configs {
+		written++
+		if err = nginx.WriteConfig(config, nginx.IndentedStyle); err != nil {
+			return err
+		}
+	}
+	if err = opNginx(nginxInstall.ContainerName, constant.NginxCheck); err != nil {
+		return err
+	}
+	reloadAttempted = true
+	if err = opNginx(nginxInstall.ContainerName, constant.NginxReload); err != nil {
+		return err
+	}
+	if err = tx.Commit().Error; err != nil {
+		return err
+	}
+	if req.CreateIndexFile {
+		createSwitchDefaultIndexFile(fileOp, GetSitePath(website, SiteIndexDir), req.RuntimeID > 0, w.GetDefaultHtml)
+	}
+	return nil
+}
+
+func createSwitchDefaultIndexFile(
+	fileOp files.FileOp,
+	indexDir string,
+	toPHP bool,
+	getDefaultHtml func(string) (*response.WebsiteHtmlRes, error),
+) {
+	indexPath := path.Join(indexDir, "index.html")
+	resourceType := "index"
+	fallbackContent := string(nginx_conf.Index)
+	if toPHP {
+		indexPath = path.Join(indexDir, "index.php")
+		resourceType = "php"
+		fallbackContent = string(nginx_conf.IndexPHP)
+	}
+	if fileOp.Stat(indexPath) {
+		return
+	}
+	indexContent := fallbackContent
+	if getDefaultHtml != nil {
+		if res, htmlErr := getDefaultHtml(resourceType); htmlErr == nil && res != nil && res.Content != "" {
+			indexContent = res.Content
+		}
+	}
+	_ = fileOp.WriteFile(indexPath, strings.NewReader(indexContent), constant.FilePerm)
 }
 
 func (w WebsiteService) UpdateSiteDir(req request.WebsiteUpdateDir) error {
@@ -2483,4 +2726,60 @@ func (w WebsiteService) UpdateStream(req request.StreamUpdate) error {
 	}
 	website.StreamPorts = req.StreamConfig.StreamPorts
 	return websiteRepo.Save(context.Background(), &website)
+}
+
+func (w WebsiteService) BatchChangePHPVersion(req request.WebsiteBatchPHPVersionReq) ([]response.WebsiteBatchPHPVersionResult, error) {
+	target, err := runtimeRepo.GetFirst(context.Background(), repo.WithByID(req.RuntimeID))
+	if err != nil {
+		return nil, err
+	}
+	if target.Type != constant.RuntimePHP {
+		return nil, fmt.Errorf("target runtime must be PHP")
+	}
+	if target.Resource == constant.ResourceLocal {
+		return nil, buserr.New("ErrPHPResource")
+	}
+	results := make([]response.WebsiteBatchPHPVersionResult, 0, len(req.IDs))
+	seen := make(map[uint]bool)
+	for _, id := range req.IDs {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		result := response.WebsiteBatchPHPVersionResult{ID: id, Status: "failed"}
+		website, err := websiteRepo.GetFirst(repo.WithByID(id))
+		if err != nil {
+			result.Message = err.Error()
+			results = append(results, result)
+			continue
+		}
+		result.Domain = website.PrimaryDomain
+		if website.Type != constant.Runtime {
+			result.Status = "skipped"
+			result.Message = "notPHP"
+		} else {
+			runtime, lookupErr := runtimeRepo.GetFirst(context.Background(), repo.WithByID(website.RuntimeID))
+			switch {
+			case lookupErr != nil:
+				result.Message = lookupErr.Error()
+			case runtime.Type != constant.RuntimePHP:
+				result.Status = "skipped"
+				result.Message = "notPHP"
+			case runtime.Resource == constant.ResourceLocal:
+				result.Status = "skipped"
+				result.Message = "localPHP"
+			case website.RuntimeID == req.RuntimeID:
+				result.Status = "skipped"
+				result.Message = "samePHP"
+			default:
+				if err := w.ChangePHPVersion(request.WebsitePHPVersionReq{WebsiteID: id, RuntimeID: req.RuntimeID}); err != nil {
+					result.Message = err.Error()
+				} else {
+					result.Status = "success"
+				}
+			}
+		}
+		results = append(results, result)
+	}
+	return results, nil
 }

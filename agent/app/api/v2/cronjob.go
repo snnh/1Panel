@@ -357,3 +357,13 @@ func (b *BaseApi) HandleOnce(c *gin.Context) {
 	}
 	helper.Success(c)
 }
+
+// @Tags Cronjob
+// @Summary Load cronjob capabilities
+// @Success 200 {object} object
+// @Security ApiKeyAuth
+// @Security Timestamp
+// @Router /cronjobs/capabilities [get]
+func (b *BaseApi) CronjobCapabilities(c *gin.Context) {
+	helper.SuccessWithData(c, map[string]interface{}{"websiteSelectionVersion": 2})
+}

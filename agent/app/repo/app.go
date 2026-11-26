@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/1Panel-dev/1Panel/agent/app/model"
+	"github.com/1Panel-dev/1Panel/agent/constant"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -21,15 +22,18 @@ type IAppRepo interface {
 	WithNotLocal() DBOption
 	WithByLikeName(name string) DBOption
 	WithKeyIn(keys []string) DBOption
+	WithKeyNotIn(keys []string) DBOption
 	WithArch(arch string) DBOption
 	WithPanelVersion(panelVersion string) DBOption
 
 	Page(page, size int, opts ...DBOption) (int64, []model.App, error)
 	GetFirst(opts ...DBOption) (model.App, error)
 	GetBy(opts ...DBOption) ([]model.App, error)
+	GetIDs(ctx context.Context, opts ...DBOption) ([]uint, error)
 	BatchCreate(ctx context.Context, apps []model.App) error
 	Create(ctx context.Context, app *model.App) error
 	Save(ctx context.Context, app *model.App) error
+	UpdateIcon(id uint, icon string) error
 	BatchDelete(ctx context.Context, apps []model.App) error
 	DeleteByIDs(ctx context.Context, ids []uint) error
 	DeleteBy(opts ...DBOption) error
@@ -39,6 +43,10 @@ type IAppRepo interface {
 
 func NewIAppRepo() IAppRepo {
 	return &AppRepo{}
+}
+
+func (a AppRepo) UpdateIcon(id uint, icon string) error {
+	return getDb(WithByID(id), a.WithResource(constant.AppResourceRemote)).Model(&model.App{}).UpdateColumn("icon", icon).Error
 }
 
 func (a AppRepo) WithByLikeName(name string) DBOption {
@@ -59,6 +67,12 @@ func (a AppRepo) WithKey(key string) DBOption {
 func (a AppRepo) WithKeyIn(keys []string) DBOption {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where("`key` in (?)", keys)
+	}
+}
+
+func (a AppRepo) WithKeyNotIn(keys []string) DBOption {
+	return func(db *gorm.DB) *gorm.DB {
+		return db.Where("`key` not in (?)", keys)
 	}
 }
 
@@ -129,6 +143,12 @@ func (a AppRepo) GetBy(opts ...DBOption) ([]model.App, error) {
 		return apps, err
 	}
 	return apps, nil
+}
+
+func (a AppRepo) GetIDs(ctx context.Context, opts ...DBOption) ([]uint, error) {
+	var ids []uint
+	err := getDb(opts...).WithContext(ctx).Model(&model.App{}).Pluck("id", &ids).Error
+	return ids, err
 }
 
 func (a AppRepo) GetTopRecommend() ([]string, error) {

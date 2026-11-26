@@ -138,6 +138,7 @@
 </template>
 
 <script lang="ts" setup>
+import { useSearchState } from '@/utils/search-reset';
 import AppCard from '@/views/app-store/installed/app/card.vue';
 import Backups from '@/components/backup/index.vue';
 import Uploads from '@/components/upload/index.vue';
@@ -155,7 +156,7 @@ import IgnoreApp from '@/views/app-store/installed/ignore/create/index.vue';
 import TerminalDialog from '@/views/container/container/terminal/index.vue';
 
 import { searchAppInstalled, installedOp, appInstalledDeleteCheck, updateAppInstallSort } from '@/api/modules/app';
-import { onMounted, onUnmounted, reactive, ref, nextTick } from 'vue';
+import { toRef, onMounted, onUnmounted, reactive, ref, nextTick } from 'vue';
 import Sortable from 'sortablejs';
 import i18n from '@/lang';
 import { ElMessageBox } from 'element-plus';
@@ -177,9 +178,8 @@ const sortContainer = ref();
 let sortableInstance: Sortable | null = null;
 let timer: NodeJS.Timer | null = null;
 const paginationConfig = reactive({
-    cacheSizeKey: 'app-installed-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('app-installed-page-size')) || 20,
+    pageSize: 20,
     total: 0,
 });
 const open = ref(false);
@@ -200,6 +200,7 @@ const composeLogRef = ref();
 const dialogTerminalRef = ref();
 const taskLogRef = ref();
 const searchReq = reactive({
+    appStore: true,
     page: 1,
     pageSize: 20,
     name: '',
@@ -207,6 +208,15 @@ const searchReq = reactive({
     update: false,
     sync: false,
 });
+useSearchState(
+    'app-store/installed/index',
+    {
+        search: toRef(searchReq, 'name'),
+        page: toRef(paginationConfig, 'currentPage'),
+        pageSize: toRef(paginationConfig, 'pageSize'),
+    },
+    { onRevisit: () => search() },
+);
 const router = useRouter();
 const activeName = ref(i18n.global.t('app.installed'));
 const mode = ref('installed');
@@ -230,8 +240,6 @@ const search = async () => {
     searchReq.page = paginationConfig.currentPage;
     searchReq.pageSize = paginationConfig.pageSize;
 
-    localStorage.setItem('app-installed-page-size', String(searchReq.pageSize));
-
     const res = await searchAppInstalled(searchReq);
     data.value = res.data.items;
     paginationConfig.total = res.data.total;
@@ -240,6 +248,7 @@ const search = async () => {
 const sync = async () => {
     loading.value = true;
     const searchItem = {
+        appStore: true,
         page: paginationConfig.currentPage,
         pageSize: paginationConfig.pageSize,
         name: searchReq.name,
@@ -465,7 +474,15 @@ const enterSortMode = async () => {
     sortMode.value = true;
     clearInterval(Number(timer));
     timer = null;
-    const res = await searchAppInstalled({ page: 1, pageSize: 10000, name: '', tags: [], update: false, sync: false });
+    const res = await searchAppInstalled({
+        page: 1,
+        pageSize: 10000,
+        name: '',
+        tags: [],
+        update: false,
+        sync: false,
+        appStore: true,
+    });
     data.value = res.data.items;
     await nextTick();
     const el = sortContainer.value?.$el;

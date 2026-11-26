@@ -23,6 +23,7 @@
             </template>
             <template #main>
                 <ComplexTable
+                    :cache-pagination="false"
                     :pagination-config="paginationConfig"
                     :data="data"
                     @search="search"
@@ -63,11 +64,12 @@
 </template>
 
 <script setup lang="ts">
+import { useSearchState } from '@/utils/search-reset';
 import ConfirmDialog from '@/components/confirm-dialog/index.vue';
 import LogRouter from '@/views/log/router/index.vue';
 import { dateFormat } from '@/utils/date';
 import { cleanLogs, getLoginLogs } from '@/api/modules/log';
-import { onMounted, reactive, ref } from 'vue';
+import { toRef, onMounted, reactive, ref } from 'vue';
 import i18n from '@/lang';
 import { MsgSuccess } from '@/utils/message';
 import { useGlobalStore } from '@/composables/useGlobalStore';
@@ -79,12 +81,16 @@ const data = ref();
 const viewMode = ref<'table' | 'card'>('table');
 const confirmDialogRef = ref();
 const paginationConfig = reactive({
-    cacheSizeKey: 'login-log-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('login-log-page-size')) || 20,
+    pageSize: 20,
     total: 0,
 });
 const searchInfo = ref<string>('');
+useSearchState(
+    'log/login/index',
+    { search: searchInfo, page: toRef(paginationConfig, 'currentPage'), pageSize: toRef(paginationConfig, 'pageSize') },
+    { onRevisit: () => search() },
+);
 const searchStatus = ref<string>('');
 
 const search = async () => {

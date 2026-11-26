@@ -1,7 +1,5 @@
 # base errors
-ErrInvalidParams: 'Bad request: {{ .detail }}'
-ErrMcpGatewayArgsParse: 'Invalid MCP custom argument format'
-ErrMcpGatewayArgsConflict: 'Argument {{ .name }} is managed by 1Panel and cannot be set in custom arguments'
+ErrInvalidParams: 'Bad request{{ if .detail }}: {{ .detail }}{{ end }}'
 ErrTokenParse: 'Token error: {{ .detail }}'
 ErrInitialPassword: 'Original password is incorrect'
 ErrInternalServer: 'Internal server error: {{ .detail }}'
@@ -17,9 +15,6 @@ ErrStructTransform: 'Type conversion failed: {{ .err }}'
 ErrNotSupportType: 'Unsupported type: {{ .name }}'
 
 # file AI
-ErrFileAINotEnabled: 'File-management AI summary requires an enabled AI account in File Management. Content-only search still works when AI is off.'
-ErrFileAISearchBadPattern: 'Invalid file search pattern (regex or whole word): {{ .detail }}'
-FileAISearchEmptyDir: 'No files or directories found under this path (or all entries were filtered).'
 
 # remote download
 ErrWgetRemoteFailed: 'Remote download failed or URL is unreachable: {{ .detail }}'
@@ -46,7 +41,7 @@ ErrHttpReqNotFound: 'Requested resource not found: {{ .err }}'
 
 # quick jump
 ErrMinQuickJump: 'Set at least one quick jump entry'
-ErrMaxQuickJump: 'At most 4 quick jump entries'
+ErrMaxQuickJump: 'At most 5 quick jump entries'
 
 # common
 ErrShutDown: 'Command stopped manually'
@@ -70,14 +65,11 @@ Decrypt: "Decrypt"
 
 # agent
 ErrAgentAccountBound: 'Account is bound to an agent and cannot be deleted'
-ErrTerminalAIAccountInUse: 'This model account is currently used by Terminal AI. Switch the account in Terminal AI settings or disable Terminal AI and try again.'
-ErrFileAIAccountInUse: 'This model account is currently used by File Management AI. Switch the account in File Management AI settings or disable File Management AI and try again.'
 ErrAgentAccountUnavailable: 'Account connection unavailable: {{ .err }}'
-ErrAgentProviderNotSupported: 'Unsupported agent provider'
 ErrAgentAccountRequired: 'Select an agent account first'
 ErrAgentAccountNotVerified: 'Agent account not verified'
 ErrAgentAccountModelsRequired: 'Please configure at least one model'
-ErrAgentAccountSingleInitialModel: 'Only one initial model can be configured during account creation'
+ErrAgentAccountSingleInitialModel: 'This provider supports configuring at most one model'
 ErrAgentModelNotInAccount: 'Model is not configured in the selected account'
 ErrAgentVerifyModelInUse: 'This model is used to verify the account. Select another verification model before deleting it'
 ErrAgentFallbackModelDuplicate: 'Fallback models cannot be duplicated'
@@ -139,7 +131,7 @@ ErrComposeProjectNameParse: 'Failed to parse the project name from Docker Compos
 ErrComposeProjectNameEmpty: 'Unable to derive a project name from Docker Compose config or the file parent directory. Enter a name and try again.'
 ErrComposeNameInvalid: 'Invalid Compose project name: it must start with a lowercase letter or number, contain only lowercase letters, numbers, hyphens, and underscores, and be 1-256 characters long.'
 ErrAppVersionUnavailable: 'This application version has been removed from the remote service. Please select another version and try again.'
-ErrVllmGB10ProOnly: 'This vLLM version is available only in 1Panel Professional Edition.'
+ErrHermesUpgradeVersion: 'Hermes Agent can only upgrade to a newer recognized release allowed by its cross-version upgrade policy. Restore an older version from a backup instead.'
 ErrAppWarn: 'App status abnormal; check logs'
 ErrAppParamKey: 'Invalid app parameter: {{ .name }}'
 ErrAppUpgrade: 'App upgrade failed: {{ .name }} {{ .err }}'
@@ -167,6 +159,8 @@ UpgradeWaitReady: 'Wait for application readiness'
 UpgradeBackupDisabled: 'Upgrade backup is disabled; data changes made by upgrade scripts cannot be fully rolled back'
 UpgradeRollbackFailed: 'Rollback failed'
 ErrDatabaseNotFound: 'Database not found: {{ .name }}'
+
+# vLLM
 
 # SSH
 ExportIP: "Login IP"
@@ -249,6 +243,7 @@ ErrSSLCertificateNotFound: 'The certificate file does not exist'
 ErrSSLKeyFormat: 'Private key file verification failed'
 ErrSSLCertificateFormat: 'Invalid certificate format; use PEM'
 ErrEabKidOrEabHmacKeyCannotBlank: 'EabKid or EabHmacKey cannot be blank'
+ErrOpenrestyInstall: "Please install OpenResty from the App Store first"
 ErrOpenrestyNotFound: 'HTTP mode requires OpenResty'
 ApplySSLStart: 'Starting certificate request. Domain: [{{ .domain }}], method: [{{ .type }}]'
 dnsAccount: 'DNS Auto'
@@ -271,9 +266,6 @@ StartUpdateSystemSSL: 'Update system certificate'
 UpdateSystemSSLSuccess: 'System certificate updated'
 ErrWildcardDomain: 'Wildcard certificates are not supported in HTTP mode'
 ErrApplySSLCanNotDelete: 'Certificate {{ .name }} is being issued and cannot be deleted yet'
-StartPushSSLToNode: 'Push certificate to node'
-PushSSLToNodeFailed: "Failed to push certificate to node: {{ .err }}"
-PushSSLToNodeSuccess: 'Certificate pushed to node'
 
 # MySQL
 ErrUserIsExist: 'User already exists'
@@ -284,6 +276,13 @@ ErrLocalExist: 'Local database name already exists'
 RemoteBackup: 'Start local DB container with image {{ .name }} before backing up remote DB'
 RemoteRecover: 'Start local DB container with image {{ .name }} before restoring remote DB'
 Arg: "Argument"
+
+#PostgreSQL
+ErrPgUserProtected: "System users and the current connection user are protected from this operation"
+ErrPgSuperUserGrant: "Superusers can access all databases and do not require individual grants or revocations"
+ErrPgUserUsed: "This user is used by linked applications or websites; update their connection accounts first"
+ErrPgUserBound: "Revoke this user's database authorizations first"
+ErrPgUserPasswordSync: "The user password was changed, but password synchronization failed for these applications: {{ .detail }}"
 
 # Redis
 ErrTypeOfRedis: 'Backup file type does not match current persistence mode'
@@ -300,6 +299,9 @@ BuildCache: 'Build Cache'
 Volume: 'Volume'
 Network: "Network"
 PruneStart: 'Cleaning in progress'
+NetworkCleanupConnected: "Skipped network [{{ .name }}] ({{ .id }}): containers connected or network in use; not deleted"
+NetworkCleanupSummary: "Network cleanup finished: deleted {{ .deleted }}, skipped {{ .skipped }}, failed {{ .failed }}"
+NetworkCleanupPartialFailure: "Some networks could not be cleaned; see the task log"
 ContainerBackupPrepare: 'Prepare container backup workspace'
 ContainerBackupStop: 'Stop container before backup'
 ContainerBackupInspect: 'Backup container inspect and network'
@@ -334,13 +336,20 @@ ComposeRecoverCleanup: 'Cleanup compose restore workspace'
 # runtime
 ErrFileNotExist: 'Source file not found: {{ .detail }}'
 ErrImageBuildErr: 'Image build failed'
+PHPBuildImage: "Building the PHP image"
+PHPBuildBaseImage: "Resolving base image {{ .name }}"
+PHPBuildStep: "Building the PHP image (step {{ .name }})"
+PHPBuildStartContainer: "Starting the PHP container"
+PHPBuildInstallExtensions: "Installing PHP extensions"
+PHPBuildCommitImage: "Saving the image with PHP extensions"
+PHPBuildApplyConfig: "Applying configuration and starting the PHP runtime"
+PHPBuildSeeLog: "See build.log for details"
 ErrImageExist: "Image already exists. Use a different image name."
 ErrDelWithWebsite: 'Runtime is linked to a website and cannot be deleted'
 ErrRuntimeStart: 'Startup failed'
 ErrPackageJsonNotFound: 'package.json file does not exist'
 ErrScriptsNotFound: 'No scripts section found in package.json'
 ErrContainerNameNotFound: 'Container name not found; check .env'
-ErrNodeModulesNotFound: 'node_modules not found; edit runtime or wait for startup'
 ErrContainerNameIsNull: 'Container name is empty'
 ErrPHPPortIsDefault: 'Port 9000 is reserved as default; use another port'
 ErrPHPRuntimePortFailed: 'Port {{ .name }} is already used by this runtime'
@@ -386,7 +395,6 @@ EnableSwap: 'Enable swap'
 # tamper protection
 CleanTamperSetting: 'Clean historical protection settings'
 SetTamperWithRules: 'Enable directory protection by rules'
-ProtectDir: "Protect directory {{ .name }}"
 IgnoreFile: "Protect file {{ .name }}"
 TamperSetSuccessful: 'Protection set. Monitoring these directories:'
 
@@ -399,9 +407,6 @@ ErrParseIP: 'Invalid IP format'
 ErrDefaultIP: 'default is reserved; use another name'
 ErrGroupInUse: 'IP group is used by blacklist/whitelist rules'
 ErrIPGroupAclUse: 'IP group is used by website {{ .name }} custom rules'
-ErrIPGroupOriginProtectionUse: 'IP group is used by CDN origin protection for website {{ .name }}'
-ErrOriginProtectionIPGroupRequired: 'Select at least one non-empty IP group before enabling origin protection'
-ErrOriginProtectionIPGroupInvalid: 'IP group {{ .name }} does not exist or is empty'
 ErrGroupExist: 'IP group name already exists'
 ErrIPRange: 'Invalid IP range'
 ErrIPExist: 'IP already exists'
@@ -523,7 +528,6 @@ TaskScan: "Scan"
 # task - AI
 OllamaModelPull: 'Pull Ollama model {{ .name }}'
 OllamaModelSize: 'Get Ollama model size: {{ .name }}'
-AIBenchmarkRun: 'Run AI benchmark'
 
 # task - snapshot
 Snapshot: 'Snapshot'
@@ -628,14 +632,17 @@ AppAttributesNotMatch: 'Application type or name does not match'
 # alert
 ErrAlertMethodNotSupported: 'This version does not support this alert method'
 ErrAlertSync: 'Failed to sync alert message'
+ErrWebhookTestFailed: 'Please check the Webhook configuration. See the system logs for details.'
 
 # task - runtime
 ErrInstallExtension: 'Another extension install task is running'
+PHPExtensionsInstallWarning: "Some PHP extensions could not be installed: {{ .name }}"
+PHPExtensionsInstallManually: "Retry from the Extensions page to save successful installs to the image. To troubleshoot manually, run the following commands on the Docker host:"
 
 # alert mail template
 PanelAlertTitle: "Panel Alert Notification"
-TestAlertTitle: "Test Email - Verify Email Connectivity"
-TestAlert: "This is a test email to verify that your email sending configuration is correct."
+TestAlertTitle: "Panel Test Notification"
+TestAlertMessage: "This is a test notification to verify the notification channel configuration and connectivity."
 LicenseExpirationAlert: "Panel {{ .node }}{{ .ip }}: license expires in {{ .day }} days. Log in to view details."
 CronJobFailedAlert: "Panel {{ .node }}{{ .ip }}: scheduled task {{ .name }} failed. Log in to view details."
 ClamAlert: "Panel {{ .node }}{{ .ip }}: virus scan found {{ .num }} infected files. Log in to view details."
@@ -647,8 +654,8 @@ PanelVersionAlert: "Panel {{ .node }}{{ .ip }}: a new panel version is available
 PanelPwdExpirationAlert: "Panel {{ .node }}{{ .ip }}: panel password expires in {{ .day }} days. Log in to view details."
 CommonAlert: "Panel {{ .node }}{{ .ip }}: {{ .msg }}. Log in to view details."
 NodeExceptionAlert: "Panel {{ .node }}{{ .ip }}: {{ .num }} nodes are abnormal. Log in to view details."
-LicenseExceptionAlert: "Panel {{ .node }}{{ .ip }}: {{ .num }} licenses are abnormal. Log in to view details."
 SSHAndPanelLoginAlert: "Panel {{ .node }}{{ .ip }}: abnormal {{ .name }} login from {{ .loginIp }}. Log in to view details."
+CronJobSuccessAlert: "Panel {{ .node }}{{ .ip }}: scheduled task {{ .name }} completed successfully. Log in to view details."
 
 # disk
 DeviceNotFound: "Device {{ .name }} not found"
@@ -658,32 +665,26 @@ FormatDiskErr: 'Format failed: {{ .err }}'
 MountDiskErr: 'Mount failed: {{ .err }}'
 XfsNotFound: 'xfs not found; install xfsprogs first'
 
+# Network management
+ErrNetworkPersistencePlatform: "Persistent network settings are supported only on Linux nodes."
+ErrNetworkPersistencePrivilege: "Persistent network settings require 1Panel Agent to run as root with network administration permissions."
+ErrNetworkIPRoute2: "Install or update iproute2 and check that its ip command is available.{{ if .detail }}: {{ .detail }}{{ end }}"
+ErrNetworkPrimaryAddress: "This primary IP address has secondary addresses in the same subnet. Remove those secondary addresses first, or adjust them with system network tools before retrying."
+ErrNetworkRouteReadOnly: "This route is read only."
+ErrNetworkPersistenceConflict: "This address or route already exists or conflicts with saved settings.{{ if .detail }}: {{ .detail }}{{ end }}"
+ErrNetworkLoopbackReadOnly: "Loopback interface configuration is read-only."
+ErrNetworkPersistentSourceMissing: "No supported persistent system configuration was found for interface {{ .name }}. It is read-only."
+ErrNetworkVirtualBridgeReadOnly: "This virtual interface is read-only and excluded from reachability checks."
+
 # terminal
-TerminalAIBlockedRiskyCommand: 'blocked risky command: {{ .command }}'
-TerminalAIThinking: 'AI is thinking...'
 TerminalOutputTruncated: '[output truncated, showing recent output only]'
-TerminalAIReadyToExecute: 'Thinking complete, press Enter to execute (duration: {{ .duration }}, tokens: {{ .tokens }})'
-TerminalAIRequestFailed: 'AI request failed: {{ .err }}'
 
 # AI gateway
-ErrAIProxyServiceNotInstalled: '{{ .name }} service is not installed'
-ErrAIProxyModelAccountNotFound: 'Model account {{ .id }} not found'
-ErrAIProxyModelMapRequired: 'This field is required.'
-ErrAIProxyModelMapInvalid: 'Model mapping must be a valid JSON object: {{ .err }}'
-ErrAIProxyModelMapEmpty: 'Model mapping cannot be empty'
-ErrAIProxyModelMapEmptyExternalModel: 'Model mapping contains an empty request model'
-ErrAIProxyModelMapEmptyUpstreamModel: 'Upstream model for {{ .model }} cannot be empty'
-AIProxyUserFallback: 'Deleted user (ID: {{ .id }})'
-AIProviderBailian: 'Alibaba Cloud Model Studio'
-AIProviderBailianCodingPlan: 'Alibaba Cloud Model Studio Coding Plan'
-AIProviderArk: 'Volcengine Ark'
-AIProviderArkCodingPlan: 'Volcengine Ark Coding Plan'
 
 # Firewall
 ErrDockerIptablesChainUnavailable: 'The Docker DOCKER-USER chain was not found. Restart Docker and try again'
 ErrDockerNftablesChainUnavailable: 'The Docker nftables IPv4 firewall chain was not found. Verify that the current Docker version supports the nftables firewall backend, restart Docker, and try again'
-ErrDockerForwardPolicyDrop: '{{ .family }} FORWARD defaults to DROP. Adjust the policy and retry'
-ErrUFWRuleAdopt: 'Failed to adopt the UFW rule: {{ .detail }}. If the installed UFW version is earlier than 0.35, upgrade UFW and try again'
+ErrDockerForwardPolicyDrop: 'This server restricts network forwarding. Container port protection cannot be enabled at this time.'
 Firewall: 'Firewall'
 FirewallTaskHost: 'Host firewall'
 FirewallTaskForwarding: 'Port forwarding'
@@ -697,25 +698,202 @@ FirewallCreateRulesStep: 'Create firewall rules'
 FirewallCreateRulesResult: 'Creation result: {{ .succeeded }} succeeded, {{ .failed }} failed, {{ .skipped }} not executed'
 FirewallRuleOperationResult: 'Operation result: {{ .succeeded }} succeeded, {{ .failed }} failed'
 FirewallCreateRuleSkipped: 'Not executed'
-FirewallCreateBatchStep: 'Submit {{ .count }} rules as a batch to {{ .backend }}'
 FirewallImportRuleConversion: '[{{ .index }}/{{ .total }}] {{ .source }} → {{ .target }}: {{ .rule }}; converted to {{ .count }} rules'
-FirewallCreateRuleExecutionFailed: 'Rule creation failed; no database record was saved and executed commands were not rolled back'
-FirewallCreateRulePersistenceFailed: 'The rule was created, but its management record could not be saved'
-FirewallAdoptRulePersistenceFailed: 'The rule was adopted, but its management record could not be saved'
-FirewallSyncOperationsResult: 'Synchronization operations: {{ .removed }} deleted, {{ .created }} created, {{ .failed }} failed, {{ .skipped }} not executed, {{ .unchanged }} already matching (no changes needed)'
-FirewallSyncRuleUnchanged: 'Already matching; no changes needed'
-FirewallSyncStep: 'Synchronize rules to {{ .name }}'
-FirewallSyncFailed: '{{ .failed }} firewall rules failed to synchronize'
-FirewallResetSourceStep: 'Reset and disable source firewall {{ .name }}'
-FirewallResetSourceResult: 'Source firewall reset completed; {{ .removed }} database rules were deleted'
+FirewallCreateRuleExecutionFailed: 'Rule creation failed; executed commands were not rolled back'
 FirewallInitializeChainsStep: 'Initialize and bind {{ .name }} base chains'
-FirewallRestoreRulesStep: 'Restore database rules to {{ .name }}'
 FirewallSyncWhitelistStep: 'Synchronize firewall port whitelist'
 FirewallEnableForwardingStep: 'Enable and bind port forwarding chains'
 FirewallRestoreForwardingRulesStep: 'Restore database port forwarding rules'
 FirewallInspectDockerGuardStep: 'Inspect Docker firewall backend and policies'
 FirewallInitializeDockerGuardStep: 'Initialize and bind {{ .name }} port guard chains'
 FirewallPersistDockerGuardStep: 'Persist Docker port guard status'
-ErrFirewallRuleScopeChange: "The current firewall does not support changing a rule's scope (such as its IPv4/IPv6 address family). Please create a new rule."
-FirewallWhitelistReleased: "{{ .name }}: whitelist protection released; allow rule retained. To close the port, delete the rule manually from the rule list"
-FirewallWhitelistRequired: "{{ .name }}: protected by mandatory system port rules"
+FileTaskCopy: 'Copy files to {{ .dst }}'
+FileTaskMove: 'Move files to {{ .dst }}'
+FileTaskCompress: 'Compress files to {{ .dst }}'
+FileTaskDecompress: 'Extract files to {{ .dst }}'
+FileTaskSource: 'Source path: {{ .path }}'
+FileTaskFormat: 'Archive format: {{ .format }}'
+FileTaskRename: 'Target filename: {{ .name }}'
+ErrFirewallBackendCleanupRequired: "The current backend {{ .current }} still contains 1Panel rules. Clean it up before switching to {{ .target }}."
+ErrDockerIPv4ForwardingDisabled: "IPv4 forwarding is disabled. Set net.ipv4.ip_forward=1 before using Docker's firewall backend."
+ErrFirewallRuleSavedApplyFailed: "The new rule configuration was saved, but applying it to the firewall failed. Retry by synchronizing: {{ .detail }}"
+ErrFirewallRuleConflict: "A UFW rule with the same match conditions and a different action already exists. Edit the existing rule instead."
+ErrForwardInterfaceNotFound: "Network interface {{ .name }} specified by the forwarding rule does not exist. Check the interface name and retry."
+ErrIPv6RARisk: "IPv6 forwarding is blocked to prevent possible network loss. See the documentation and system logs for details."
+ErrIPv6RACheckFailed: "IPv6 forwarding is blocked because the network configuration could not be checked. See the system logs for details."
+
+ErrSSHPublicKey: "Enter a valid SSH public key"
+ErrSSHPrivateKey: "Invalid SSH private key or incorrect passphrase; encrypted keys require the original passphrase"
+ErrSSHKeyMismatch: "The SSH public and private keys do not match"
+
+# virtual machine
+ErrVMNotFound: "Virtual machine does not exist"
+ErrVMAlreadyExists: "Virtual machine already exists"
+ErrVMCountLimit: "The current edition supports up to {{ .limit }} virtual machines. Delete an existing VM or upgrade your edition and try again."
+ErrVMImageAlreadyExists: "Virtual machine image already exists: {{ .detail }}"
+ErrVMStoragePathInUse: "Storage pool path is already used by [{{ .name }}]"
+ErrVMHelperNotFound: "1panel-kvm not found"
+ErrVMBridgeManaged: "Bridge name is already managed by libvirt or Docker"
+ErrVMNetworkInUse: "Network is in use and cannot be deleted"
+ErrVMStorageInUse: "Storage pool is in use and cannot be deleted"
+ErrVMStorageNameCannotChange: "Storage pool name cannot be changed"
+ErrVMStoragePathCannotChange: "Storage pool path cannot be changed"
+ErrVMRunning: "Virtual machine is running"
+ErrVMLibvirtConnect: "Failed to connect to libvirt: {{ .detail }}"
+ErrVMPermission: "No permission to operate virtual machine: {{ .detail }}"
+ErrVMNetworkNotFound: "Virtual machine network does not exist: {{ .detail }}"
+ErrVMInvalidPath: "Invalid virtual machine path: {{ .detail }}"
+ErrVMInvalidInput: "Invalid virtual machine parameter: {{ .detail }}"
+ErrVMCommandFailed: "Virtual machine command failed: {{ .err }}"
+ErrVMDiskResizeBlocked: "The disk does not meet expansion requirements or is referenced by another device. Check the disk status."
+ErrVMDiskReferenced: "This virtual disk is used by another virtual machine or device and cannot be expanded yet."
+ErrVMDiskReferenceCheck: "Cannot complete virtual disk reference checks. Expansion is unavailable; check the disks of other virtual machines."
+ErrVMSnapshotMetadataSync: "The snapshot was restored, but disk information could not be synced. Refresh and check; do not restore the snapshot again."
+VMCreateTask: "Create virtual machine [{{ .name }}]"
+VMCreateFromTemplateTask: "Create virtual machine [{{ .name }}] from template"
+VMUpdateTask: "Update virtual machine [{{ .name }}]"
+VMDiskResizeTask: "Expand disk [{{ .disk }}] of virtual machine [{{ .name }}]"
+VMRenameTask: "Rename virtual machine [{{ .name }}] to [{{ .newName }}]"
+VMDeleteTask: "Delete virtual machine [{{ .name }}]"
+VMTemplateCreateTask: "Save virtual machine [{{ .name }}] as template [{{ .template }}]"
+VMTemplateDeleteTask: "Delete virtual machine template [{{ .name }}]"
+VMForceDeleteMetadataOnly: "1panel-kvm not found, force deleting virtual machine [{{ .name }}] metadata only"
+VMForceDeleteMetadataAfterLibvirtFailed: "Failed to delete virtual machine [{{ .name }}] from libvirt, force deleting metadata: {{ .err }}"
+VMForceDeleteDiskFailed: "Force delete virtual machine disk file [{{ .path }}] failed: {{ .err }}"
+VMForceDeleteDiskSuccess: "Force deleted virtual machine disk file [{{ .path }}]"
+VMSnapshotCreateTask: "Create snapshot [{{ .snapshot }}] for virtual machine [{{ .vm }}]"
+VMSnapshotCreateStep: "Create virtual machine snapshot [{{ .snapshot }}]"
+VMSnapshotRecoverTask: "Recover snapshot [{{ .snapshot }}] for virtual machine [{{ .vm }}]"
+VMSnapshotRecoverStep: "Recover virtual machine snapshot [{{ .snapshot }}]"
+VMSnapshotDeleteTask: "Delete snapshot [{{ .snapshot }}] for virtual machine [{{ .vm }}]"
+VMSnapshotDeleteStep: "Delete virtual machine snapshot [{{ .snapshot }}]"
+
+ErrCAUpload: "Upload a ZIP (up to 10 MB) containing a valid self-signed CA certificate ca.crt and its matching private key ca.key, with a supported RSA or EC algorithm."
+
+ErrCAImport: "Provide a valid self-signed root CA certificate and matching private key (up to 1 MB each), using a supported RSA or EC algorithm."
+
+# Built-in Feishu
+ErrFeishuConfig: "Resolve incompatible configuration before continuing: {{ .detail }}"
+ErrFeishuConfigChanged: "Configuration changed during switching. Retry after reloading."
+ErrFeishuImageRequired: "Use an image containing bundled Feishu."
+ErrFeishuAlreadySwitched: "Feishu has already switched to the built-in plugin."
+ErrFeishuSwitchRequired: "Switch to the built-in plugin from the Feishu channel page first."
+ErrFeishuManaged: "Manage Feishu from its channel page; the plugin is updated with the image."
+ErrFeishuRestore: "Failed to restore Feishu configuration: {{ .err }}"
+ErrFeishuActivation: "The built-in Feishu plugin or gateway failed to start."
+AgentFeishuSwitch: "Switch Feishu plugin"
+AgentFeishuBackup: "Configuration backup: {{ .name }}"
+AgentFeishuRestored: "Previous configuration restored."
+AgentFeishuVerifyMessages: "Local activation completed. Verify pairing, DMs, groups, bot routing and streaming in Feishu."
+
+ErrFeishuUpgradeConfirm: "Confirm the Feishu transition options on the upgrade page before retrying."
+
+ErrFeishuUpgradeBackup: "A full application backup is required for the Feishu compatibility upgrade."
+
+ErrFeishuUpgradeMounts: "These mounts cannot be fully backed up or restored. Use standard data mounts inside the application directory."
+
+AgentFeishuRecoveryDisabled: "Gateway recovered with Feishu disabled; the original configuration backup is retained."
+
+ContainerUpgradeWaiting: "Waiting for a container upgrade execution slot"
+ContainerImageCheckUpdate: "Check for image updates"
+ContainerImageCheckScope: "Checking all {{ .count }} containers on this node, regardless of pagination or filters"
+ContainerImageCheckItem: "Checking container {{ .name }}, image {{ .image }}"
+ContainerImageCheckFailed: "Container {{ .name }} check failed: {{ .error }}; retaining previous results matching the current image"
+ContainerImageCheckSkipped: "Skipping {{ .name }}: not a tagged Docker Hub image, a local image, or pinned digest"
+ContainerImageCheckAvailable: "Container {{ .name }} has an update: {{ .image }} -> {{ .target }}"
+ContainerImageCheckCurrent: "No update found for container {{ .name }}"
+ContainerImageCheckChanged: "Container {{ .name }} was removed or its image changed; result was not saved"
+ContainerImageCheckSummary: "Check finished: {{ .checked }} checked, {{ .updates }} upgradable, {{ .failed }} failed, {{ .skipped }} skipped"
+ContainerImageCheckFailures: "{{ .count }} container checks failed; see the task log"
+
+ErrImageCheckProxyRequired: "To check for image updates in the current runtime environment, please configure a proxy server first."
+
+ErrPHPExtensionsConflict: "A PHP extension template with this name exists with different content"
+
+ErrModelTokenizerDirOverlap: "The model and tokenizer directories must be different, and neither can contain the other"
+ErrClusterAppOnly: "Install and upgrade this application in Application High Availability."
+ErrClusterArchivePassphraseRequired: "Enter the backup password."
+ErrClusterArchiveTooLarge: "The cluster backup file is too large."
+ErrClusterArchiveFormat: "This cluster backup file format is not supported."
+ErrClusterArchiveTruncated: "The cluster backup file is incomplete."
+ErrClusterArchiveBlock: "The cluster backup contains an invalid data block."
+ErrClusterArchiveAuthentication: "The backup password is incorrect or the cluster backup file is corrupted."
+ErrClusterArchiveTrailingData: "The cluster backup file contains unexpected data after its end."
+ErrClusterArchiveManifest: "The cluster backup metadata is invalid."
+ErrClusterArchiveManifestTooLarge: "The cluster backup metadata is too large."
+ErrClusterArchiveInvalid: "The cluster backup file structure is invalid."
+ErrClusterArchivePayload: "The backup data does not match the cluster backup metadata."
+ErrClusterArchiveChecksum: "The cluster backup data checksum does not match."
+ErrClusterArchiveImportHeader: "The cluster backup import request header is invalid."
+ErrClusterBackupID: "Invalid cluster backup ID."
+ErrClusterBackupEngineMismatch: "The backup database engine does not match the selected application."
+ErrClusterBackupSelectFile: "Select a cluster backup file (.1pha)."
+ErrClusterBackupFileInaccessible: "The cluster backup file cannot be accessed."
+ErrClusterBackupRegularFile: "The cluster backup must be a regular file."
+ErrClusterBackupFileChanged: "The cluster backup file has changed. Select it again."
+ErrClusterBackupNotPrimary: "The selected instance is not a high availability primary."
+ErrClusterBackupContainerUnavailable: "The database container is unavailable."
+ErrClusterBackupMySQLInnoDB: "Online MySQL backup requires all user tables to use InnoDB."
+ErrClusterBackupPostgresRecovery: "The PostgreSQL instance is in recovery mode."
+ErrClusterBackupPostgresTablespaces: "PostgreSQL cluster backup supports only default tablespaces."
+ErrClusterBackupPostgresReplicationCredentials: "PostgreSQL replication credentials are unavailable."
+ErrClusterBackupRedisNotPrimary: "The Redis instance is not a primary."
+ErrClusterBackupRedisVersion: "Unable to determine the Redis version."
+ErrClusterBackupUnsupportedEngine: "This database engine does not support cluster backup."
+ErrClusterCommandFailed: "Failed to execute {{ .name }}"
+ErrClusterRestoreCatalogInstance: "Restoring to a new cluster requires a new instance created from the application catalog template."
+ErrClusterRestorePrimaryTemplate: "Restore requires the exact primary instance template recorded in the backup."
+ErrClusterRestoreUnsupportedEngine: "This database engine does not support cluster restore."
+ErrClusterRestoreRedisSnapshot: "The Redis snapshot is invalid."
+ErrClusterRestorePostgresMajorVersion: "The PostgreSQL data major version does not match the backup."
+ErrClusterRestoreSingleContainer: "Restore requires an instance with a single database container."
+ErrClusterRestoreCatalogDataMount: "Restore requires the data mount defined in the application catalog template."
+ErrClusterRestoreDataDirectoryNotEmpty: "The target data directory for restore is not empty."
+ErrClusterRestorePostgresUnsafePath: "The PostgreSQL backup contains an unsafe path."
+ErrClusterRestorePostgresFileType: "The PostgreSQL backup contains an unsupported link or file type."
+ErrClusterRestoreRedisCatalogPersistence: "Redis restore requires the persistence configuration from the application catalog template."
+ErrClusterRestoreRedisCatalogRDB: "Redis snapshot restore requires the RDB configuration from the application catalog template."
+ErrClusterRestoreMySQLCredentials: "Could not verify the restored MySQL administrator credentials. Use the credentials valid when the backup was created."
+ErrClusterRestoreEngineVersion: "Database engine version {{ .current }} does not match backup version {{ .expected }}."
+ErrClusterRestoreDatabaseNotReady: "The restored database did not become ready"
+ErrClusterRestoreOriginalRequest: "Invalid request to restore to the original cluster."
+ErrClusterRestoreMemberVersionChanged: "The cluster member version changed before restoration."
+ErrClusterRestoreMemberChanged: "The cluster member changed before restoration."
+ErrClusterRestoreMemberBusy: "Another restore task is using this cluster member."
+ErrClusterRestoreMemberState: "The cluster member's current restore state does not allow this operation."
+ErrClusterRestoreRollbackRequiresReview: "The restored data may have received writes. Automatic rollback is blocked, and the previous data has been preserved."
+ErrClusterRestoreOriginalAction: "Invalid operation for restoration to the original cluster."
+ErrClusterRestoreDataMountDirectory: "The cluster data mount must be a directory."
+ErrClusterRestoreMemberRoleMismatch: "The database container's configured replication role does not match the role registered for this member."
+ErrClusterRestoreOriginalCatalogMounts: "Restoring to the original cluster requires the database mounts defined by the application template."
+ErrClusterRestoreDataMountUnavailable: "The database data mount is missing or not writable."
+ErrClusterRestoreOriginalTemplateVersion: "The backup does not match the original cluster's application template or database engine version."
+ErrClusterRestoreValidationContainer: "The container used to validate the restoration does not match the current restore task."
+ErrClusterRestoreDataOwnership: "Unable to read the owner and group of the database data."
+ErrClusterRestoreConfigFileType: "The database configuration contains a link or a special file."
+ErrClusterRestoreRedisActiveRDB: "Restoring a Redis snapshot requires the running instance to use compatible RDB settings."
+ErrClusterRestoreDataDirectoryMismatch: "The running database is not using the data directory specified by the application template."
+ErrClusterRestoreReplicaNotReady: "The restored replica did not become ready"
+ErrClusterRestoreDataPathDirectory: "The restore data path must be a directory."
+ErrClusterRestoreOriginalDataUnavailable: "The original cluster data directory is missing."
+ErrClusterRestoreDataDirectoryChanged: "The cluster data directory changed during restoration."
+ErrClusterRestoreDataReplacementIncomplete: "The cluster data replacement did not finish."
+ErrClusterRestoreRollbackDirectoryChanged: "The cluster data directory changed during restoration rollback."
+ErrRedisAOFRestoreUnavailable: "AOF restore is unavailable for this Redis version."
+
+# Scheduled task website selection
+ErrCronjobWebsiteSelection: "Invalid website selection: {{ .value }}"
+ErrCronjobWebsiteGroup: "Unable to access website group {{ .id }}"
+ErrCronjobWebsiteExportEmpty: "{{ .name }}: none of the selected websites exist"
+ErrCronjobWebsiteVersion: "Unsupported website selection version: {{ .version }}"
+ErrCronjobWebsiteAllConflict: "All websites cannot be combined with individual websites or groups"
+ErrCronjobWebsiteGroupName: "Website group name cannot be empty"
+ErrCronjobWebsiteGroupMissing: "Website group \"{{ .group }}\" does not exist and no snapshot websites could be matched"
+CronjobWebsiteGroupFallback: "{{ .name }}: website group \"{{ .group }}\" does not exist; imported as a fixed website list that no longer follows group changes"
+CronjobWebsiteMissing: "{{ .name }}: websites not found: {{ .website }}"
+ErrCronjobWebsiteImportEmpty: "No selected website groups or websites could be matched"
+
+ProxyCacheClear: "Clear reverse proxy caches"
+ProxyCacheEmpty: "Nothing to clear"
+ProxyCacheSummary: "Cleared {{ .cleared }}, nothing to clear {{ .skipped }}, failed {{ .failed }}"
+ProxyCacheReloadFailed: "Caches cleared, OpenResty reload failed"

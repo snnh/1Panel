@@ -6,29 +6,56 @@ import { deepCopy } from '@/utils/misc';
 import { encodeBase64Fields } from '@/utils/base64';
 
 // monitors
-export const loadMonitor = (param: Host.MonitorSearch) => {
-    return http.post<Array<Host.MonitorData>>(`/hosts/monitor/search`, param, TimeoutEnum.T_60S, undefined);
+export const loadMonitor = (param: Host.MonitorSearch, currentNode?: string) => {
+    return http.post<Array<Host.MonitorData>>(
+        `/hosts/monitor/search`,
+        param,
+        TimeoutEnum.T_60S,
+        currentNode ? { CurrentNode: currentNode } : undefined,
+    );
 };
-export const getNetworkOptions = () => {
-    return http.get<Array<string>>(`/hosts/monitor/netoptions`, {}, {});
+export const getNetworkOptions = (currentNode?: string) => {
+    return http.get<Array<string>>(
+        `/hosts/monitor/netoptions`,
+        {},
+        currentNode ? { headers: { CurrentNode: currentNode } } : {},
+    );
 };
-export const getIOOptions = () => {
-    return http.get<Array<string>>(`/hosts/monitor/iooptions`, {}, {});
+export const getIOOptions = (currentNode?: string) => {
+    return http.get<Array<string>>(
+        `/hosts/monitor/iooptions`,
+        {},
+        currentNode ? { headers: { CurrentNode: currentNode } } : {},
+    );
 };
-export const cleanMonitors = () => {
-    return http.post(`/hosts/monitor/clean`, {});
+export const cleanMonitors = (type: 'host' | 'gpu') => {
+    return http.post(`/hosts/monitor/clean`, { type });
 };
-export const loadMonitorSetting = () => {
-    return http.get<Host.MonitorSetting>(`/hosts/monitor/setting`, {}, {});
+export const loadMonitorSetting = (currentNode?: string) => {
+    return http.get<Host.MonitorSetting>(
+        `/hosts/monitor/setting`,
+        {},
+        currentNode ? { headers: { CurrentNode: currentNode } } : {},
+    );
 };
 export const updateMonitorSetting = (key: string, value: string) => {
     return http.post(`/hosts/monitor/setting/update`, { key: key, value: value });
 };
-export const loadRuntimeDiagnosticsSummary = () => {
-    return http.get<Host.RuntimeDiagnosticsSummary>(`/hosts/diagnostics/summary`, {}, {});
+export type RuntimeDiagnosticsTarget = 'agent' | 'core';
+
+export const loadRuntimeDiagnosticsSummary = (currentNode?: string, target: RuntimeDiagnosticsTarget = 'agent') => {
+    return http.get<Host.RuntimeDiagnosticsSummary>(
+        `${target === 'core' ? '/core' : ''}/hosts/diagnostics/summary`,
+        {},
+        currentNode ? { headers: { CurrentNode: currentNode } } : {},
+    );
 };
-export const loadRuntimeGoroutines = () => {
-    return http.get<Host.RuntimeGoroutineSnapshot>(`/hosts/diagnostics/goroutines`, {}, {});
+export const loadRuntimeGoroutines = (currentNode?: string, target: RuntimeDiagnosticsTarget = 'agent') => {
+    return http.get<Host.RuntimeGoroutineSnapshot>(
+        `${target === 'core' ? '/core' : ''}/hosts/diagnostics/goroutines`,
+        {},
+        currentNode ? { headers: { CurrentNode: currentNode } } : {},
+    );
 };
 export class RuntimeProfileDownloadError extends Error {
     constructor(message = '') {
@@ -47,13 +74,21 @@ const parseRuntimeProfileError = async (data: unknown) => {
         return new RuntimeProfileDownloadError();
     }
 };
-export const createRuntimeProfile = async (params: Host.RuntimeProfileCreate) => {
+export const createRuntimeProfile = async (
+    params: Host.RuntimeProfileCreate,
+    currentNode?: string,
+    target: RuntimeDiagnosticsTarget = 'agent',
+) => {
     try {
-        const data = await http.download<Blob>(`/hosts/diagnostics/profiles`, params, {
-            responseType: 'blob',
-            timeout: TimeoutEnum.T_60S,
-            headers: undefined,
-        });
+        const data = await http.download<Blob>(
+            `${target === 'core' ? '/core' : ''}/hosts/diagnostics/profiles`,
+            params,
+            {
+                responseType: 'blob',
+                timeout: TimeoutEnum.T_60S,
+                headers: currentNode ? { CurrentNode: currentNode } : undefined,
+            },
+        );
         const profileError = await parseRuntimeProfileError(data);
         if (profileError) {
             throw profileError;
@@ -69,8 +104,13 @@ export const createRuntimeProfile = async (params: Host.RuntimeProfileCreate) =>
     }
 };
 // ssh
-export const getSSHInfo = () => {
-    return http.post<Host.SSHInfo>(`/hosts/ssh/search`, {}, undefined, undefined);
+export const getSSHInfo = (currentNode?: string) => {
+    return http.post<Host.SSHInfo>(
+        `/hosts/ssh/search`,
+        {},
+        undefined,
+        currentNode ? { CurrentNode: currentNode } : undefined,
+    );
 };
 export const operateSSH = (operation: string) => {
     return http.post(`/hosts/ssh/operate`, { operation: operation }, TimeoutEnum.T_40S);
@@ -103,8 +143,13 @@ export const deleteCert = (ids: Array<number>, forceDelete: boolean) => {
 export const syncCert = () => {
     return http.post(`/hosts/ssh/cert/sync`);
 };
-export const loadSSHLogs = (params: Host.searchSSHLog) => {
-    return http.post<ResPage<Host.sshHistory>>(`/hosts/ssh/log`, params, undefined, undefined);
+export const loadSSHLogs = (params: Host.searchSSHLog, currentNode?: string) => {
+    return http.post<ResPage<Host.sshHistory>>(
+        `/hosts/ssh/log`,
+        params,
+        undefined,
+        currentNode ? { CurrentNode: currentNode } : undefined,
+    );
 };
 export const exportSSHLogs = (params: Host.searchSSHLog) => {
     return http.post<string>(`/hosts/ssh/log/export`, params, TimeoutEnum.T_40S);
@@ -129,7 +174,7 @@ export const unmountDisk = (params: Host.DiskUmount) => {
     return http.post(`/hosts/disks/unmount`, params, TimeoutEnum.T_60S);
 };
 
-export const getComponentInfo = (name: string) => {
-    const params = '';
+export const getComponentInfo = (name: string, operateNode?: string) => {
+    const params = operateNode ? `?operateNode=${operateNode}` : '';
     return http.get<Host.ComponentInfo>(`/hosts/components/${name}${params}`);
 };

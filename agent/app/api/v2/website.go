@@ -1340,3 +1340,24 @@ func (b *BaseApi) BatchSetHttps(c *gin.Context) {
 	}
 	helper.Success(c)
 }
+
+// @Tags Website
+// @Summary Batch change PHP version
+// @Accept json
+// @Param request body request.WebsiteBatchPHPVersionReq true "request"
+// @Success 200 {array} response.WebsiteBatchPHPVersionResult
+// @Security ApiKeyAuth
+// @Security Timestamp
+// @Router /websites/php/version/batch [post]
+func (b *BaseApi) BatchChangePHPVersion(c *gin.Context) {
+	var req request.WebsiteBatchPHPVersionReq
+	if err := helper.CheckBindAndValidate(&req, c); err != nil {
+		return
+	}
+	results, err := websiteService.BatchChangePHPVersion(req)
+	if err != nil {
+		helper.InternalServer(c, err)
+		return
+	}
+	helper.SuccessWithData(c, results)
+}

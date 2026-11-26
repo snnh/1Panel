@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -26,26 +27,41 @@ type APIAuthConfig struct {
 	IpWhiteList        string
 	ApiTrustedProxies  string
 	ApiKeyValidityTime int
+	KeyID              string
+	KeyName            string
+	KeyRevision        uint64
+	KeyExpiresAt       *time.Time
+	Owner              APIKeyOwner
 }
 
 type APIAuthConfigLoader func(c *gin.Context) (APIAuthConfig, error)
 type APIAuthSuccessHandler func(c *gin.Context, config APIAuthConfig)
 
-func APIAuthMiddleware(loadConfig APIAuthConfigLoader, onSuccess APIAuthSuccessHandler) gin.HandlerFunc {
+func APIAuthMiddleware(loadConfig APIAuthConfigLoader, onSuccess APIAuthSuccessHandler, ownerProviders ...APIKeyOwnerProvider) gin.HandlerFunc {
+	var ownerProvider APIKeyOwnerProvider
+	if len(ownerProviders) > 0 {
+		ownerProvider = ownerProviders[0]
+	}
 	return func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.URL.Path, "/api/v2/core/auth") {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/v2/core/auth") && !isAPIKeyManagementRequest(c) {
 			c.Next()
 			return
 		}
 
 		panelToken := c.GetHeader("1Panel-Token")
 		panelTimestamp := c.GetHeader("1Panel-Timestamp")
-		if panelToken == "" && panelTimestamp == "" {
+		if !HasAPICredentials(c) {
 			c.Next()
 			return
 		}
 
-		config, err := loadConfig(c)
+		loader := loadConfig
+		if ownerProvider != nil {
+			loader = func(c *gin.Context) (APIAuthConfig, error) {
+				return loadMultiAPIKeyConfig(c, loadConfig, ownerProvider)
+			}
+		}
+		config, err := loader(c)
 		if err != nil {
 			var bizErr buserr.BusinessError
 			if errors.As(err, &bizErr) && strings.HasPrefix(bizErr.Msg, "ErrApiConfig") {
@@ -63,7 +79,7 @@ func APIAuthMiddleware(loadConfig APIAuthConfigLoader, onSuccess APIAuthSuccessH
 			helper.BadAuth(c, "ErrApiConfigKeyTimeInvalid", nil)
 			return
 		}
-		if !isValid1PanelToken(panelToken, panelTimestamp, config.ApiKey) {
+		if !IsValid1PanelTokenWithVersion(panelToken, panelTimestamp, config.ApiKey, c.GetHeader("1Panel-Signature-Version")) {
 			helper.BadAuth(c, "ErrApiConfigKeyInvalid", nil)
 			return
 		}
@@ -73,10 +89,26 @@ func APIAuthMiddleware(loadConfig APIAuthConfigLoader, onSuccess APIAuthSuccessH
 		}
 
 		c.Set("API_AUTH", true)
+		c.Set("API_AUTH_CLIENT_IP", GetAPIClientIP(c, config.ApiTrustedProxies))
 		if onSuccess != nil {
 			onSuccess(c, config)
 		}
+		SetAPIKeyContext(c, config, ownerProvider)
 		c.Next()
+	}
+}
+
+func isAPIKeyManagementRequest(c *gin.Context) bool {
+	if c.Request.Method != http.MethodPost {
+		return false
+	}
+	switch c.Request.URL.Path {
+	case "/api/v2/core/auth/api/keys/search", "/api/v2/core/auth/api/keys/create",
+		"/api/v2/core/auth/api/keys/update", "/api/v2/core/auth/api/keys/status",
+		"/api/v2/core/auth/api/keys/revoke", "/api/v2/core/auth/api/keys/delete":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -141,6 +173,9 @@ func IsValid1PanelToken(panelToken string, panelTimestamp string, apiKey string)
 }
 
 func IsValid1PanelTokenWithVersion(panelToken string, panelTimestamp string, apiKey string, signatureVersion string) bool {
+	if apiKey == "" || panelToken == "" {
+		return false
+	}
 	panelToken = strings.ToLower(strings.TrimSpace(panelToken))
 	version := strings.ToLower(strings.TrimSpace(signatureVersion))
 	switch version {

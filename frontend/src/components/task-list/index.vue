@@ -3,7 +3,13 @@
         <template #content>
             <LayoutContent v-loading="loading" :title="$t('logs.task')">
                 <template #rightToolBar>
-                    <el-select v-model="req.status" @change="search()" clearable class="p-w-200">
+                    <el-select
+                        v-model="req.status"
+                        :placeholder="$t('commons.table.all')"
+                        @change="search()"
+                        clearable
+                        class="p-w-200"
+                    >
                         <template #prefix>{{ $t('commons.table.status') }}</template>
                         <el-option :label="$t('commons.table.all')" value=""></el-option>
                         <el-option :label="$t('commons.status.success')" value="Success"></el-option>
@@ -11,10 +17,16 @@
                         <el-option :label="$t('logs.taskRunning')" value="Executing"></el-option>
                     </el-select>
                     <TableRefresh @search="search()" />
-                    <TableSetting title="task-refresh" @search="search()" :rate="5" />
+                    <TableSetting title="task-refresh" @search="!loading && search()" :rate="5" />
                 </template>
                 <template #main>
-                    <ComplexTable :pagination-config="paginationConfig" :data="data" @search="search" :heightDiff="320">
+                    <ComplexTable
+                        :cache-pagination="false"
+                        :pagination-config="paginationConfig"
+                        :data="data"
+                        @search="search()"
+                        :heightDiff="320"
+                    >
                         <el-table-column :label="$t('logs.taskName')" prop="name" min-width="180px">
                             <template #default="{ row }">
                                 {{ row.name }}
@@ -49,6 +61,7 @@
 </template>
 
 <script setup lang="ts">
+import { readCachedPageSize } from '@/utils/panel-cache';
 import TaskLog from '@/components/log/task/index.vue';
 import { dateFormat } from '@/utils/date';
 import { searchTasks } from '@/api/modules/log';
@@ -65,7 +78,7 @@ const data = ref();
 const paginationConfig = reactive({
     cacheSizeKey: 'task-list-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('task-list-page-size')) || 20,
+    pageSize: readCachedPageSize('task-list-page-size') || 20,
     total: 0,
     small: true,
 });
@@ -77,7 +90,9 @@ const req = reactive({
     pageSize: 10,
 });
 
+let latestSearch = 0;
 const search = async () => {
+    const searchID = ++latestSearch;
     bus.emit('refreshTask', true);
     req.page = paginationConfig.currentPage;
     req.pageSize = paginationConfig.pageSize;
@@ -89,7 +104,7 @@ const search = async () => {
         paginationConfig.total = res.data.total;
     } catch (error) {
     } finally {
-        loading.value = false;
+        if (searchID === latestSearch) loading.value = false;
     }
 };
 

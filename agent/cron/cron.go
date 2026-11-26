@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -54,11 +55,26 @@ func Run() {
 		global.LOG.Errorf("generate random hour failed: %v", err)
 		hourRand = big.NewInt(0)
 	}
-	if _, err := global.Cron.AddJob(fmt.Sprintf("%v %v * * *", minuteRand.Int64(), hourRand.Int64()), job.NewAppStoreJob()); err != nil {
+	appSyncSchedule := fmt.Sprintf("%v %v * * *", minuteRand.Int64(), hourRand.Int64())
+	if _, err := global.Cron.AddJob(appSyncSchedule, job.NewContainerImageCheckUpdateJob()); err != nil {
+		global.LOG.Errorf("cannot add container image update cron job: %v", err)
+	}
+	if _, err := global.Cron.AddJob(appSyncSchedule, job.NewAppStoreJob()); err != nil {
 		global.LOG.Errorf("can not add  appstore corn job: %s", err.Error())
 	}
 	if _, err := global.Cron.AddJob("0 3 */31 * *", job.NewBackupJob()); err != nil {
 		global.LOG.Errorf("can not add  backup token refresh corn job: %s", err.Error())
+	}
+	if _, err := global.Cron.AddFunc("@every 240h", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		deleted, err := service.NewISettingService().CleanupDescriptions(ctx)
+		if err != nil {
+			global.LOG.Errorf("clean unused common descriptions: %v", err)
+		}
+		global.LOG.Infof("common description cleanup completed, deleted %d records", deleted)
+	}); err != nil {
+		global.LOG.Errorf("add common description cleanup job: %v", err)
 	}
 
 	var cronJobs []model.Cronjob
@@ -99,8 +115,7 @@ func syncBeforeStart() {
 		global.LOG.Errorf("load remote time with [%s] failed, err: %v", ntpSite.Value, err)
 		return
 	}
-	ts := ntime.Format(constant.DateTimeLayout)
-	if err := ntp.UpdateSystemTime(ts); err != nil {
+	if err := ntp.UpdateSystemTime(ntime); err != nil {
 		global.LOG.Errorf("failed to synchronize system time with [%s], err: %v", ntpSite.Value, err)
 	}
 	global.LOG.Debugf("synchronize system time with [%s] successful!", ntpSite.Value)

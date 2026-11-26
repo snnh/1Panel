@@ -70,8 +70,9 @@
 </template>
 
 <script lang="ts" setup>
+import { useSearchState } from '@/utils/search-reset';
 import { App } from '@/api/interface/app';
-import { onMounted, reactive, ref } from 'vue';
+import { toRef, onMounted, reactive, ref } from 'vue';
 import { searchApp, syncApp, syncCutomAppStore, syncLocalApp } from '@/api/modules/app';
 import Install from '../detail/install/index.vue';
 import router from '@/routers';
@@ -90,9 +91,8 @@ import { useGlobalStore } from '@/composables/useGlobalStore';
 const { isOffline, isMobile } = useGlobalStore();
 
 const paginationConfig = reactive({
-    cacheSizeKey: 'app-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('app-page-size')) || 60,
+    pageSize: 60,
     total: 0,
 });
 
@@ -104,6 +104,15 @@ const req = reactive({
     resource: 'all',
     showCurrentArch: false,
 });
+useSearchState(
+    'app-store/apps/index',
+    {
+        search: toRef(req, 'name'),
+        page: toRef(paginationConfig, 'currentPage'),
+        pageSize: toRef(paginationConfig, 'pageSize'),
+    },
+    { onRevisit: () => search(req) },
+);
 
 const apps = ref<App.AppItem[]>([]);
 const loading = ref(false);
@@ -128,7 +137,6 @@ const search = async (req: App.AppReq) => {
     loading.value = true;
     req.pageSize = paginationConfig.pageSize;
     req.page = paginationConfig.currentPage;
-    localStorage.setItem('app-page-size', req.pageSize + '');
 
     const customReq = {
         page: req.page,
@@ -196,21 +204,20 @@ const sync = async () => {
     }
 };
 
-const syncLocal = () => {
+const syncLocal = async () => {
     const taskID = newUUID();
     const syncReq = {
         taskID: taskID,
     };
     syncing.value = true;
-    syncLocalApp(syncReq)
-        .then(() => {
-            openTaskLog(taskID);
-            canUpdate.value = false;
-            search(req);
-        })
-        .finally(() => {
-            syncing.value = false;
-        });
+    try {
+        await syncLocalApp(syncReq);
+        openTaskLog(taskID);
+        canUpdate.value = false;
+        search(req);
+    } finally {
+        syncing.value = false;
+    }
 };
 
 const changeTag = (key: string) => {

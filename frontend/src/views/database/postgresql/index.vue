@@ -37,6 +37,15 @@
                 <el-button
                     v-if="currentDB && (currentDB.from !== 'local' || postgresqlStatus === 'Running')"
                     v-permission
+                    type="primary"
+                    plain
+                    @click="usersRef.acceptParams({ database: currentDBName })"
+                >
+                    {{ $t('commons.table.user') }}
+                </el-button>
+                <el-button
+                    v-if="currentDB && (currentDB.from !== 'local' || postgresqlStatus === 'Running')"
+                    v-permission
                     @click="loadDB"
                     type="primary"
                     plain
@@ -54,7 +63,7 @@
                 >
                     {{ $t('menu.terminal') }}
                 </el-button>
-                <el-button @click="goDashboard()" type="primary" plain>PGAdmin4</el-button>
+                <AppDashboard app-key="pgadmin4" @not-installed="goDashboard">PGAdmin4</AppDashboard>
             </template>
             <template #rightToolBar>
                 <el-select v-model="currentDBName" @change="changeDatabase()" class="p-w-200" v-if="currentDB">
@@ -94,6 +103,7 @@
                 <ComplexTable
                     v-if="currentDB"
                     :class="{ mask: maskShow }"
+                    :cache-pagination="false"
                     :pagination-config="paginationConfig"
                     @sort-change="search"
                     @search="search"
@@ -106,14 +116,16 @@
                             <Tooltip v-if="!row.isDelete" :islink="false" :text="row.name" />
                             <div v-else>
                                 <span v-if="row.name.length < 15">{{ row.name }}</span>
-                                <el-tooltip v-else :content="row.name">{{ row.name.substring(0, 10) }}...</el-tooltip>
+                                <el-tooltip v-else :content="row.name" v-bind="TABLE_TOOLTIP_OPTIONS">
+                                    {{ row.name.substring(0, 10) }}...
+                                </el-tooltip>
                                 <el-tag round type="info" class="ml-1" size="small">
                                     {{ $t('database.isDelete') }}
                                 </el-tag>
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.login.username')" prop="username" card-type="content">
+                    <el-table-column :label="$t('database.connectionUser')" prop="username" card-type="content">
                         <template #default="{ row }">
                             <div class="flex items-center" v-if="row.username">
                                 <span>
@@ -232,8 +244,7 @@
             </template>
         </DialogPro>
 
-        <PrivilegesDialog ref="privilegesRef" @search="search" />
-        <BindDialog ref="bindRef" @search="search" />
+        <UserDialog ref="usersRef" @search="search" />
         <PasswordDialog ref="passwordRef" @search="search" />
         <RootPasswordDialog ref="connRef" />
         <UploadDialog ref="uploadRef" />
@@ -243,27 +254,27 @@
         <AppResources ref="checkRef"></AppResources>
         <DeleteDialog ref="deleteRef" @search="search" />
 
-        <PortJumpDialog ref="dialogPortJumpRef" />
         <TerminalDialog ref="dialogTerminalRef" />
     </div>
 </template>
 
 <script lang="ts" setup>
-import BindDialog from '@/views/database/postgresql/bind/index.vue';
+import { TABLE_TOOLTIP_OPTIONS } from '@/components/table/shared';
+import { useSearchState } from '@/utils/search-reset';
+import UserDialog from '@/views/database/postgresql/user/index.vue';
 import OperateDialog from '@/views/database/postgresql/create/index.vue';
 import DeleteDialog from '@/views/database/postgresql/delete/index.vue';
 import PasswordDialog from '@/views/database/postgresql/password/index.vue';
 import TerminalDialog from '@/components/terminal/database.vue';
-import PrivilegesDialog from '@/views/database/postgresql/privileges/index.vue';
 import RootPasswordDialog from '@/views/database/postgresql/conn/index.vue';
 import AppResources from '@/views/database/postgresql/check/index.vue';
 import AppStatus from '@/components/app-status/index.vue';
 import Backups from '@/components/backup/index.vue';
 import UploadDialog from '@/components/upload/index.vue';
-import PortJumpDialog from '@/components/port-jump/index.vue';
+import AppDashboard from '@/components/app-dashboard/index.vue';
 import Tooltip from '@/components/tooltip/index.vue';
 import { dateFormat } from '@/utils/date';
-import { onMounted, reactive, ref } from 'vue';
+import { toRef, onMounted, reactive, ref } from 'vue';
 import {
     deleteCheckPostgresqlDB,
     listDatabases,
@@ -274,7 +285,6 @@ import {
 import i18n from '@/lang';
 import { Database } from '@/api/interface/database';
 import { App } from '@/api/interface/app';
-import { getAppPort } from '@/api/modules/app';
 import { MsgSuccess } from '@/utils/message';
 import { useGlobalStore } from '@/composables/useGlobalStore';
 import { routerToName, routerToNameWithParams, routerToNameWithQuery } from '@/utils/router';
@@ -296,29 +306,29 @@ const currentDBName = ref();
 
 const checkRef = ref();
 const deleteRef = ref();
-const bindRef = ref();
-const privilegesRef = ref();
+const usersRef = ref();
 const dialogTerminalRef = ref();
 
-const pgadminPort = ref();
 const dashboardName = ref();
 const dashboardKey = ref();
 const open = ref(false);
 
 const appStatusRef = ref();
 
-const dialogPortJumpRef = ref();
-
 const data = ref();
 const paginationConfig = reactive({
-    cacheSizeKey: 'postgresql-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('postgresql-page-size')) || 20,
+    pageSize: 20,
     total: 0,
     orderBy: 'createdAt',
     order: 'null',
 });
 const searchName = ref();
+useSearchState(
+    'database/postgresql/index',
+    { search: searchName, page: toRef(paginationConfig, 'currentPage'), pageSize: toRef(paginationConfig, 'pageSize') },
+    { onRevisit: () => search() },
+);
 
 const postgresqlContainer = ref();
 const postgresqlStatus = ref();
@@ -411,7 +421,7 @@ const onBind = async (row: Database.PostgresqlDBInfo) => {
         name: row.name,
         database: currentDBName.value,
     };
-    bindRef.value.acceptParams(param);
+    usersRef.value.acceptParams(param);
 };
 
 const loadDB = async () => {
@@ -445,24 +455,14 @@ const onChange = async (info: any) => {
     MsgSuccess(i18n.global.t('commons.msg.operationSuccess'));
 };
 
-const goDashboard = async () => {
-    if (pgadminPort.value === 0) {
-        dashboardName.value = 'PGAdmin4';
-        dashboardKey.value = 'pgadmin4';
-        open.value = true;
-        return;
-    }
-    dialogPortJumpRef.value.acceptParams({ port: pgadminPort.value });
-    return;
+const goDashboard = () => {
+    dashboardName.value = 'PGAdmin4';
+    dashboardKey.value = 'pgadmin4';
+    open.value = true;
 };
 
 const getAppDetail = () => {
     routerToNameWithQuery('AppAll', { install: dashboardKey.value });
-};
-
-const loadPGAdminPort = async () => {
-    const res = await getAppPort('pgadmin4', '');
-    pgadminPort.value = res.data;
 };
 
 const checkExist = (data: App.CheckInstalled) => {
@@ -564,20 +564,10 @@ const buttons = [
         },
     },
     {
-        label: i18n.global.t('database.permission'),
+        label: i18n.global.t('database.authorizationManagement'),
         permission: true,
-        disabled: (row: Database.PostgresqlDBInfo) => {
-            return !row.username || row.isDelete;
-        },
-        click: (row: Database.PostgresqlDBInfo) => {
-            let param = {
-                database: currentDBName.value,
-                name: row.name,
-                username: row.username,
-                superUser: row.superUser,
-            };
-            privilegesRef.value.acceptParams(param);
-        },
+        disabled: (row: Database.PostgresqlDBInfo) => row.isDelete,
+        click: (row: Database.PostgresqlDBInfo) => onBind(row),
     },
     {
         label: i18n.global.t('database.backupList'),
@@ -621,7 +611,6 @@ const buttons = [
 
 onMounted(() => {
     loadDBOptions();
-    loadPGAdminPort();
 });
 </script>
 

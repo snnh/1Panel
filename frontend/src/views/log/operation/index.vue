@@ -10,33 +10,42 @@
                 </el-button>
             </template>
             <template #rightToolBar>
-                <el-select v-model="searchGroup" @change="search()" clearable class="p-w-200">
+                <el-select v-model="searchGroup" @change="search()" clearable filterable class="p-w-200">
                     <template #prefix>{{ $t('logs.resource') }}</template>
                     <el-option :label="$t('commons.table.all')" value="" />
+                    <el-option :label="$t('logs.detail.dashboard')" value="dashboard" />
                     <el-option :label="$t('logs.detail.apps')" value="apps" />
+                    <el-option :label="$t('xpack.customApp.name')" value="custom" />
                     <el-option :label="$t('logs.detail.openresty')" value="openresty" />
                     <el-option :label="$t('logs.detail.websites')" value="websites" />
                     <el-option :label="$t('logs.detail.monitor')" value="monitor" />
                     <el-option :label="$t('logs.detail.runtimes')" value="runtimes" />
                     <el-option :label="$t('logs.detail.databases')" value="databases" />
+                    <el-option :label="$t('xpack.cluster.cluster')" value="cluster" />
                     <el-option :label="$t('logs.detail.containers')" value="containers" />
+                    <el-option :label="$t('logs.detail.vms')" value="vms" />
                     <el-option :label="$t('menu.system')" value="hosts" />
                     <el-option :label="$t('logs.detail.files')" value="files" />
                     <el-option :label="$t('logs.detail.cronjobs')" value="cronjobs" />
+                    <el-option :label="$t('cronjob.library.library')" value="script" />
                     <el-option :label="$t('logs.detail.toolbox')" value="toolbox" />
                     <el-option :label="$t('logs.detail.process')" value="process" />
                     <el-option :label="$t('logs.detail.nodes')" value="nodes" />
                     <el-option :label="$t('logs.detail.xsetting')" value="xsetting" />
                     <el-option :label="$t('logs.detail.logs')" value="logs" />
                     <el-option :label="$t('logs.detail.settings')" value="settings" />
+                    <el-option :label="$t('logs.detail.xapp')" value="xapp" />
+                    <el-option :label="$t('logs.detail.ops_report')" value="ops-report" />
                     <el-option :label="$t('logs.detail.alert')" value="alert" />
                     <el-option :label="$t('logs.detail.backups')" value="backups" />
                     <el-option :label="$t('logs.detail.groups')" value="groups" />
+                    <el-option :label="$t('logs.detail.users')" value="users" />
                     <el-option :label="$t('logs.detail.roles')" value="roles" />
+                    <el-option :label="$t('logs.detail.auth')" value="auth" />
                     <el-option :label="$t('logs.detail.auth_sources')" value="auth-sources" />
                     <el-option :label="$t('logs.detail.commands')" value="commands" />
                 </el-select>
-                <el-select v-model="searchStatus" @change="search()" clearable class="p-w-200">
+                <el-select v-model="searchStatus" @change="search()" clearable filterable class="p-w-200">
                     <template #prefix>{{ $t('commons.table.status') }}</template>
                     <el-option :label="$t('commons.table.all')" value="" />
                     <el-option :label="$t('commons.status.success')" value="Success" />
@@ -49,6 +58,7 @@
             </template>
             <template #main>
                 <ComplexTable
+                    :cache-pagination="false"
                     :pagination-config="paginationConfig"
                     :data="data"
                     @search="search"
@@ -66,9 +76,23 @@
                     <el-table-column
                         :label="$t('commons.table.user')"
                         prop="user"
+                        min-width="140"
                         show-overflow-tooltip
                         card-type="content"
-                    />
+                    >
+                        <template #default="{ row }">
+                            <div>{{ row.user }}</div>
+                            <el-tooltip
+                                v-if="row.authMethod === 'api_key' && row.apiKeyID"
+                                :content="row.apiKeyID"
+                                v-bind="TABLE_TOOLTIP_OPTIONS"
+                            >
+                                <el-text type="info" size="small">
+                                    API Key · {{ row.apiKeyName || row.apiKeyID }}
+                                </el-text>
+                            </el-tooltip>
+                        </template>
+                    </el-table-column>
                     <el-table-column
                         :label="$t('commons.table.operate')"
                         min-width="150px"
@@ -101,11 +125,13 @@
 </template>
 
 <script setup lang="ts">
+import { TABLE_TOOLTIP_OPTIONS } from '@/components/table/shared';
+import { useSearchState } from '@/utils/search-reset';
 import ConfirmDialog from '@/components/confirm-dialog/index.vue';
 import LogRouter from '@/views/log/router/index.vue';
 import { dateFormat } from '@/utils/date';
 import { cleanLogs, getOperationLogs } from '@/api/modules/log';
-import { onMounted, reactive, ref } from 'vue';
+import { toRef, onMounted, reactive, ref } from 'vue';
 import i18n from '@/lang';
 import { MsgSuccess } from '@/utils/message';
 import { useGlobalStore } from '@/composables/useGlobalStore';
@@ -115,12 +141,16 @@ const data = ref();
 const viewMode = ref<'table' | 'card'>('table');
 const confirmDialogRef = ref();
 const paginationConfig = reactive({
-    cacheSizeKey: 'operation-log-page-size',
     currentPage: 1,
-    pageSize: Number(localStorage.getItem('operation-log-page-size')) || 20,
+    pageSize: 20,
     total: 0,
 });
 const searchName = ref<string>('');
+useSearchState(
+    'log/operation/index',
+    { search: searchName, page: toRef(paginationConfig, 'currentPage'), pageSize: toRef(paginationConfig, 'pageSize') },
+    { onRevisit: () => search() },
+);
 const searchGroup = ref<string>('');
 const searchStatus = ref<string>('');
 
@@ -247,6 +277,13 @@ const exactReplacements: Record<string, string> = {
     ExpirationDays: 'setting.expirationTime',
     ComplexityVerification: 'setting.complexity',
     MFAStatus: 'setting.mfa',
+    GPUMonitorStatus: 'monitor.enableMonitor',
+    GPUMonitorStoreDays: 'monitor.storeDays',
+    GPUMonitorInterval: 'monitor.interval',
+    VLLMMonitorStatus: 'monitor.enableMonitor',
+    VLLMMonitorStoreDays: 'monitor.storeDays',
+    VLLMMonitorInterval: 'monitor.interval',
+    MonitorInterval: 'monitor.interval',
     MonitorStatus: 'monitor.enableMonitor',
     MonitorStoreDays: 'monitor.storeDays',
     ApiInterfaceStatus: 'setting.apiInterface',

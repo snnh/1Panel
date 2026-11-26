@@ -11,6 +11,7 @@
             <fu-table
                 v-if="currentViewMode === 'table'"
                 v-bind="$attrs"
+                :data="props.data"
                 ref="tableRef"
                 @select="handleSelect"
                 @selection-change="handleSelectionChange"
@@ -74,7 +75,9 @@
                                 :key="getColumnKey(contentColumn)"
                                 class="complex-table__card-item"
                             >
-                                <span class="complex-table__card-label">{{ getColumnLabel(contentColumn) }}</span>
+                                <span class="complex-table__card-label">
+                                    {{ getColumnLabel(contentColumn, cardRow) }}
+                                </span>
                                 <strong class="complex-table__card-value">
                                     <CardColumnValue :column="contentColumn" :row="cardRow" :index="cardIndex" />
                                 </strong>
@@ -86,7 +89,9 @@
                                 :key="getColumnKey(fullContentColumn)"
                                 class="complex-table__card-full-content-item"
                             >
-                                <span class="complex-table__card-label">{{ getColumnLabel(fullContentColumn) }}</span>
+                                <span class="complex-table__card-label">
+                                    {{ getColumnLabel(fullContentColumn, cardRow) }}
+                                </span>
                                 <div class="complex-table__card-full-content-value">
                                     <CardColumnValue :column="fullContentColumn" :row="cardRow" :index="cardIndex" />
                                 </div>
@@ -98,7 +103,7 @@
                                 :key="getColumnKey(descriptionColumn)"
                                 class="complex-table__card-description-item"
                             >
-                                <span>{{ getColumnLabel(descriptionColumn) }}</span>
+                                <span>{{ getColumnLabel(descriptionColumn, cardRow) }}</span>
                                 <strong>
                                     <CardColumnValue :column="descriptionColumn" :row="cardRow" :index="cardIndex" />
                                 </strong>
@@ -166,16 +171,19 @@
     </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, ref, useAttrs } from 'vue';
+import { panelCacheKey, writePanelCache } from '@/utils/panel-cache';
+import { computed, onDeactivated, onMounted, ref, useAttrs } from 'vue';
 import { useGlobalStore } from '@/composables/useGlobalStore';
-import { flattenVNodes, type FuTableOperationButton } from '@/components/table/shared';
+import { flattenVNodes, TABLE_OVERFLOW_TOOLTIP_OPTIONS, type FuTableOperationButton } from '@/components/table/shared';
 import { useCardColumns } from './useCardColumns';
 import { useContextMenu } from './useContextMenu';
 import { useResponsivePagination } from './useResponsivePagination';
 import { useTableSelection } from './useTableSelection';
+import { useRoute } from 'vue-router';
+import { usePaginationCache } from './usePaginationCache';
 const slots = useSlots();
 const attrs = useAttrs();
-const { isMobile, openMenuTabs } = useGlobalStore();
+const { isMobile, openMenuTabs, currentNode } = useGlobalStore();
 
 defineOptions({ name: 'ComplexTable' });
 export type DropdownProps = FuTableOperationButton;
@@ -184,10 +192,17 @@ type ViewMode = 'table' | 'card';
 
 const props = defineProps({
     header: String,
+    data: { type: Array as PropType<any[]>, default: () => [] },
+    loading: { type: Boolean, default: false },
+    selectionContext: { type: [String, Number, Array, Object, Function], default: undefined },
     paginationConfig: {
         type: Object,
         required: false,
     },
+    cachePagination: { type: Boolean, default: undefined },
+    refreshOnRestore: { type: Boolean, default: true },
+    cacheId: String,
+    cacheScope: [String, Number],
     pageSizes: {
         type: Array as PropType<number[]>,
         default: () => [5, 10, 20, 50, 100, 200, 500],
@@ -213,6 +228,16 @@ const props = defineProps({
     },
 });
 const emit = defineEmits(['search', 'update:selects', 'update:paginationConfig', 'update:viewMode']);
+usePaginationCache({
+    pagePath: useRoute().path,
+    pagination: () => props.paginationConfig as { currentPage: number; pageSize: number; cacheSizeKey?: string },
+    enabled: () => props.cachePagination,
+    id: () => props.cacheId,
+    scope: () => props.cacheScope,
+    search: () => emit('search'),
+    pageSizes: () => props.pageSizes,
+    refreshOnRestore: () => props.refreshOnRestore,
+});
 const tableRef = ref();
 const complexTableRef = ref<HTMLElement>();
 const tableHeight = ref<number | string>('');
@@ -239,7 +264,7 @@ const selectionColumn = computed(() =>
     columnNodes.value.find((column) => (column.props as Record<string, any> | null)?.type === 'selection'),
 );
 const tableData = computed(() => {
-    const data = attrs.data;
+    const data = props.data;
     return Array.isArray(data) ? data : [];
 });
 const cardContentStyle = computed(() => {
@@ -270,7 +295,7 @@ const scheduleCardContentHeightSync = () => {
     });
 };
 const resolvedTooltipOptions = computed(() => ({
-    placement: 'bottom-start',
+    ...TABLE_OVERFLOW_TOOLTIP_OPTIONS,
     ...((attrs.tooltipOptions ?? attrs['tooltip-options']) as Record<string, unknown> | undefined),
 }));
 const getRowKey = (row: any, index: number) => {
@@ -295,7 +320,7 @@ const {
     isDisabled: isRightButtonDisabled,
     click: rightButtonClick,
 } = useContextMenu(() => props.rightButtons);
-const getTableData = () => (Array.isArray(attrs.data) ? attrs.data : []);
+const getTableData = () => props.data || [];
 const isRowSelectable = (row: any) => {
     const selectable = (selectionColumn.value?.props as Record<string, any> | null)?.selectable;
     return typeof selectable === 'function' ? selectable(row) : true;
@@ -304,7 +329,6 @@ const {
     selectedRows,
     isRowSelected,
     clearSelects,
-    pruneSelection,
     toggleSelection,
     selectRow,
     syncTableSelection,
@@ -313,7 +337,18 @@ const {
     handleRowClick,
     handleKeyDown: handleSelectionKeyDown,
     handleKeyUp,
-} = useTableSelection(tableRef, getTableData, (rows) => emit('update:selects', rows), isRowSelectable);
+} = useTableSelection(
+    tableRef,
+    getTableData,
+    (rows) => emit('update:selects', rows),
+    isRowSelectable,
+    (row) => {
+        const key = attrs.rowKey ?? attrs['row-key'];
+        if (typeof key === 'function') return row == null ? undefined : key(row);
+        if (typeof key === 'string') return key.split('.').reduce((value, part) => value?.[part], row);
+        return row?.id;
+    },
+);
 const toggleCardSelection = (row: any, selected: boolean) => {
     selectRow(row, selected);
 };
@@ -328,13 +363,33 @@ const handleRightClick = (row, column, event) => {
     openContextMenu(row, event);
 };
 
+watch(
+    () => [props.data, props.loading],
+    () => {
+        const pagination = props.paginationConfig;
+        if (props.loading || !pagination || !pagination.pageSize) return;
+        const lastPage = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
+        if (pagination.currentPage > lastPage) {
+            pagination.currentPage = lastPage;
+            emit('search');
+        }
+    },
+    { flush: 'post' },
+);
+
 function currentChange() {
     emit('search');
 }
 
 function sizeChange() {
+    if (props.cachePagination === false && props.paginationConfig.cacheSizeKey) {
+        writePanelCache(
+            'pagination',
+            panelCacheKey(`size:${props.paginationConfig.cacheSizeKey}`),
+            props.paginationConfig.pageSize,
+        );
+    }
     props.paginationConfig.currentPage = 1;
-    localStorage.setItem(props.paginationConfig.cacheSizeKey, props.paginationConfig.pageSize);
     emit('search');
 }
 
@@ -446,7 +501,28 @@ watch([currentViewMode, tableData, () => props.syncCardContentHeight], scheduleC
     flush: 'post',
 });
 
-watch(tableData, pruneSelection);
+onDeactivated(clearSelects);
+
+watch([() => props.paginationConfig?.currentPage, () => props.paginationConfig?.pageSize], clearSelects, {
+    flush: 'sync',
+});
+
+watch(
+    [
+        currentNode,
+        () =>
+            JSON.stringify(
+                typeof props.selectionContext === 'function' ? props.selectionContext() : props.selectionContext,
+            ),
+    ],
+    () => {
+        clearSelects();
+        if (props.paginationConfig) {
+            props.paginationConfig.currentPage = 1;
+        }
+    },
+    { flush: 'sync' },
+);
 
 onBeforeUnmount(() => {
     window.removeEventListener('resize', calcHeight);
@@ -719,6 +795,11 @@ onBeforeUnmount(() => {
 .complex-table__pagination {
     flex: 1;
     @include flex-row(flex-end);
+
+    :deep(.el-pagination:not(.is-background)) {
+        --el-pagination-bg-color: transparent;
+        --el-pagination-button-disabled-bg-color: transparent;
+    }
 
     :deep(.el-pagination__sizes .el-select) {
         width: 128px;

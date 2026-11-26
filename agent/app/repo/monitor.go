@@ -10,9 +10,12 @@ import (
 type MonitorRepo struct{}
 
 type IMonitorRepo interface {
+	CleanHost() error
 	GetBase(opts ...DBOption) ([]model.MonitorBase, error)
 	GetIO(opts ...DBOption) ([]model.MonitorIO, error)
 	GetNetwork(opts ...DBOption) ([]model.MonitorNetwork, error)
+	GetIONames() ([]string, error)
+	GetNetworkNames() ([]string, error)
 
 	CreateMonitorBase(model model.MonitorBase) error
 	BatchCreateMonitorIO(ioList []model.MonitorIO) error
@@ -20,11 +23,19 @@ type IMonitorRepo interface {
 	DelMonitorBase(timeForDelete time.Time) error
 	DelMonitorIO(timeForDelete time.Time) error
 	DelMonitorNet(timeForDelete time.Time) error
-
 }
 
 func NewIMonitorRepo() IMonitorRepo {
 	return &MonitorRepo{}
+}
+
+func (s *MonitorRepo) CleanHost() error {
+	for _, item := range []interface{}{&model.MonitorBase{}, &model.MonitorIO{}, &model.MonitorNetwork{}} {
+		if err := global.MonitorDB.Where("1 = 1").Delete(item).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (u *MonitorRepo) GetBase(opts ...DBOption) ([]model.MonitorBase, error) {
@@ -54,6 +65,18 @@ func (u *MonitorRepo) GetNetwork(opts ...DBOption) ([]model.MonitorNetwork, erro
 	err := db.Find(&data).Error
 	return data, err
 }
+func (u *MonitorRepo) GetIONames() ([]string, error) {
+	var names []string
+	err := global.MonitorDB.Model(&model.MonitorIO{}).Distinct().Pluck("name", &names).Error
+	return names, err
+}
+
+func (u *MonitorRepo) GetNetworkNames() ([]string, error) {
+	var names []string
+	err := global.MonitorDB.Model(&model.MonitorNetwork{}).Distinct().Pluck("name", &names).Error
+	return names, err
+}
+
 func (u *MonitorRepo) CreateMonitorBase(model model.MonitorBase) error {
 	return global.MonitorDB.Create(&model).Error
 }

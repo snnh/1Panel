@@ -54,5 +54,5 @@ func DeliverTaskScanCustomWebhookAlertLog(
 // TestCustomWebhook sends a test request to the resolved custom webhook config.
 func TestCustomWebhook(config dto.AlertCustomWebhookResolvedConfig) (dto.AlertConfigTestResult, error) {
 	agentInfo, _ := GetAgentInfo()
-	return alertUtil.TestCustomWebhook(config, LoadRequestTransport(), agentInfo)
+	return alertUtil.TestCustomWebhook(config, LoadRequestTransport(), agentInfo, "")
 }

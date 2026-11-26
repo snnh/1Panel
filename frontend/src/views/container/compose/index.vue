@@ -216,6 +216,7 @@
                             <el-divider class="!my-3" />
 
                             <el-table
+                                :tooltip-options="TABLE_OVERFLOW_TOOLTIP_OPTIONS"
                                 v-if="composeContainers.length > 0"
                                 :data="tableData"
                                 size="small"
@@ -350,6 +351,7 @@
                                     v-if="showType !== 'log' && !(showType === 'env' && isAppStoreCompose)"
                                     v-permission
                                     type="primary"
+                                    :disabled="detailLoading || !composeContent"
                                     @click="onSubmitEdit"
                                 >
                                     {{ $t('commons.button.save') }}
@@ -521,6 +523,8 @@
 </template>
 
 <script lang="ts" setup>
+import { TABLE_OVERFLOW_TOOLTIP_OPTIONS } from '@/components/table/shared';
+import { useSearchState } from '@/utils/search-reset';
 import { computed, h, ref } from 'vue';
 import CodemirrorPro from '@/components/codemirror-pro/index.vue';
 import ContainerLog from '@/components/log/container/index.vue';
@@ -575,6 +579,7 @@ const dialogBackupRef = ref();
 const uploadRef = ref();
 
 const searchName = ref('');
+useSearchState('container/compose/index', { search: searchName }, { onRevisit: () => search() });
 const includeAppStore = ref(localStorage.getItem('includeAppStore') !== 'false');
 const showType = ref('compose');
 const containerStats = ref<any[]>([]);
@@ -739,18 +744,24 @@ const loadDetail = async (row: Container.ComposeInfo, withRefresh: boolean) => {
 };
 
 const inspectCompose = async (name: string, detailPath: string) => {
+    composeContent.value = '';
     if (!currentCompose.value?.composeFileExists) {
-        composeContent.value = '';
         loadContainerStats();
         detailLoading.value = false;
         return;
     }
+    detailLoading.value = true;
     await inspect({ id: name, type: 'compose', detail: detailPath })
         .then((res) => {
+            if (currentCompose.value?.name !== name || currentYamlPath.value !== detailPath) {
+                return;
+            }
             composeContent.value = res.data;
-            detailLoading.value = false;
         })
         .finally(() => {
+            if (currentCompose.value?.name !== name || currentYamlPath.value !== detailPath) {
+                return;
+            }
             loadContainerStats();
             detailLoading.value = false;
         });

@@ -67,6 +67,10 @@ func coreMigrations() []*gormigrate.Migration {
 		migrations.UpdateFirewallMenuPath,
 		migrations.RemoveUpageHideMenu,
 		migrations.MoveVirtualMachineMenuToXpack,
+		migrations.AddAPIKeys,
+		migrations.AddOperationLogAPIKey,
+		migrations.AddAPIKeyDeletedAt,
+		migrations.AddNetworkMenu,
 		migrations.RemoveXpackAndAiHideMenu,
 	}
 }

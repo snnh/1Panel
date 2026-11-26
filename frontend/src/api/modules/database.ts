@@ -193,8 +193,10 @@ export const redisPersistenceConf = (type: string, database: string) => {
 export const checkRedisCli = () => {
     return http.get<boolean>(`/databases/redis/check`);
 };
-export const installRedisCli = () => {
-    return http.post(`/databases/redis/install/cli`, {}, TimeoutEnum.T_5M);
+export const installRedisCli = (taskID: string) => {
+    return http.post<string>(`/databases/redis/install/cli`, {
+        taskID,
+    });
 };
 export const changeRedisPassword = (database: string, password: string) => {
     if (password) {
@@ -255,4 +257,35 @@ export const deleteCheckDatabase = (id: number) => {
 };
 export const deleteDatabase = (params: Database.DatabaseDelete) => {
     return http.post(`/databases/db/del`, params);
+};
+
+export const searchPostgresqlUsers = (database: string) => {
+    return http.post<Database.PostgresqlUser[]>('/databases/pg/users/search', { database });
+};
+export const createPostgresqlUser = (params: Database.PostgresqlUserCreate) => {
+    const request = { ...params };
+    encodeBase64Fields(request, ['password']);
+    return http.post('/databases/pg/users', request);
+};
+export const updatePostgresqlUser = (params: Omit<Database.PostgresqlUserCreate, 'password'>) => {
+    return http.post('/databases/pg/users/update', params);
+};
+export const changePostgresqlUserPassword = (params: { database: string; username: string; password: string }) => {
+    const request = { ...params };
+    encodeBase64Fields(request, ['password']);
+    return http.post('/databases/pg/users/password', request);
+};
+export const savePostgresqlUserPassword = (params: { database: string; username: string; password: string }) => {
+    const request = { ...params };
+    encodeBase64Fields(request, ['password']);
+    return http.post('/databases/pg/users/password/save', request);
+};
+export const deletePostgresqlUser = (params: { database: string; username: string }) => {
+    return http.post('/databases/pg/users/del', params);
+};
+export const grantPostgresqlUser = (params: Database.PostgresqlUserGrant) => {
+    return http.post('/databases/pg/grants', params);
+};
+export const revokePostgresqlUser = (params: Database.PostgresqlUserGrant) => {
+    return http.post('/databases/pg/grants/del', params);
 };

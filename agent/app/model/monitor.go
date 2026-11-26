@@ -31,4 +31,3 @@ type MonitorNetwork struct {
 	Up   float64 `json:"up"`
 	Down float64 `json:"down"`
 }
-

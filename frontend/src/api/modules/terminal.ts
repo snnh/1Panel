@@ -30,7 +30,7 @@ export const testByInfo = (params: Host.HostConnTest | Host.HostOperate) => {
     if (params.isLocal) {
         return http.post<boolean>(`/settings/ssh/check/info`, request, undefined, undefined);
     }
-    return http.postLocalNode<boolean>(`/hosts/test/byinfo`, request);
+    return http.postLocalNode<boolean>(`/hosts/test/byinfo`, request, 60000);
 };
 export const testByID = (id: number) => {
     return http.postLocalNode<boolean>(`/hosts/test/byid`, { id: id });

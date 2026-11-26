@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -78,12 +79,25 @@ func getNginxParamsByKeys(scope string, keys []string, website *model.Website) (
 	var res []response.NginxParam
 	var block components.IBlock
 	if scope == constant.NginxScopeHttp {
-		block = nginxFull.RootConfig.Config.FindHttp()
+		httpBlock := nginxFull.RootConfig.Config.FindHttp()
+		if httpBlock == nil {
+			return nil, fmt.Errorf("nginx HTTP configuration block is missing")
+		}
+		block = httpBlock
 	} else {
-		block = nginxFull.SiteConfig.Config.FindServers()[0]
+		servers := nginxFull.SiteConfig.Config.FindServers()
+		if len(servers) == 0 {
+			return nil, fmt.Errorf("website nginx server block is missing")
+		}
+		block = servers[0]
 	}
 	for _, key := range keys {
-		dirs := block.FindDirectives(key)
+		var dirs []components.IDirective
+		if scope == constant.NginxScopeHttp {
+			dirs = findDirectNginxDirectives(block, key)
+		} else {
+			dirs = block.FindDirectives(key)
+		}
 		for _, dir := range dirs {
 			nginxParam := response.NginxParam{
 				Name:   dir.GetName(),
@@ -100,6 +114,80 @@ func getNginxParamsByKeys(scope string, keys []string, website *model.Website) (
 		}
 	}
 	return res, nil
+}
+
+// findDirectNginxDirectives returns the directives set directly in the block.
+// FindDirectives also descends into server and location blocks, whose values
+// do not apply to the block itself, so reading http settings through it would
+// report a site value as the global one.
+func findDirectNginxDirectives(block components.IBlock, name string) []components.IDirective {
+	var dirs []components.IDirective
+	for _, dir := range block.GetDirectives() {
+		if dir.GetName() == name {
+			dirs = append(dirs, dir)
+		}
+	}
+	return dirs
+}
+
+// fillNginxIncludedHTTPParams completes the params nginx.conf leaves unset
+// with the value an included file sets at its top level, which nginx applies
+// at http level too. Values inside server or location blocks belong to a
+// site and are skipped. Source records the file, so the settings page shows
+// where the value is set instead of offering to write a second copy into
+// nginx.conf, which nginx would reject as a duplicate.
+func fillNginxIncludedHTTPParams(params []response.NginxParam, paths []string) []response.NginxParam {
+	missing := make(map[string]int)
+	for i, param := range params {
+		if len(param.Params) == 0 {
+			missing[param.Name] = i
+		}
+	}
+	for _, filePath := range paths {
+		if len(missing) == 0 {
+			break
+		}
+		content, err := os.ReadFile(filePath)
+		if err != nil || !nginxContentMentionsAny(string(content), missing) {
+			continue
+		}
+		config, err := parseUserNginxConfig(string(content))
+		if err != nil {
+			continue
+		}
+		for _, dir := range config.GetDirectives() {
+			index, ok := missing[dir.GetName()]
+			if !ok || dir.GetBlock() != nil {
+				continue
+			}
+			params[index].Params = dir.GetParameters()
+			params[index].Source = filePath
+			delete(missing, dir.GetName())
+		}
+	}
+	return params
+}
+
+// nginxContentMentionsAny skips parsing the many site configs that cannot
+// set any of the names.
+func nginxContentMentionsAny(content string, names map[string]int) bool {
+	for name := range names {
+		if strings.Contains(content, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// parseUserNginxConfig parses a file the user may have left with a syntax
+// error. The parser panics on one instead of returning it.
+func parseUserNginxConfig(content string) (config *components.Config, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("parse nginx config: %v", r)
+		}
+	}()
+	return parser.NewStringParser(content).Parse()
 }
 
 func updateDefaultServerConfig(enable bool) error {
@@ -185,8 +273,13 @@ func deleteNginxConfig(scope string, params []dto.NginxParam, website *model.Web
 		block = config.Config.Block
 	}
 
+	server, isServer := block.(*components.Server)
+	wasStopped := isServer && server.HasStopPage()
 	for _, param := range params {
 		block.RemoveDirective(param.Name, param.Params)
+	}
+	if wasStopped {
+		server.EnableStopPage()
 	}
 
 	if err := nginx.WriteConfig(config.Config, nginx.IndentedStyle); err != nil {
@@ -239,7 +332,11 @@ func getNginxParamsFromStaticFile(scope dto.NginxKey, newParams []dto.NginxParam
 }
 
 func opNginx(containerName, operate string) error {
-	cmdMgr := cmd.NewCommandMgr(cmd.WithTimeout(20 * time.Second))
+	return opNginxContext(context.Background(), containerName, operate)
+}
+
+func opNginxContext(ctx context.Context, containerName, operate string) error {
+	cmdMgr := cmd.NewCommandMgr(cmd.WithTimeout(20*time.Second), cmd.WithContext(ctx))
 	if operate == constant.NginxCheck {
 		return cmdMgr.Run("docker", "exec", "-i", containerName, "nginx", "-t")
 	}
@@ -247,11 +344,15 @@ func opNginx(containerName, operate string) error {
 }
 
 func nginxCheckAndReload(oldContent string, filePath string, containerName string) error {
-	if err := opNginx(containerName, constant.NginxCheck); err != nil {
+	return nginxCheckAndReloadContext(context.Background(), oldContent, filePath, containerName)
+}
+
+func nginxCheckAndReloadContext(ctx context.Context, oldContent string, filePath string, containerName string) error {
+	if err := opNginxContext(ctx, containerName, constant.NginxCheck); err != nil {
 		_ = files.NewFileOp().WriteFile(filePath, strings.NewReader(oldContent), constant.DirPerm)
 		return err
 	}
-	if err := opNginx(containerName, constant.NginxReload); err != nil {
+	if err := opNginxContext(ctx, containerName, constant.NginxReload); err != nil {
 		_ = files.NewFileOp().WriteFile(filePath, strings.NewReader(oldContent), constant.DirPerm)
 		return err
 	}

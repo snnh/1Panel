@@ -102,4 +102,3 @@ type FileSharePublicInfo struct {
 	Permanent   bool   `json:"permanent"`
 	HasPassword bool   `json:"hasPassword"`
 }
-

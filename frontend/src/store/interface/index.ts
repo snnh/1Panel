@@ -1,5 +1,6 @@
 import { RouteRecordRaw } from 'vue-router';
 import { DeviceType } from '@/enums/app';
+import type { PanelCacheSettings } from '@/utils/panel-cache';
 export interface ThemeConfigProp {
     panelName: string;
     primary: string;
@@ -16,6 +17,8 @@ export interface GlobalState {
     isFullScreen: boolean;
     openMenuTabs: boolean;
     menuAccordion: boolean;
+    panelCache: PanelCacheSettings;
+    cacheUserID: string;
     isLoading: boolean;
     loadingText: string;
     // auth
@@ -41,14 +44,18 @@ export interface GlobalState {
     masterOnlyPermissions: string[];
     isEnterprise: boolean;
     isIntl: boolean;
-    docWithRegion: boolean;
     isFxplay: boolean;
+    currentNode: string;
+    docWithRegion: boolean;
     isOffline: boolean;
 }
 
 export interface MenuState {
     isCollapse: boolean;
     menuList: RouteRecordRaw[];
+    isMenuLoaded: boolean;
+    menuRequestId: number;
+    systemVersion: string;
     withoutAnimation: boolean;
 }
 

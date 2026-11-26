@@ -53,6 +53,10 @@ const buttons = computed<RouterButton[]>(() => {
                   },
               ]
             : []),
+        {
+            label: i18n.global.t('apiKeyManagement.title'),
+            path: '/settings/apikeys',
+        },
         ...(isFxplay.value
             ? []
             : [

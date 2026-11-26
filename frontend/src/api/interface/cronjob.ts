@@ -1,6 +1,11 @@
 import { ReqPage } from '.';
+import type { CronjobAlertTriggerMode } from '@/utils/cronjob-alert';
 
 export namespace Cronjob {
+    export interface URLItem {
+        url: string;
+        header: string;
+    }
     export interface Search extends ReqPage {
         info: string;
         groupIDs: Array<number>;
@@ -34,7 +39,7 @@ export namespace Cronjob {
         dbType: string;
         dbName: string;
         url: string;
-        urlItems: Array<string>;
+        urlItems: Array<URLItem>;
         isDir: boolean;
         files: Array<Item>;
         sourceDir: string;
@@ -62,6 +67,7 @@ export namespace Cronjob {
         secret: string;
         hasAlert: boolean;
         alertCount: number;
+        alertTriggerMode?: CronjobAlertTriggerMode;
         alertTitle: string;
         alertMethod: string;
         alertMethodItems: Array<string>;
@@ -90,6 +96,7 @@ export namespace Cronjob {
         dbType: string;
         dbName: string;
         url: string;
+        urlItems?: Array<URLItem>;
         isDir: boolean;
         sourceDir: string;
         snapshotRule: snapshotRule;
@@ -111,6 +118,7 @@ export namespace Cronjob {
         secret: string;
 
         alertCount: number;
+        alertTriggerMode?: CronjobAlertTriggerMode;
         alertTitle: string;
         alertMethod: string;
 
@@ -131,10 +139,14 @@ export namespace Cronjob {
         containerName: string;
         user: string;
         url: string;
+        urlItems?: Array<URLItem>;
 
         scriptName: string;
         apps: Array<TransHelper>;
         websites: Array<string>;
+        websiteSelectionVersion?: number;
+        allWebsites?: boolean;
+        websiteGroups?: { name: string; websites: string[] }[];
         dbType: string;
         dbNames: Array<TransHelper>;
 
@@ -154,6 +166,7 @@ export namespace Cronjob {
         downloadAccount: string;
 
         alertCount: number;
+        alertTriggerMode?: CronjobAlertTriggerMode;
     }
     export interface TransHelper {
         name: string;

@@ -1,22 +1,35 @@
 <template>
     <div>
-        <DialogPro v-model="open" :title="form.title" size="small" @close="handleClose">
+        <component
+            :is="drawer ? DrawerPro : DialogPro"
+            v-model="open"
+            v-bind="drawer ? { header: form.title, size: 'large' } : { title: form.title, size: 'small' }"
+            @close="handleClose"
+        >
             <div v-loading="loading" class="del-dialog-body">
                 <el-row type="flex" justify="center">
                     <el-col :span="22">
                         <el-alert class="mt-2" :show-icon="true" type="warning" :closable="false">
                             <div v-for="(item, index) in form.msgs" :key="index">
-                                <div style="line-height: 20px; word-wrap: break-word">
+                                <div class="dialog-object-name" style="line-height: 20px">
                                     <span>{{ item }}</span>
                                 </div>
                             </div>
                         </el-alert>
                         <slot name="content"></slot>
-                        <ul v-for="(item, index) in form.names" :key="index">
-                            <div style="word-wrap: break-word">
+                        <ul v-for="(item, index) in visibleNames" :key="index">
+                            <div class="dialog-object-name">
                                 <li>{{ item }}</li>
                             </div>
                         </ul>
+                        <el-button
+                            v-if="visibleNames.length < form.names.length"
+                            link
+                            type="primary"
+                            @click="expanded = true"
+                        >
+                            {{ $t('commons.button.showAll') }}
+                        </el-button>
                     </el-col>
                 </el-row>
             </div>
@@ -26,34 +39,45 @@
                         {{ $t('commons.button.cancel') }}
                     </el-button>
                     <el-button type="primary" @click="onConfirm" :disabled="loading">
-                        {{ $t('commons.button.confirm') }}
+                        {{ form.confirmText || $t('commons.button.confirm') }}
                     </el-button>
                 </span>
             </template>
-        </DialogPro>
+        </component>
     </div>
 </template>
 
 <script setup lang="ts">
+import DialogPro from '@/components/dialog-pro/index.vue';
+import DrawerPro from '@/components/drawer-pro/index.vue';
+withDefaults(defineProps<{ drawer?: boolean }>(), { drawer: false });
 import i18n from '@/lang';
 import { MsgSuccess } from '@/utils/message';
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 defineOptions({ name: 'OpDialog' });
 
 const form = reactive({
+    confirmText: '',
+    nameLimit: 0,
     msgs: [],
     title: '',
     names: [],
     api: null as Function,
     params: {},
 });
+const expanded = ref(false);
+const visibleNames = computed(() =>
+    form.nameLimit && !expanded.value ? form.names.slice(0, form.nameLimit) : form.names,
+);
 const loading = ref();
 const open = ref();
 const successMsg = ref('');
 const noMsg = ref(false);
 
 interface DialogProps {
+    confirmText?: string;
+    nameLimit?: number;
     title: string;
     msg: string;
     names: Array<string>;
@@ -64,6 +88,9 @@ interface DialogProps {
     noMsg: boolean;
 }
 const acceptParams = (props: DialogProps): void => {
+    expanded.value = false;
+    form.nameLimit = props.nameLimit ?? 0;
+    form.confirmText = props.confirmText ?? '';
     form.title = props.title;
     form.names = props.names;
     form.msgs = props.msg.split('\n');

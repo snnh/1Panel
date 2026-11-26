@@ -7,10 +7,15 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/app/model"
 	"github.com/1Panel-dev/1Panel/agent/app/repo"
 	"github.com/1Panel-dev/1Panel/agent/constant"
+	"github.com/1Panel-dev/1Panel/agent/global"
+	"github.com/1Panel-dev/1Panel/agent/utils/files"
+	"path"
 	"strconv"
 )
 
 func (w WebsiteService) CreateWebsiteDomain(create request.WebsiteDomainCreate) ([]model.WebsiteDomain, error) {
+	websiteListenMutation.Lock()
+	defer websiteListenMutation.Unlock()
 	var (
 		domainModels []model.WebsiteDomain
 		addPorts     []int
@@ -28,9 +33,53 @@ func (w WebsiteService) CreateWebsiteDomain(create request.WebsiteDomainCreate) 
 	if err != nil {
 		return nil, err
 	}
+	ports := websiteListenPorts(website, httpPort, httpsPort)
+	candidate := website
+	candidate.Domains = append(append([]model.WebsiteDomain(nil), website.Domains...), domainModels...)
+	for _, domain := range domainModels {
+		ports[domain.Port] = struct{}{}
+	}
+	if err = checkWebsiteListenPorts(candidate, ports, httpPort, httpsPort); err != nil {
+		return nil, err
+	}
 	go func() {
-		_ = ensureFirewallPorts(addPorts)
+		if err := ensureFirewallPorts(addPorts); err != nil {
+			global.LOG.Errorf("allow website firewall ports failed: %v", err)
+		}
 	}()
+
+	nginxInstall, err := getAppInstallByKey(constant.AppOpenresty)
+	if err != nil {
+		return nil, err
+	}
+	wafDataPath := path.Join(nginxInstall.GetPath(), "1pwaf", "data")
+	fileOp := files.NewFileOp()
+	if fileOp.Stat(wafDataPath) {
+		websitesConfigPath := path.Join(wafDataPath, "conf", "sites.json")
+		if err := updateWAFWebsites(websitesConfigPath, func(websitesArray []request.WafWebsite) ([]request.WafWebsite, error) {
+			for index, wafWebsite := range websitesArray {
+				if wafWebsite.Key == website.Alias {
+					wafSite := request.WafWebsite{
+						Key:     website.Alias,
+						Domains: wafWebsite.Domains,
+						Host:    wafWebsite.Host,
+					}
+					for _, domain := range domainModels {
+						wafSite.Domains = append(wafSite.Domains, domain.Domain)
+						wafSite.Host = append(wafSite.Host, domain.Domain+":"+strconv.Itoa(domain.Port))
+					}
+					if len(wafSite.Host) == 0 {
+						wafSite.Host = []string{}
+					}
+					websitesArray[index] = wafSite
+					break
+				}
+			}
+			return websitesArray, nil
+		}); err != nil {
+			return nil, err
+		}
+	}
 
 	if err = addListenAndServerName(website, domainModels); err != nil {
 		return nil, err
@@ -72,6 +121,51 @@ func (w WebsiteService) DeleteWebsiteDomain(domainId uint) error {
 			stringBinds[i] = strconv.Itoa(ports[i])
 		}
 		if err := deleteListenAndServerName(website, stringBinds, domains); err != nil {
+			return err
+		}
+	}
+
+	nginxInstall, err := getAppInstallByKey(constant.AppOpenresty)
+	if err != nil {
+		return err
+	}
+	wafDataPath := path.Join(nginxInstall.GetPath(), "1pwaf", "data")
+	fileOp := files.NewFileOp()
+	if fileOp.Stat(wafDataPath) {
+		websitesConfigPath := path.Join(wafDataPath, "conf", "sites.json")
+		if err := updateWAFWebsites(websitesConfigPath, func(websitesArray []request.WafWebsite) ([]request.WafWebsite, error) {
+			var newWebsitesArray []request.WafWebsite
+			for _, wafWebsite := range websitesArray {
+				if wafWebsite.Key == website.Alias {
+					wafSite := wafWebsite
+					oldDomains := wafSite.Domains
+					var newDomains []string
+					for _, domain := range oldDomains {
+						if domain == webSiteDomain.Domain {
+							continue
+						}
+						newDomains = append(newDomains, domain)
+					}
+					wafSite.Domains = newDomains
+					oldHostArray := wafSite.Host
+					var newHostArray []string
+					for _, host := range oldHostArray {
+						if host == webSiteDomain.Domain+":"+strconv.Itoa(webSiteDomain.Port) {
+							continue
+						}
+						newHostArray = append(newHostArray, host)
+					}
+					wafSite.Host = newHostArray
+					if len(wafSite.Host) == 0 {
+						wafSite.Host = []string{}
+					}
+					newWebsitesArray = append(newWebsitesArray, wafSite)
+				} else {
+					newWebsitesArray = append(newWebsitesArray, wafWebsite)
+				}
+			}
+			return newWebsitesArray, nil
+		}); err != nil {
 			return err
 		}
 	}

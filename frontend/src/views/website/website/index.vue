@@ -32,27 +32,21 @@
             </template>
             <template v-if="!openNginxConfig" #rightToolBar>
                 <TableViewSwitch v-model="viewMode" storage-key="website" />
-                <el-select class="p-w-200" v-model="req.type" @change="search()" :disabled="disabledConfig">
-                    <template #prefix>{{ $t('commons.table.type') }}</template>
-                    <el-option :label="$t('commons.table.all')" :value="''"></el-option>
-                    <el-option
-                        v-for="item in WebsiteTypes"
-                        :label="item.label"
-                        :value="item.value"
-                        :key="item.value"
-                    ></el-option>
-                </el-select>
+                <el-cascader
+                    class="p-w-200"
+                    v-model="websiteTypeFilter"
+                    :options="websiteTypeOptions"
+                    :props="{ checkStrictly: true }"
+                    :disabled="disabledConfig"
+                    @change="
+                        paginationConfig.currentPage = 1;
+                        search();
+                    "
+                />
                 <el-select v-model="req.websiteGroupId" @change="search()" class="p-w-200" :disabled="disabledConfig">
                     <template #prefix>{{ $t('commons.table.group') }}</template>
                     <el-option :label="$t('commons.table.all')" :value="0"></el-option>
-                    <div v-for="item in groups" :key="item.id">
-                        <el-option
-                            v-if="item.name === 'Default'"
-                            :label="$t('commons.table.default')"
-                            :value="item.id"
-                        />
-                        <el-option v-else :label="item.name" :value="item.id" />
-                    </div>
+                    <el-option v-for="item in groups" :key="item.id" :label="item.name" :value="item.id" />
                 </el-select>
                 <TableSearch @search="search()" v-model:searchName="req.name" :disabled="disabledConfig" />
                 <TableRefresh @search="search()" :disabled="disabledConfig" />
@@ -66,6 +60,9 @@
             </template>
             <template v-if="!openNginxConfig" #main>
                 <ComplexTable
+                    :selection-context="() => [req.name, req.type, req.runtimeType, req.websiteGroupId]"
+                    row-key="id"
+                    :cache-pagination="false"
                     :pagination-config="paginationConfig"
                     :default-sort="tableSort.order ? tableSort : undefined"
                     v-model:view-mode="viewMode"
@@ -77,9 +74,6 @@
                     :columns="columns"
                     localKey="websiteColumn"
                     v-model:selects="selects"
-                    :tooltip-options="{
-                        placement: 'bottom-start',
-                    }"
                 >
                     <el-table-column type="selection" width="48" />
                     <el-table-column
@@ -99,6 +93,13 @@
                                 >
                                     {{ row.primaryDomain }}
                                 </el-text>
+                                <el-tooltip
+                                    v-if="row.sslDomainMismatch"
+                                    :content="$t('website.sslDomainMismatchWebsite')"
+                                    placement="top"
+                                >
+                                    <el-icon class="ml-1" color="var(--el-color-warning)"><WarningFilled /></el-icon>
+                                </el-tooltip>
                                 <Domain
                                     class="website-card-domain__actions"
                                     :row="row"
@@ -274,6 +275,7 @@
                     <template #footerLeft="{ selected, toggleSelection }">
                         <div class="footer-left-button" v-permission>
                             <el-select class="p-w-200" v-model="batchReq.operate">
+                                <el-option :label="$t('website.batchPHP')" value="changePHP" />
                                 <template #prefix>
                                     <el-checkbox
                                         :model-value="selected"
@@ -301,6 +303,7 @@
                                     :label="$t('commons.button.set') + $t('website.ssl')"
                                     value="setHttps"
                                 ></el-option>
+                                <el-option :label="$t('nginx.clearProxyCache')" value="clearProxyCache" />
                             </el-select>
                             <el-button
                                 type="primary"
@@ -338,12 +341,15 @@
         <NginxConfig v-if="openNginxConfig" v-loading="loading" :containerName="containerName" :status="nginxStatus" />
         <TaskLog ref="taskLogRef" @close="search" />
         <OpDialog ref="opRef" @search="openTaskLog" />
+        <BatchPHP ref="batchPHPRef" @updated="search" />
         <BatchSetGroup ref="batchSetGroupRef" @close="search" />
         <BatchSetHttps ref="batchSetHttpsRef" @open-task="openTaskLog" />
     </div>
 </template>
 
 <script lang="ts" setup>
+import { WarningFilled } from '@element-plus/icons-vue';
+import { useSearchState } from '@/utils/search-reset';
 import Backups from '@/components/backup/index.vue';
 import UploadDialog from '@/components/upload/index.vue';
 import DefaultServer from '@/views/website/website/default/index.vue';
@@ -354,11 +360,12 @@ import GroupDialog from '@/components/agent-group/index.vue';
 import AppStatus from '@/components/app-status/index.vue';
 import TaskLog from '@/components/log/task/index.vue';
 import Domain from '@/views/website/website/domain/index.vue';
+import BatchPHP from '@/views/website/website/batch-op/php.vue';
 import BatchSetGroup from '@/views/website/website/batch-op/group.vue';
 import BatchSetHttps from '@/views/website/website/batch-op/https.vue';
 
 import i18n from '@/lang';
-import { onMounted, reactive, ref, computed } from 'vue';
+import { toRef, onMounted, reactive, ref, computed } from 'vue';
 import { batchOperate, opWebsite, searchWebsites, updateWebsite } from '@/api/modules/website';
 import { Website } from '@/api/interface/website';
 import { App } from '@/api/interface/app';
@@ -391,7 +398,24 @@ const shortcuts = [
         },
     },
 ];
-const WebsiteTypes = getWebsiteTypes();
+const websiteTypeOptions = computed(() => [
+    { label: i18n.global.t('commons.table.all'), value: '' },
+    ...getWebsiteTypes().map((item) => ({
+        ...item,
+        ...(item.value === 'runtime'
+            ? {
+                  children: [
+                      { label: 'PHP', value: 'php' },
+                      { label: 'Node.js', value: 'node' },
+                      { label: 'Java', value: 'java' },
+                      { label: 'Go', value: 'go' },
+                      { label: 'Python', value: 'python' },
+                      { label: '.NET', value: 'dotnet' },
+                  ],
+              }
+            : {}),
+    })),
+]);
 const loading = ref(false);
 const viewMode = ref<'table' | 'card'>('table');
 const maskShow = ref(false);
@@ -419,15 +443,15 @@ const batchReq = reactive({
 const taskLogRef = ref();
 const opRef = ref();
 const batchSetGroupRef = ref();
+const batchPHPRef = ref();
 const batchSetHttpsRef = ref();
 const nginxVersion = ref();
 const appStatusRef = ref();
 
 const pageState = usePageState(() => ({
     paginationConfig: {
-        cacheSizeKey: 'website-page-size',
         currentPage: 1,
-        pageSize: Number(localStorage.getItem('website-page-size')) || 20,
+        pageSize: 20,
         total: 0,
     },
     req: {
@@ -438,6 +462,7 @@ const pageState = usePageState(() => ({
         order: 'descending',
         websiteGroupId: 0,
         type: '',
+        runtimeType: '',
     },
     tableSort: {
         prop: '',
@@ -446,6 +471,22 @@ const pageState = usePageState(() => ({
 }));
 const paginationConfig = pageState.paginationConfig;
 const req = pageState.req;
+const websiteTypeFilter = computed<string[]>({
+    get: () => (req.type === 'runtime' && req.runtimeType ? [req.type, req.runtimeType] : [req.type]),
+    set: (value) => {
+        req.type = value?.[0] || '';
+        req.runtimeType = req.type === 'runtime' ? value?.[1] || '' : '';
+    },
+});
+useSearchState(
+    'website/website/index',
+    {
+        search: toRef(req, 'name'),
+        page: toRef(paginationConfig, 'currentPage'),
+        pageSize: toRef(paginationConfig, 'pageSize'),
+    },
+    { onRevisit: () => search() },
+);
 const tableSort = pageState.tableSort;
 
 const goRouter = async (key: string) => {
@@ -489,19 +530,21 @@ const changeSort = ({ prop, order }) => {
     search();
 };
 
+let searchVersion = 0;
 const search = async () => {
+    const version = ++searchVersion;
     req.page = paginationConfig.currentPage;
     req.pageSize = paginationConfig.pageSize;
 
     loading.value = true;
-    data.value = [];
-    await searchWebsites(req)
+    await searchWebsites({ ...req })
         .then((res) => {
+            if (version !== searchVersion) return;
             data.value = res.data.items;
             paginationConfig.total = res.data.total;
         })
         .finally(() => {
-            loading.value = false;
+            if (version === searchVersion) loading.value = false;
         });
 };
 
@@ -710,6 +753,9 @@ const openTaskLog = () => {
 
 const batchOp = () => {
     switch (batchReq.operate) {
+        case 'changePHP':
+            batchPHPRef.value.acceptParams(selects.value);
+            break;
         case 'setHttps':
             const tID = newUUID();
             batchReq.taskID = tID;
@@ -726,11 +772,18 @@ const batchOp = () => {
             batchReq.ids = selects.value.map((item) => item.id);
             const taskID = newUUID();
             batchReq.taskID = taskID;
+            const clearCache = batchReq.operate === 'clearProxyCache';
             opRef.value.acceptParams({
                 names: names,
-                title: i18n.global.t('website.batchOperate'),
+                nameLimit: clearCache ? 5 : 0,
+                confirmText: clearCache ? i18n.global.t('nginx.clearProxyCache') : undefined,
+                title: i18n.global.t(clearCache ? 'nginx.clearProxyCache' : 'website.batchOperate'),
                 api: batchOperate,
-                msg: i18n.global.t('website.batchOperateHelper', [i18n.global.t('commons.button.' + batchReq.operate)]),
+                msg: clearCache
+                    ? i18n.global.t('nginx.batchClearProxyCacheWarn', [names.length])
+                    : i18n.global.t('website.batchOperateHelper', [
+                          i18n.global.t('commons.button.' + batchReq.operate),
+                      ]),
                 params: batchReq,
                 noMsg: true,
             });

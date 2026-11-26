@@ -58,7 +58,7 @@ func setWebStatic(rootRouter *gin.RouterGroup) {
 		if !security.CheckSecurity(c) {
 			return
 		}
-		entrance = authService.GetSecurityEntrance()
+		entrance := authService.GetSecurityEntrance()
 		if entrance != "" {
 			appauth.SetSecurityEntranceCookie(c, entrance)
 		}
@@ -69,9 +69,9 @@ func setWebStatic(rootRouter *gin.RouterGroup) {
 
 func Routers() *gin.Engine {
 	Router = gin.New()
+	_ = Router.SetTrustedProxies(nil)
+	Router.Use(middleware.AuditClientIP())
 	Router.Use(i18n.UseI18n())
-	Router.Use(middleware.WhiteAllow())
-	Router.Use(middleware.BindDomain())
 
 	swaggerRouter := Router.Group("1panel")
 	docs.SwaggerInfo.BasePath = "/api/v2"
@@ -87,7 +87,7 @@ func Routers() *gin.Engine {
 	}
 
 	Router.Use(middleware.FrontendFallback())
-	Router.Use(middleware.OperationLog())
+	Router.Use(middleware.WebSocketOriginGuard())
 	Router.Use(middleware.GlobalLoading())
 	Router.Use(xpack.AuthProvider.CoreAPIAuthMiddleware())
 	Router.Use(middleware.PasswordExpired())

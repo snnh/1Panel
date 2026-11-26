@@ -31,17 +31,37 @@ type IAppInstallRepo interface {
 	GetFirst(opts ...DBOption) (model.AppInstall, error)
 	Create(ctx context.Context, install *model.AppInstall) error
 	Save(ctx context.Context, install *model.AppInstall) error
+	UpdateWebUI(id uint, address string) error
+	UpdateStatus(install *model.AppInstall, matchUpdatedAt bool) error
 	DeleteBy(opts ...DBOption) error
 	Delete(ctx context.Context, install model.AppInstall) error
 	Page(page, size int, opts ...DBOption) (int64, []model.AppInstall, error)
+	PageWithContext(ctx context.Context, page, size int, opts ...DBOption) (int64, []model.AppInstall, error)
 	BatchUpdateBy(maps map[string]interface{}, opts ...DBOption) error
 	LoadBaseInfo(key string, name string) (*RootInfo, error)
 	LoadInstallAppByKeyAndName(key string, name string) (*model.AppInstall, error)
 	GetFirstByCtx(ctx context.Context, opts ...DBOption) (model.AppInstall, error)
+	GetSnapshot(ctx context.Context, id uint) (model.AppInstall, error)
 }
 
 func NewIAppInstallRepo() IAppInstallRepo {
 	return &AppInstallRepo{}
+}
+
+func (a *AppInstallRepo) UpdateWebUI(id uint, address string) error {
+	result := getDb().Model(&model.AppInstall{}).Where("id = ?", id).Update("web_ui", address)
+	if result.Error == nil && result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return result.Error
+}
+
+func (a *AppInstallRepo) UpdateStatus(install *model.AppInstall, matchUpdatedAt bool) error {
+	db := getDb().Model(&model.AppInstall{}).Where("id = ?", install.ID)
+	if matchUpdatedAt {
+		db = db.Where("updated_at = ?", install.UpdatedAt)
+	}
+	return db.Updates(map[string]interface{}{"status": install.Status, "message": install.Message, "container_name": install.ContainerName}).Error
 }
 
 func (a *AppInstallRepo) WithDetailIdsIn(detailIds []uint) DBOption {
@@ -131,13 +151,19 @@ func (a *AppInstallRepo) GetFirstByCtx(ctx context.Context, opts ...DBOption) (m
 	return install, err
 }
 
+func (a *AppInstallRepo) GetSnapshot(ctx context.Context, id uint) (model.AppInstall, error) {
+	var install model.AppInstall
+	err := getTx(ctx).WithContext(ctx).Preload("App").Where("id = ?", id).First(&install).Error
+	return install, err
+}
+
 func (a *AppInstallRepo) Create(ctx context.Context, install *model.AppInstall) error {
 	db := getTx(ctx).Model(&model.AppInstall{})
 	return db.Omit(clause.Associations).Create(&install).Error
 }
 
 func (a *AppInstallRepo) Save(ctx context.Context, install *model.AppInstall) error {
-	return getTx(ctx).Omit("App").Save(&install).Error
+	return getTx(ctx).Omit("App").Save(install).Error
 }
 
 func (a *AppInstallRepo) DeleteBy(opts ...DBOption) error {
@@ -150,8 +176,12 @@ func (a *AppInstallRepo) Delete(ctx context.Context, install model.AppInstall) e
 }
 
 func (a *AppInstallRepo) Page(page, size int, opts ...DBOption) (int64, []model.AppInstall, error) {
+	return a.PageWithContext(context.Background(), page, size, opts...)
+}
+
+func (a *AppInstallRepo) PageWithContext(ctx context.Context, page, size int, opts ...DBOption) (int64, []model.AppInstall, error) {
 	var apps []model.AppInstall
-	db := getDb(opts...).Model(&model.AppInstall{})
+	db := getTx(ctx, opts...).WithContext(ctx).Model(&model.AppInstall{})
 	count := int64(0)
 	db = db.Count(&count)
 	err := db.Limit(size).Offset(size * (page - 1)).Preload("App").Find(&apps).Error

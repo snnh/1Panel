@@ -29,8 +29,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/1Panel-dev/1Panel/agent/buserr"
 
@@ -183,20 +181,26 @@ func (f FileOp) DeleteFile(dst string) error {
 	return f.Fs.Remove(dst)
 }
 
-func (f FileOp) CleanDir(dst string) error {
+// CleanDir reports whether any entry was removed, including on partial failure.
+func (f FileOp) CleanDir(dst string) (bool, error) {
 	if IsProtected(dst) {
-		return buserr.New("ErrPathNotDelete")
+		return false, buserr.New("ErrPathNotDelete")
 	}
-	items, err := afero.ReadDir(f.Fs, dst)
+	dir, err := f.Fs.Open(dst)
 	if err != nil {
-		return err
+		return false, err
 	}
-	for _, item := range items {
-		if err := f.Fs.RemoveAll(filepath.Join(dst, item.Name())); err != nil {
-			return err
+	defer dir.Close()
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		return false, err
+	}
+	for i, name := range names {
+		if err := f.Fs.RemoveAll(filepath.Join(dst, name)); err != nil {
+			return i > 0, err
 		}
 	}
-	return nil
+	return len(names) > 0, nil
 }
 
 func (f FileOp) RmRf(dst string) error {
@@ -399,8 +403,7 @@ func downloadResponseFilename(header string) string {
 		return ""
 	}
 	name := strings.TrimSpace(params["filename"])
-	if name == "" || name == "." || name == ".." || len(name) > 255 || !utf8.ValidString(name) ||
-		strings.ContainsAny(name, "/\\:") || strings.IndexFunc(name, unicode.IsControl) >= 0 {
+	if !validDownloadFilename(name) {
 		return ""
 	}
 	return name

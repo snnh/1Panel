@@ -1463,15 +1463,6 @@ var AddCronjobURLItems = &gormigrate.Migration{
 	},
 }
 
-var AddSSLSyncDir = &gormigrate.Migration{
-	ID: "20261124-add-ssl-sync-dir",
-	Migrate: func(db *gorm.DB) error {
-		if db.Migrator().HasColumn(&model.WebsiteSSL{}, "SyncDir") {
-			return nil
-		}
-		return db.Migrator().AddColumn(&model.WebsiteSSL{}, "SyncDir")
-	},
-}
 
 var RemoveNodeScopeSettings = &gormigrate.Migration{
 	ID: "20260920-remove-node-scope-settings",

@@ -88,7 +88,6 @@ func agentDBMigrations() []*gormigrate.Migration {
 		migrations.AddQuickDirectory,
 		migrations.AddContainerImageCheckUpdates,
 		migrations.AddCronjobURLItems,
-		migrations.AddSSLSyncDir,
 		migrations.RemoveNodeScopeSettings,
 		migrations.RemoveAIQuickJump,
 	}
